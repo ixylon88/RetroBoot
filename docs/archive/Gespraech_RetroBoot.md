@@ -4,7 +4,7 @@ Das ist technisch durchaus machbar. Wir können sogar einen eigenen Bootmanager 
 
 ## So könnte dein Bootmanager aussehen
 
-![Konzept](1.png "Konzept")
+![Konzept](images/1.png "Konzept")
 
 ## Was wir entwickeln könnten
 
@@ -123,7 +123,7 @@ Unser eigener Bootmanager müsste selbst wissen, wie er DOS, Windows 95 und Wind
 
 ## Beispiel mit Chainloading
 
-![Chainloading](2.png "Chainloading")
+![Chainloading](images/2.png "Chainloading")
 
 ## Und was bedeutet deine Entscheidung für Variante 3?
 
@@ -234,7 +234,7 @@ Ich würde RetroBoot so entwickeln, dass du die Betriebssysteme nacheinander ins
 
 # RetroBoot – Technisches Konzept 1.0
 
-![Architektur festgelegt](3.png "Architektur festgelegt")
+![Architektur festgelegt](images/3.png "Architektur festgelegt")
 
 ## 1. Festplattenaufteilung
 
@@ -263,7 +263,7 @@ Das ist das Herzstück von RetroBoot.
 
 Beispiel: Du wählst Windows 98 SE.
 
-![Chainloading](4.png "Chainloading")
+![Chainloading](images/4.png "Chainloading")
 
 Wenn du anschließend Windows 95 auswählst, ändert RetroBoot die Sichtbarkeit:
 
@@ -301,7 +301,7 @@ Eine Besonderheit: Wir müssen den RetroBoot-Bootcode gegen Überschreiben durch
 
 Das Menü könnte beispielsweise so aussehen:
 
-![Neustartbildschirm](5.png "Neustartbildschirm")
+![Neustartbildschirm](images/5.png "Neustartbildschirm")
 
 ## 5. Eine weitere wichtige technische Feinheit
 
@@ -368,7 +368,7 @@ Ich würde allerdings die zuvor vorgeschlagene Partitionierung noch etwas präzi
 
 ### RetroBoot – Festplattenlayout
 
-![Neustartbildschirm](6.png "Neustartbildschirm")
+![Neustartbildschirm](images/6.png "Neustartbildschirm")
 
 Die Datenpartition bekommt:
 
@@ -426,7 +426,7 @@ Die 64 MB für RetroBoot enthalten:
 
 Wie startet das System?
 
-![Neustartbildschirm](7.png "Neustartbildschirm")
+![Neustartbildschirm](images/7.png "Neustartbildschirm")
 
 Warum eine eigene Partition?
 
