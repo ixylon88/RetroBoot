@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "name": "RB-8G-CHS255",
+  "sector_size": 512,
+  "disk_bytes": 8000000000,
+  "geometry": {"cylinders": 1024, "heads": 255, "sectors_per_track": 63},
+  "primary": [
+    {
+      "id": "P1", "role": "system", "type": 6,
+      "start_lba": 63, "sectors": 3148677,
+      "fat": {"bits": 16, "sectors_per_cluster": 64, "sectors_per_fat": 193}
+    },
+    {
+      "id": "P2", "role": "system", "type": 11,
+      "start_lba": 3148740, "sectors": 3148740,
+      "fat": {"bits": 32, "sectors_per_cluster": 8, "sectors_per_fat": 3075}
+    },
+    {
+      "id": "P3", "role": "system", "type": 11,
+      "start_lba": 6297480, "sectors": 4176900,
+      "fat": {"bits": 32, "sectors_per_cluster": 8, "sectors_per_fat": 4079}
+    },
+    {
+      "id": "P4", "role": "extended", "type": 5,
+      "start_lba": 10474380, "sectors": 5140800
+    }
+  ],
+  "logical": [
+    {
+      "id": "L1", "role": "shared", "type": 6,
+      "ebr_lba": 10474380, "start_lba": 10474443, "sectors": 1044162,
+      "fat": {"bits": 16, "sectors_per_cluster": 16, "sectors_per_fat": 255}
+    },
+    {
+      "id": "L2", "role": "retroboot", "type": 22,
+      "ebr_lba": 11518605, "start_lba": 11518668, "sectors": 128457,
+      "fat": {"bits": 16, "sectors_per_cluster": 4, "sectors_per_fat": 126}
+    },
+    {
+      "id": "L3", "role": "shared", "type": 11,
+      "ebr_lba": 11647125, "start_lba": 11647188, "sectors": 3967992,
+      "fat": {"bits": 32, "sectors_per_cluster": 8, "sectors_per_fat": 3875}
+    }
+  ]
+}

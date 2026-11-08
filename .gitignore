@@ -10,3 +10,17 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+### Generated host/build files
+/build/
+__pycache__/
+*.py[cod]
+
+### Local VM images and licensed installation media
+*.img
+*.iso
+*.vhd
+*.vhdx
+*.vdi
+*.qcow2
+*.rom
