@@ -1,0 +1,46 @@
+name: BIOS ABI probe
+
+on:
+  pull_request:
+    branches: [historical]
+  push:
+    branches: [historical]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bios-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install host build and emulator packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
+      - name: Prepare verified toolchain
+        run: make toolchain
+      - name: Reproduce binaries and boot positive/negative fixtures
+        run: make boot-test
+      - name: Upload probe and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-abi-probe
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            build/abi/abi-probe.img
+            build/abi/abi-probe.bin
+            build/abi/abi-probe-boot.bin
+            build/abi/manifest.json
+            build/abi/boot-results.json
+            build/abi/*.log
+            build/abi/*.map

@@ -4,14 +4,16 @@ Ein eigener BIOS-Bootmanager für klassische x86-PCs: getrennte primäre
 DOS-/Windows-9x-Systeme, gemeinsame Datenvolumes und optionale Übergabe an
 vorhandene NT-Bootloader. Die Entwicklung erfolgt im Branch `historical`.
 
-**Stand: Einstieg in Phase 2.** Der Referenzplan lässt sich jetzt auf dem
-Entwicklungsrechner automatisch prüfen. Bootcode, Installer und bootfähige
-Images folgen in den nächsten Entwicklungsstufen.
+**Stand: Phase 2 mit erfolgreichem BIOS-Probestart.** Neben den Layoutprüfungen
+gibt es ein kleines bootfähiges Diskettenabbild, das die C-/Assembly-Anbindung,
+Dateninitialisierung und den Stack ohne DOS prüft. Der eigentliche
+Festplatten-Bootpfad und der Installer folgen anschließend.
 
 ## Dokumentation
 
 - [Aktuelle Spezifikation v0.2](docs/spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md)
 - [Build, Prüfumfang und nächste Schritte](docs/Entwicklung.md)
+- [BIOS-Probe bauen und testen](docs/ABI_Probe.md)
 - [Alle Unterlagen und archivierten Entwürfe](docs/README.md)
 
 Die aktuelle Spezifikation ist maßgeblich. Frühere Gesprächsnotizen und der
@@ -45,6 +47,26 @@ Standardausgabe. Es öffnet keine Images oder Datenträger, partitioniert und
 formatiert nicht. Eine erfolgreiche Rechnung belegt keine BIOS- oder
 Betriebssystemkompatibilität.
 
+## BIOS-Probe
+
+Unter Linux x86_64 (Referenz: Ubuntu 24.04), mit Python 3.12, GCC, GNU Make
+und `qemu-system-x86`:
+
+```sh
+make toolchain
+make boot-test
+```
+
+`make toolchain` lädt die festgelegten, per SHA-256 geprüften Werkzeuge.
+`make boot-test` baut zweimal und prüft anschließend drei Starts in QEMU:
+eine erfolgreiche Probe und zwei erwartete Fehler. Das eigene Abbild liegt
+unter `build/abi/abi-probe.img`. Der GitHub-Workflow stellt es zusammen mit
+den Prüfnachweisen als Artefakt **retroboot-abi-probe** bereit.
+
+Dies ist eine isolierte BIOS-Testdiskette mit der Meldung `RB ABI PASS`,
+noch kein RetroBoot-Installations- oder Rettungsmedium. Details und Grenzen
+stehen in der [Probe-Anleitung](docs/ABI_Probe.md).
+
 ## Quellstruktur
 
 | Pfad | Inhalt |
@@ -53,8 +75,9 @@ Betriebssystemkompatibilität.
 | `profiles/` | Maschinenlesbare Testbelegungen, zunächst RB-8G-CHS255 |
 | `tools/` | Hostwerkzeuge zur Layoutprüfung |
 | `tests/` | Referenzwerte, Grenzfälle und Kommandozeilentests |
+| `tests/abi/`, `include/` | BIOS-Probe, eigene C-Schnittstelle und Speichervertrag |
 | `.github/workflows/` | Automatische Hosttests für Pull Requests nach `historical` |
 
-Die späteren Boot-, BIOS- und C-Komponenten werden gemäß der Spezifikation
-ergänzt, sobald sie implementiert werden. OS-Medien und BIOS-ROMs gehören nicht
-in dieses Repository.
+Die Produktionskomponenten werden gemäß der Spezifikation auf dieser
+geprüften Grundlage ergänzt. OS-Medien und BIOS-ROMs gehören nicht in dieses
+Repository.

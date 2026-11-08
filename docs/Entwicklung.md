@@ -1,6 +1,10 @@
-# Entwicklung – erster Schritt in Phase 2
+# Entwicklung – Phase 2: Hostprüfungen und BIOS-/ABI-Probe
 
-Stand: 8. November 2026.
+Stand: 9. November 2026.
+
+Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
+Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
+Layoutprüfers bleibt gültig; er selbst erzeugt weiterhin nur Berichte.
 
 ## Was jetzt funktioniert
 
@@ -43,13 +47,17 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make report` | Ausschließlich der JSON-Bericht auf stdout |
 | `python3 -m unittest discover -s tests -v` | Tests ohne Make |
 | `python3 tools/retroboot_layout.py profiles/rb-8g-chs255.json --json` | JSON-Bericht ohne Make |
+| `make toolchain` | Festgelegte native Compiler für Linux x86_64 laden, prüfen und vorbereiten |
+| `make abi` | Isolierte BIOS-Testdisketten und Binärdateien bauen |
+| `make abi-check` | Zweimal bauen; Binärdateien, Abbilder und Manifeste vergleichen |
+| `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
 und eine Meldung auf stderr; bei ungültigen Kommandozeilenoptionen verwendet
 `argparse` Exitcode 2. Ein gültiger Plan liefert Exitcode 0.
 
-Noch nicht vorhandene Ziele wie `make images`, `make boot-test`, `make run`
+Noch nicht vorhandene Ziele wie `make images`, `make run`
 und `make release` werden nicht als erfolgreiche Platzhalter angeboten.
 Die Namen in der Phase-1-Spezifikation bleiben die geplanten Schnittstellen.
 
@@ -101,25 +109,34 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **42 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **58 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
-prüfen außerdem, dass im Arbeitsverzeichnis keine Dateien erzeugt werden.
+prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
+erzeugt. Hinzu kommen Prüfungen des binären Probe-Headers, der Größenbudgets,
+der Ausgabeziele und der Auswertung der Emulatorergebnisse.
 
-Diese Prüfungen schließen Phase 2 noch nicht ab. T01 der Spezifikation meint
-reproduzierbare **Bootartefakte**, nicht nur einen JSON-Bericht. Auch T06
-verlangt später die Prüfung realer Partitionsstrukturen. Beide bleiben offen.
+Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
+Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
+erkannt. Alle Probe-Binärdateien und Abbilder sind in zwei getrennten Builds
+bytegleich. Eine zusätzliche Linkerprobe weist nach, dass eine fehlende
+Laufzeitfunktion den Build abbricht.
+
+Damit liegt ein abgegrenzter T01-Nachweis für die **Probe-Artefakte** vor.
+Der produktive MBR-/VBR-/FAT-Ladeweg existiert noch nicht; dessen vollständiger
+T01- und T03-Nachweis bleibt offen. T06 erfordert später die Prüfung realer
+Partitionsstrukturen. Der Speichervertrag ist für die Probe festgelegt;
+die Bereiche und Schnittstellen der Produktionslader werden im nächsten
+Schritt ergänzt. Phase 2 wird deshalb nicht pauschal als abgeschlossen markiert.
 
 Die nächsten Schritte sind:
 
-1. NASM- und Open-Watcom-C/16-Werkzeuge mit Versionen, Bezugsquellen und
-   Prüfsummen festlegen; C-/Assembly-ABI, Speicherplan, Startup und BSS an
-   einem kleinen Probeprogramm nachweisen.
+1. Den Speichervertrag um die Produktionslader und deren Übergaben erweitern.
 2. Darauf den minimalen MBR → Verwaltungs-VBR → Bootstrap → Stage-2-Ladeweg
    mit sichtbarer Bootmeldung und Größenprüfungen bauen.
 3. Reproduzierbare Testimages in QEMU starten, EDD/CHS und Fehlerpfade prüfen;
    danach die historische Referenzmaschine vermessen.
 
-Derzeit gibt es keinen Boot-, Installations- oder Betriebssystemnachweis und
-kein zur Installation bestimmtes Image. Die Spezifikation v0.2 bleibt als
-historischer Stand der Phase 1 inhaltlich unverändert.
+Derzeit gibt es einen BIOS-Probestart, aber keinen Installations- oder
+Betriebssystemnachweis und kein zur Installation bestimmtes Image. Die
+Spezifikation v0.2 bleibt als Stand der Phase 1 inhaltlich unverändert.

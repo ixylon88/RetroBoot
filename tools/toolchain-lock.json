@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "host": "linux-x86_64",
+  "nasm": {
+    "version": "2.16.01",
+    "url": "https://www.nasm.us/pub/nasm/releasebuilds/2.16.01/nasm-2.16.01.tar.xz",
+    "sha256": "c77745f4802375efeee2ec5c0ad6b7f037ea9c87c92b149a9637ff099f162558"
+  },
+  "open_watcom": {
+    "release": "2026-11-01-Build",
+    "url": "https://github.com/open-watcom/open-watcom-v2/releases/download/2026-11-01-Build/ow-snapshot.tar.xz",
+    "sha256": "89e90b7544cf3ea4a38124ec4c104a5027f31101405d7115c3f833daa465bb48",
+    "executables": {
+      "wcc": "b8e2e940158601623807051f36e392c8e10a4239f7c941f0fe038844edf83035",
+      "wlink": "c61bc8ca547392feb82972299a0dc2a50e75acd8b3577c87f5edfac7219b9126"
+    }
+  }
+}
