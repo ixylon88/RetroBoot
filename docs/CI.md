@@ -14,7 +14,7 @@ wir lokal ausführen können.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD EDD boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader zweimal bauen, 25 Start-/Fehlerszenarien in QEMU prüfen, kompaktes Testimage bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader zweimal bauen, 62 Start-/Fehlerszenarien mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -38,7 +38,7 @@ kein bestandener Test.
 Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
-- `retroboot-hdd-edd`: kompaktes HDD-Testimage, Binärdateien, Manifest,
+- `retroboot-hdd-bios`: kompaktes HDD-Testimage, Binärdateien, Manifest,
   Bootprotokolle und I/O-Traces.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -56,11 +56,20 @@ mit Prüfsummen abgesichert. QEMU und BIOS stammen dagegen derzeit aus den
 Ubuntu-Paketen; ihre tatsächlichen Versionen beziehungsweise Hashes werden
 pro Lauf protokolliert. Die VM-Prüfumgebung ist also nicht vollständig eingefroren.
 
+Ein kleines eigenes **Test-Option-ROM** kann dem Lader fehlende EDD-Funktionen
+oder fehlerhafte BIOS-Antworten vorspiegeln. Dadurch wird der unveränderte MBR
+zur echten automatischen CHS-Auswahl veranlasst. Die Tests protokollieren die
+BIOS-Aufrufe, vergleichen die gelesenen Sektorfolgen und lesen Stage 2 zur
+Byteprüfung aus dem VM-Speicher zurück. Das ROM gehört nur zum Testaufbau;
+für den manuellen Start des Images wird es nicht benötigt.
+
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
 Prüfung. Dein erfolgreicher Diskettentest mit `RB ABI PASS` ergänzt die CI um
 genau diesen praktischen Startnachweis; genaue Rechner-/BIOS-Daten sind dazu
 noch nicht protokolliert.
+Auch ein erfolgreicher manueller HDD-Start in VirtualBox wurde für PR #3
+zurückgemeldet. VirtualBox ist bislang kein zusätzlicher automatischer CI-Job.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

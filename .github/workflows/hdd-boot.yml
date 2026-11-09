@@ -1,4 +1,4 @@
-name: HDD EDD boot
+name: HDD BIOS boot
 
 on:
   pull_request:
@@ -33,13 +33,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: retroboot-hdd-edd
+          name: retroboot-hdd-bios
           if-no-files-found: error
           retention-days: 30
           compression-level: 9
           path: |
             build/hdd/retroboot-hdd.img
             build/hdd/*.bin
+            build/hdd/*.rom
             build/hdd/manifest.json
             build/hdd/boot-results.json
             build/hdd/*.log

@@ -79,7 +79,7 @@ failed:
     mov si, message
     jmp fatal
 
-%include "boot/edd.inc"
+%include "boot/disk.inc"
 %include "boot/fatal.inc"
 message: db 'RB VBR ERROR', 13, 10, 0
     times 510 - ($ - $$) db 0

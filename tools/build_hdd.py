@@ -23,6 +23,7 @@ GEOMETRY = (1024, 255, 63)
 CASES = {
     "hdd-fragmented": "RB HDD PASS",
     "hdd-contiguous": "RB HDD PASS",
+    "hdd-boundaries": "RB HDD PASS",
     "hdd-reference": "RB HDD PASS",
     "hdd-bad-vbr": "RB MBR ERROR",
     "hdd-outside-disk": "RB MBR ERROR",
@@ -146,6 +147,8 @@ def fixture(parts, case):
         raise ValueError("Invalid contiguous bootstrap length")
     boot_clusters = list(range(2, 2 + (len(bootstrap) + cluster_bytes - 1) // cluster_bytes))
     stage_clusters = [20, 21, 22] if case == "hdd-contiguous" else [20, 300, 40]
+    if case == "hdd-boundaries":
+        stage_clusters = [25, 151, 40]  # LBAs 503/1007: track/cylinder edges, 16/63
     if len(stage2) != 5000 or len(boot_clusters) > 4:
         raise ValueError("Fixture allocation needs updating for changed payload sizes")
     table = bytearray(spf * SECTOR)
@@ -240,6 +243,16 @@ def build(output):
     if version.split()[:3] != ["NASM", "version", lock["nasm"]["version"]]:
         raise ValueError(f"Unexpected assembler: {version}")
     artifacts = {}
+    for mode in range(9):
+        path = destination / f"int13-{mode}.rom"
+        subprocess.run([str(nasm), "-Werror", "-f", "bin", f"-DRB_ROM_MODE={mode}",
+                        "tests/bios/int13_rom.asm", "-o", str(path)], cwd=ROOT, check=True)
+        rom = bytearray(path.read_bytes())
+        if len(rom) != 512 or rom[:3] != b"\x55\xaa\x01":
+            raise ValueError("Invalid test option ROM")
+        rom[-1] = -sum(rom[:-1]) & 0xFF
+        path.write_bytes(rom)
+        artifacts[path.name] = {"bytes": len(rom), "sha256": sha256(path)}
     for test in (False, True):
         parts = {}
         for name in ("mbr", "vbr", "bootstrap", "stage2"):
@@ -262,7 +275,7 @@ def build(output):
             size, extents = fixture(parts, case)
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
-    manifest = {"format_version": 1, "purpose": "phase-3-edd-fat16-loader-fixtures",
+    manifest = {"format_version": 1, "purpose": "phase-3-edd-chs-fat16-loader-fixtures",
                 "nasm_source": lock["nasm"], "nasm_executable_sha256": sha256(nasm),
                 "artifacts": artifacts}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -7,7 +7,7 @@
 | [Technische Spezifikation v0.2](spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md) | Maßgebliche Architektur und Abnahmekriterien |
 | [Entwicklung](Entwicklung.md) | Ausführbare Befehle, aktueller Nachweisstand und nächste Schritte |
 | [BIOS-/ABI-Probe](ABI_Probe.md) | Werkzeugfixierung, Speichervertrag, Build und Emulatornachweise |
-| [Festplattenstart](HDD_Boot.md) | EDD-/FAT16-Ladeweg, Speichervertrag und Fehlerfälle |
+| [Festplattenstart](HDD_Boot.md) | EDD-/CHS-Ladeweg über FAT16, VirtualBox-Anleitung und Fehlerfälle |
 | [CI erklärt](CI.md) | Bedeutung der Windows-/Linux-Jobs, Ergebnisse und Artefakte |
 | [Projektauftrag](Projektauftrag_RetroBoot.md) | Ursprüngliche Ziele; technische Korrekturen stehen in v0.2 |
 

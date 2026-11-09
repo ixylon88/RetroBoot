@@ -8,7 +8,7 @@ from pathlib import Path
 
 from tools.build_hdd import (COMPACT_BYTES, STAGE2_MAX, fixture, layout,
                              patch_mbr, seal_stage2, seal_sum, write_fixture)
-from tools.test_hdd import check_result, check_trace
+from tools.test_hdd import check_bios_route, check_result, check_trace, read_lbas, scenarios
 
 
 def samples():
@@ -124,6 +124,17 @@ class DiskFormatTests(unittest.TestCase):
         self.assertEqual(sum(struct.unpack("<256H", vbr)) & 0xFFFF, 0)
         self.assertEqual(sum(struct.unpack("<768H", boot)) & 0xFFFF, 0)
 
+    def test_boundary_fixture_keeps_payload_and_crosses_both_edges(self):
+        parts = samples()
+        _, extents = fixture(parts, "hdd-boundaries")
+        root, fat = extents[379 * 512], extents[127 * 512]
+        self.assertEqual(struct.unpack_from("<H", root, 666)[0], 25)
+        self.assertEqual(struct.unpack_from("<H", fat, 50)[0], 151)
+        self.assertEqual(struct.unpack_from("<H", fat, 302)[0], 40)
+        data = b"".join(extents[lba * 512] for lba in (503, 1007, 563))
+        self.assertEqual(data, parts["stage2"])
+        self.assertEqual((503 % 63, 1007 % (16 * 63)), (62, 1007))
+
     def test_sparse_writer_preserves_gaps_and_exact_size(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "fixture.img"
@@ -144,6 +155,35 @@ class DiskFormatTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_bios_trace_requires_real_fallback_and_no_mixed_reads(self):
+        self.assertEqual(check_bios_route("@02\n@41\n@48\n@42\n", "EDD"), ["48", "42"])
+        self.assertEqual(check_bios_route("@02\n@41\n@08\n@02\n@00\n@02\n", "CHS"),
+                         ["08", "02", "00", "02"])
+        for log, mode in (("RB HDD PASS", "CHS"), ("@41\n@41\n@08\n", "CHS"),
+                          ("@41\n@08\n@42\n", "CHS"), ("@41\n@48\n@02\n", "EDD"),
+                          ("@41\n@08\n", "EDD"), ("@41\n@48\n", "CHS")):
+            with self.subTest(log=log, mode=mode), self.assertRaises(ValueError):
+                check_bios_route(log, mode)
+
+    def test_sector_sequence_retains_order_and_retries(self):
+        trace = "".join(f"ide_sector_read sector={n} nsectors=1\n" for n in (0, 126, 483, 483))
+        self.assertEqual(read_lbas(trace), [0, 126, 483, 483])
+        for invalid in ("", trace.replace("nsectors=1", "nsectors=2")):
+            with self.assertRaises(ValueError):
+                read_lbas(invalid)
+
+    def test_each_fixture_has_both_routes_and_geometry_failures_are_separate(self):
+        cases = scenarios()
+        self.assertEqual(len({c.name for c in cases}), len(cases))
+        pairs = {}
+        for case in cases:
+            if case.pair:
+                pairs.setdefault(case.pair, set()).add(case.mode)
+        self.assertTrue(pairs)
+        self.assertTrue(all(modes == {"EDD", "CHS"} for modes in pairs.values()))
+        self.assertTrue(any(c.name == "chs-unreachable-vbr" and c.marker == "RB MBR ERROR" for c in cases))
+        self.assertTrue(any(c.name == "chs-unreachable-volume" and c.marker == "RB BPB ERROR" for c in cases))
+
     def test_boot_result_needs_reason_and_exact_exit(self):
         check_result("good", 33, "RB HDD PASS", "RB HDD PASS")
         check_result("bad", 35, "RB CRC ERROR", "RB CRC ERROR")
