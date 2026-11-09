@@ -4,10 +4,12 @@ Ein eigener BIOS-Bootmanager für klassische x86-PCs: getrennte primäre
 DOS-/Windows-9x-Systeme, gemeinsame Datenvolumes und optionale Übergabe an
 vorhandene NT-Bootloader. Die Entwicklung erfolgt im Branch `historical`.
 
-**Stand: erster Festplattenstart in Phase 3.** Der eigene MBR lädt über
-BIOS-EDD das verborgene FAT16-Verwaltungsvolume und eine fragmentierte
+**Stand: Festplattenstart mit EDD und CHS in Phase 3.** Der eigene MBR lädt über
+BIOS-EDD oder den automatischen CHS-Fallback das verborgene
+FAT16-Verwaltungsvolume und eine fragmentierte
 Stage-2-Datei bis zur sichtbaren Bootmeldung. Die C-/Assembly-Testdiskette
-bleibt als eigener Nachweis erhalten. CHS-Fallback, Menü und Installer folgen.
+bleibt als eigener Nachweis erhalten. C-Integration in Stage 2, Menü und
+Installer folgen.
 
 ## Dokumentation
 
@@ -77,12 +79,15 @@ Mit derselben vorbereiteten Toolchain:
 make hdd-test
 ```
 
-Das baut die HDD-Artefakte zweimal und prüft 25 Starts mit QEMU, darunter
-das 8-GB-Referenzlayout, fragmentierte Dateien und gezielt erzeugte Lesefehler.
+Das baut die HDD-Artefakte zweimal und prüft 62 Starts mit QEMU, darunter
+das 8-GB-Referenzlayout, beide Lesewege, fragmentierte Dateien und gezielt
+erzeugte Lesefehler.
 Das kompakte `build/hdd/retroboot-hdd.img` meldet `RB HDD PASS` und hält an.
-Der Workflow **HDD EDD boot** liefert es als Artefakt **retroboot-hdd-edd**.
+Der Workflow **HDD BIOS boot** liefert es als Artefakt **retroboot-hdd-bios**.
 Es ist ein Testmedium für eine leere BIOS-VM, kein Installer oder Rettungsmedium.
-Grenzen und Startbefehl stehen in der [HDD-Anleitung](docs/HDD_Boot.md).
+Grenzen und Startanleitungen für QEMU und VirtualBox stehen in der
+[HDD-Anleitung](docs/HDD_Boot.md). Für den Stand aus PR #3 wurde auch ein
+erfolgreicher manueller VirtualBox-Start zurückgemeldet.
 
 ## Quellstruktur
 
@@ -94,7 +99,7 @@ Grenzen und Startbefehl stehen in der [HDD-Anleitung](docs/HDD_Boot.md).
 | `tests/` | Referenzwerte, Grenzfälle und Kommandozeilentests |
 | `tests/abi/`, `include/` | BIOS-Probe, eigene C-Schnittstelle und Speichervertrag |
 | `boot/` | MBR, FAT16-VBR, Bootstrap und minimaler Stage-2-Testkörper |
-| `.github/workflows/` | Automatische Hosttests für Pull Requests nach `historical` |
+| `.github/workflows/` | Automatische Host- und BIOS-Prüfungen für Pull Requests nach `historical` |
 
 Die Produktionskomponenten werden gemäß der Spezifikation auf dieser
 geprüften Grundlage ergänzt. OS-Medien und BIOS-ROMs gehören nicht in dieses

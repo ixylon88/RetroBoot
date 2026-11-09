@@ -3,7 +3,7 @@ cpu 386
 org 0x0600
 %include "include/boot.inc"
 
-    jmp 0:start + 0x7600          ; normalize BIOS 0000:7C00 / 07C0:0000
+    ; No CS-relative data before the far jump: both BIOS entry forms work.
 start:
     cli
     xor ax, ax
@@ -18,6 +18,9 @@ start:
     rep movsw
     jmp 0:relocated
 relocated:
+    mov di, RB_DRIVE
+    mov cx, 48                  ; clear context/DAP/parameter buffer
+    rep stosw                   ; AX=0, ES=0, DF=0 from relocation
     sti
     mov [RB_DRIVE], dl
     cmp dl, 0x80
@@ -27,11 +30,11 @@ relocated:
     push ds
     int 0x13
     pop ds
-    jc failed
+    jc chs_init
     cmp bx, 0xAA55
-    jne failed
+    jne chs_init
     test cx, 1
-    jz failed
+    jz chs_init
     mov si, RB_PARAMS
     mov word [si], 0x1E
     mov dl, [RB_DRIVE]
@@ -44,6 +47,39 @@ relocated:
     jb failed
     cmp word [RB_PARAMS + 24], 512
     jne failed
+    inc byte [RB_IO_MODE]
+    jmp initialized
+failed:
+    mov si, message
+    jmp fatal
+chs_init:
+    xor ax, ax
+    mov es, ax
+    xor di, di                 ; guard against legacy BIOS ES:DI quirks
+    mov dl, [RB_DRIVE]
+    mov ah, 8
+    push ds
+    int 0x13
+    pop ds
+    jc failed
+    mov al, cl
+    and ax, 63
+    jz failed
+    mov [RB_SPT], ax
+    mov al, dh
+    xor ah, ah
+    inc ax
+    mov [RB_HEADS], ax
+    mul word [RB_SPT]
+    mov bx, ax                 ; sectors/cylinder, <= 256 * 63
+    mov al, ch
+    mov ah, cl
+    shr ah, 6
+    inc ax                     ; cylinder count, 1..1024
+    mul bx
+    mov [RB_CAPACITY], ax
+    mov [RB_CAPACITY + 2], dx
+initialized:
     mov word [RB_CONTEXT], 0x5242
     xor ax, ax
     mov es, ax
@@ -66,11 +102,8 @@ relocated:
     jnz failed
     mov dl, [RB_DRIVE]
     jmp 0:RB_VBR
-failed:
-    mov si, message
-    jmp fatal
-
-%include "boot/edd.inc"
+%define RB_FIXED_VBR_BUFFER 1  ; sole call above uses BX=7C00h, within bound
+%include "boot/disk.inc"
 %include "boot/fatal.inc"
 message: db 'RB MBR ERROR', 13, 10, 0
     ; Fixed parameter slot; bytes 440..511 are owned by the disk layout.

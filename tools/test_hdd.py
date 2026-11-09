@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -40,17 +41,53 @@ def check_trace(trace, fault_sector=None, expected_reads=None):
             raise ValueError(f"Expected {expected_reads} read attempts at LBA {fault_sector}, got {reads}")
 
 
-def run_until_marker(command, log, marker):
+def check_bios_route(log, mode):
+    calls = re.findall(r"^@([0-9A-F]{2})$", log, re.MULTILINE)
+    if calls.count("41") != 1:
+        raise ValueError("Missing or repeated EDD capability probe")
+    calls = calls[calls.index("41") + 1:]
+    expected_init, forbidden = ("48", {"02", "08"}) if mode == "EDD" else ("08", {"42", "48"})
+    if not calls or calls[0] != expected_init or forbidden.intersection(calls):
+        raise ValueError(f"Unexpected {mode} BIOS route: {calls}")
+    return calls
+
+
+def read_lbas(trace):
+    reads = [(int(lba), int(count)) for lba, count in
+             re.findall(r"ide_sector_read sector=(\d+) nsectors=(\d+)", trace)]
+    if not reads or any(count != 1 for _, count in reads):
+        raise ValueError("Expected single-sector BIOS reads")
+    return [lba for lba, _ in reads]
+
+
+def save_guest_memory(process, output, size):
+    # QMP over pipes also works on hosts that disallow local sockets. Commands
+    # are processed in order; pmemsave completes before the orderly quit.
+    requests = [{"execute": "qmp_capabilities", "id": "capabilities"},
+                {"execute": "stop", "id": "stop"},
+                {"execute": "pmemsave", "id": "memory", "arguments": {
+                    "val": 0x10000, "size": size, "filename": str(output)}},
+                {"execute": "quit", "id": "quit"}]
+    text, error = process.communicate(input="".join(json.dumps(r) + "\n" for r in requests), timeout=5)
+    responses = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if not responses or "QMP" not in responses[0] or any("error" in r for r in responses):
+        raise ValueError(f"QMP failed: {text}\n{error}")
+    completed = {r.get("id") for r in responses if "return" in r}
+    if not {"capabilities", "stop", "memory"} <= completed:
+        raise ValueError(f"Incomplete QMP memory capture: {text}")
+    return process.returncode, error
+
+
+def run_until_marker(command, log, marker, output, size):
     """The hardware-facing image halts instead of accessing QEMU's exit port."""
-    with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
+    with subprocess.Popen(command + ["-qmp", "stdio"], stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
         deadline = time.monotonic() + 15
         try:
             while time.monotonic() < deadline:
-                output = log.read_text(encoding="utf-8") if log.exists() else ""
-                if marker in output:
-                    process.terminate()
-                    _, error = process.communicate(timeout=5)
-                    return process.returncode, error
+                message = log.read_text(encoding="utf-8") if log.exists() else ""
+                if marker in message:
+                    return save_guest_memory(process, output, size)
                 if process.poll() is not None:
                     _, error = process.communicate()
                     return process.returncode, error
@@ -60,6 +97,45 @@ def run_until_marker(command, log, marker):
             if process.poll() is None:
                 process.kill()
                 process.communicate()
+
+
+@dataclass(frozen=True)
+class BootCase:
+    name: str
+    source: str
+    marker: str
+    mode: str = "EDD"
+    rom: int | None = 0
+    once: bool | None = None
+    geometry: str = ""
+    pair: str = ""
+
+
+def scenarios():
+    cases = []
+    sources = [(name, name, marker, None) for name, marker in CASES.items()]
+    sources += [("retroboot-hdd", "retroboot-hdd", "RB HDD PASS", None),
+                ("hdd-io-retry", "hdd-fragmented", "RB HDD PASS", True),
+                ("hdd-io-failure", "hdd-fragmented", "RB READ ERROR", False)]
+    for mode, rom in (("EDD", 0), ("CHS", 1)):
+        for name, source, marker, once in sources:
+            geometry = ",cyls=130,heads=16,secs=63,bios-chs-trans=none" if name == "hdd-boundaries" else ""
+            cases.append(BootCase(name + "-" + mode.lower(), source, marker, mode, rom, once, geometry, name))
+    for name, rom, mode, marker in (
+            ("bad-edd-signature", 2, "CHS", "RB HDD PASS"),
+            ("missing-edd-read-bit", 3, "CHS", "RB HDD PASS"),
+            ("chs-geometry-error", 4, "CHS", "RB MBR ERROR"),
+            ("chs-zero-sectors", 5, "CHS", "RB MBR ERROR"),
+            ("edd-parameter-error", 6, "EDD", "RB MBR ERROR"),
+            ("edd-sector-size", 7, "EDD", "RB MBR ERROR"),
+            ("edd-short-parameters", 8, "EDD", "RB MBR ERROR")):
+        cases.append(BootCase(name, "hdd-fragmented", marker, mode, rom))
+    cases += [BootCase("chs-unreachable-vbr", "hdd-reference", "RB MBR ERROR", "CHS", 1,
+                       geometry=",cyls=1024,heads=16,secs=63,bios-chs-trans=none"),
+              BootCase("chs-unreachable-volume", "hdd-fragmented", "RB BPB ERROR", "CHS", 1,
+                       geometry=",cyls=128,heads=16,secs=63,bios-chs-trans=none"),
+              BootCase("retroboot-hdd-bare", "retroboot-hdd", "RB HDD PASS", rom=None)]
+    return cases
 
 
 def main():
@@ -88,14 +164,15 @@ def main():
                "-monitor", "none", "-serial", "none", "-nic", "none", "-no-reboot",
                "-global", "isa-debugcon.iobase=0xe9",
                "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]
-    scenarios = [(name, name, marker, None) for name, marker in CASES.items()]
-    scenarios += [("retroboot-hdd", "retroboot-hdd", "RB HDD PASS", None),
-                  ("hdd-io-retry", "hdd-fragmented", "RB HDD PASS", True),
-                  ("hdd-io-failure", "hdd-fragmented", "RB READ ERROR", False)]
-    cases = []
-    for name, source, marker, once in scenarios:
-        image, log, trace = (directory / (name + suffix) for suffix in (".img", ".log", ".trace"))
-        image = directory / (source + ".img")
+    for name, info in manifest["artifacts"].items():
+        if name.endswith((".bin", ".rom")) and sha256(directory / name) != info["sha256"]:
+            raise ValueError(f"Unexpected binary/ROM content: {name}")
+    expected_memory = (directory / "stage2.bin").read_bytes()
+    cases, pairs = [], {}
+    for case in scenarios():
+        name, marker, once = case.name, case.marker, case.once
+        log, trace = (directory / (name + suffix) for suffix in (".log", ".trace"))
+        image = directory / (case.source + ".img")
         before = sha256(image)
         if before != manifest["artifacts"][image.name]["sha256"]:
             raise ValueError(f"Unexpected image content: {image.name}; rebuild first")
@@ -111,29 +188,52 @@ def main():
             drive = f"blkdebug:{config}:{image}"
         # IDE requires a writable frontend. QEMU snapshot mode opens the source
         # read-only and redirects possible writes into a temporary overlay.
-        invocation = command + ["-drive", f"file={drive.replace(',', ',,')},format=raw,if=ide,snapshot=on,rerror=report",
+        invocation = command + ["-drive", f"file={drive.replace(',', ',,')},format=raw,if=none,id=rb,snapshot=on,rerror=report",
+                                "-device", "ide-hd,drive=rb,bus=ide.0,unit=0" + case.geometry,
                                 "-debugcon", "file:" + str(log), "-trace",
                                 f"events={str(events).replace(',', ',,')},file={str(trace).replace(',', ',,')}"]
-        uninstrumented = name == "retroboot-hdd"
+        if case.rom is not None:
+            invocation += ["-option-rom", str(directory / f"int13-{case.rom}.rom")]
+        uninstrumented = case.source == "retroboot-hdd"
+        memory_hash = None
         if uninstrumented:
-            code, error = run_until_marker(invocation, log, marker)
+            dump = directory / (name + "-memory.bin")
+            dump.unlink(missing_ok=True)
+            code, error = run_until_marker(invocation, log, marker, dump, len(expected_memory))
         else:
             result = subprocess.run(invocation, capture_output=True, text=True, timeout=30)
             code, error = result.returncode, result.stderr
         output = log.read_text(encoding="utf-8") if log.exists() else ""
         check_result(name, code, output + error, marker, uninstrumented)
-        check_trace(trace.read_text(encoding="utf-8"), 483 if once is not None else None,
-                    2 if once else 3)
+        if uninstrumented:
+            if dump.read_bytes() != expected_memory:
+                raise ValueError(f"{name}: loaded Stage 2 differs byte-for-byte from the built file")
+            memory_hash = sha256(dump)
+        trace_text = trace.read_text(encoding="utf-8")
+        check_trace(trace_text, 483 if once is not None else None, 2 if once else 3)
+        calls = check_bios_route(output, case.mode) if case.rom is not None else []
+        lbas = read_lbas(trace_text)
+        if case.pair:
+            pairs.setdefault(case.pair, {})[case.mode] = lbas
+        if case.pair == "hdd-boundaries" and not all(lba in lbas for lba in (503, 504, 1007, 1008)):
+            raise ValueError("Track/cylinder boundary reads were not exercised")
         if sha256(image) != before:
             raise ValueError(f"Image changed during boot: {image.name}")
         cases.append({"name": name, "image": image.name, "exit_code": code,
                       "stopped_after_marker": uninstrumented, "expected_result": marker,
+                      "mode": case.mode, "bios_calls_after_probe": calls,
+                      "loaded_stage2_sha256": memory_hash, "read_lbas": lbas,
                       "image_unchanged": True, "block_writes": 0, "log": output})
         print(f"{name}: {marker}; no block writes; source unchanged", flush=True)
+    for name, routes in pairs.items():
+        if set(routes) != {"EDD", "CHS"} or routes["EDD"] != routes["CHS"]:
+            raise ValueError(f"{name}: EDD and CHS read different sector sequences")
     report = {"qemu_version": version, "qemu_sha256": sha256(qemu),
               "bios_sha256": sha256(bios), "vga_bios_sha256": sha256(bios.with_name("vgabios-stdvga.bin")),
               "machine": "pc-i440fx-8.2", "accelerator": "tcg", "cpu": "486",
-              "ram_mib": 16, "disk_access": "EDD, IDE, disposable snapshot overlay", "cases": cases}
+              "ram_mib": 16, "disk_access": "EDD and CHS, IDE, disposable snapshot overlay",
+              "identical_sector_sequence_pairs": len(pairs), "cases": cases}
+    print(f"EDD/CHS: {len(pairs)} identical sector sequences; Stage 2 memory matches built file", flush=True)
     result_file.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 

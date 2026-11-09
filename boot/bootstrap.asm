@@ -248,7 +248,7 @@ header_error: mov si, header_message
 crc_error: mov si, crc_message
     jmp fatal
 
-%include "boot/edd.inc"
+%include "boot/disk.inc"
 %include "boot/fatal.inc"
 filename: db 'RBSTG2  BIN'
 memory_message: db 'RB MEMORY ERROR', 13, 10, 0

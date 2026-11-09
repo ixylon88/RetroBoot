@@ -1,9 +1,12 @@
 ; HDD loader contract, version 1. Physical addresses unless stated otherwise.
 %define RB_DRIVE       0x0500
+%define RB_IO_MODE     0x0501         ; 0=CHS, 1=EDD, selected once by MBR
 %define RB_CONTEXT     0x0502
+%define RB_HEADS       0x0504         ; uint32, AH=08h heads + 1 (up to 256)
+%define RB_SPT         0x0508         ; uint32, AH=08h sectors/track (1..63)
 %define RB_DAP         0x0520
 %define RB_PARAMS      0x0540
-%define RB_CAPACITY    (RB_PARAMS + 16) ; uint64, sector count from AH=48h
+%define RB_CAPACITY    (RB_PARAMS + 16) ; uint64: EDD capacity / CHS reach
 %define RB_MBR         0x0600
 %define RB_BUFFER      0x1000
 %define RB_BOOT        0x2000
