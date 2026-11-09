@@ -1,10 +1,12 @@
-# Entwicklung – Phase 2: Hostprüfungen und BIOS-/ABI-Probe
+# Entwicklung – Hostprüfungen und erste Bootlader
 
 Stand: 9. November 2026.
 
 Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
 Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
 Layoutprüfers bleibt gültig; er selbst erzeugt weiterhin nur Berichte.
+Hinzu kommt der [erste Festplattenladeweg](HDD_Boot.md) über BIOS-EDD und FAT16.
+Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
 
 ## Was jetzt funktioniert
 
@@ -51,6 +53,9 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make abi` | Isolierte BIOS-Testdisketten und Binärdateien bauen |
 | `make abi-check` | Zweimal bauen; Binärdateien, Abbilder und Manifeste vergleichen |
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
+| `make hdd` | Neue HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
+| `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
+| `make hdd-test` | Wiederholungsbuild und 25 positive/negative HDD-Boots in QEMU prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -109,12 +114,14 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **58 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **72 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
 erzeugt. Hinzu kommen Prüfungen des binären Probe-Headers, der Größenbudgets,
 der Ausgabeziele und der Auswertung der Emulatorergebnisse.
+Die HDD-Ergänzung prüft außerdem den Erhalt der geschützten MBR-Bytes, binäre
+EBR-Adressen und das Zusammensetzen einer fragmentierten FAT16-Datei.
 
 Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
 Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
@@ -122,21 +129,31 @@ erkannt. Alle Probe-Binärdateien und Abbilder sind in zwei getrennten Builds
 bytegleich. Eine zusätzliche Linkerprobe weist nach, dass eine fehlende
 Laufzeitfunktion den Build abbricht.
 
-Damit liegt ein abgegrenzter T01-Nachweis für die **Probe-Artefakte** vor.
-Der produktive MBR-/VBR-/FAT-Ladeweg existiert noch nicht; dessen vollständiger
-T01- und T03-Nachweis bleibt offen. T06 erfordert später die Prüfung realer
-Partitionsstrukturen. Der Speichervertrag ist für die Probe festgelegt;
-die Bereiche und Schnittstellen der Produktionslader werden im nächsten
-Schritt ergänzt. Phase 2 wird deshalb nicht pauschal als abgeschlossen markiert.
+Der Benutzer hat zusätzlich die beiden erwarteten Diskettenmeldungen
+`C entry, data, BSS, pointers and integer calls OK` und `RB ABI PASS`
+zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
+
+Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
+64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
+25 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien und echte induzierte
+Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
+dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
+bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
+
+Damit liegen T01-Nachweise für beide Artefaktgruppen sowie T02/T03 und ein
+Teil von T05 für den EDD-Ladeweg vor. **T04 bleibt offen**, da CHS noch fehlt.
+T06 erfordert später die Prüfung tatsächlich vorgefundener Partitionsstrukturen.
+Phase 3 wird deshalb nicht pauschal als abgeschlossen markiert.
 
 Die nächsten Schritte sind:
 
-1. Den Speichervertrag um die Produktionslader und deren Übergaben erweitern.
-2. Darauf den minimalen MBR → Verwaltungs-VBR → Bootstrap → Stage-2-Ladeweg
-   mit sichtbarer Bootmeldung und Größenprüfungen bauen.
-3. Reproduzierbare Testimages in QEMU starten, EDD/CHS und Fehlerpfade prüfen;
-   danach die historische Referenzmaschine vermessen.
+1. CHS-Fallback mit geprüfter BIOS-Geometrie ergänzen und dieselben Prüfdaten
+   über beide Lesewege vergleichen; fehlende EDD-Unterstützung gezielt prüfen.
+2. Den geprüften C-/Assembly-Vertrag in Stage 2 integrieren und darauf das
+   zunächst ausschließlich lesende Menü aufbauen.
+3. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
+   Bootnachweise dort ergänzen.
 
-Derzeit gibt es einen BIOS-Probestart, aber keinen Installations- oder
+Derzeit gibt es Disketten- und Festplattenprobestarts, aber keinen Installations- oder
 Betriebssystemnachweis und kein zur Installation bestimmtes Image. Die
 Spezifikation v0.2 bleibt als Stand der Phase 1 inhaltlich unverändert.
