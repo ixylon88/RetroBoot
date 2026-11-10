@@ -13,9 +13,11 @@ import time
 from pathlib import Path
 
 try:
+    from .ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS
     from .build_hdd import ROOT, prepare_output, sha256
     from .test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
 except ImportError:
+    from ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS
     from build_hdd import ROOT, prepare_output, sha256
     from test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
 
@@ -110,44 +112,70 @@ def expected_partitions(image):
     raise ValueError("Display oracle only accepts bounded known-valid fixtures")
 
 
-def check_screen(data, view, selected, mode, mbr, boot, partitions=None, page=0,
+def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None, page=0,
                  status=0, error_lba=0, error_slot=0):
     rows = screen_rows(data)
-    if "RetroBoot" not in rows[2] or "Nur lesen" not in rows[2] or "Esc: Menue" not in rows[21]:
+
+    def at(row, column, key):
+        expected = strings[key]
+        if rows[row][column:column + len(expected)] != expected:
+            raise ValueError(f"Wrong localized VGA text: {key} at {row},{column}")
+
+    if "RetroBoot" not in rows[2]:
         raise ValueError("Missing menu frame or keyboard help")
+    at(2, 65, "READ_ONLY")
+    at(21, 4, "KEY_HELP")
+    at(22, 4, "FUNCTION_HELP")
+    if view in (1, 2):
+        row = 15 if view == 1 else 19
+        if mode == "CHS":
+            at(row, 4, "CHS_HEADS")
+            at(row, 24, "CHS_SECTORS")
+        else:
+            at(row, 4, "EDD_GEOMETRY")
     if view == 0:
-        if "Keine Startprofile eingerichtet." not in rows[6] or "Automatischer Start: aus" not in rows[7]:
-            raise ValueError("Menu must not invent boot profiles or arm automatic start")
-        if f"BIOS-Leseweg: {mode}" not in rows[18]:
-            raise ValueError("Wrong BIOS route on menu")
+        at(5, 4, "BOOT_MENU")
+        at(6, 4, "NO_PROFILES")
+        at(7, 4, "AUTO_OFF")
+        at(17, 4, "DRIVE")
+        at(18, 4, "ROUTE_" + mode)
         if rows[17][19:22] != f"{struct.unpack_from('<H', boot)[0]:02X}h":
             raise ValueError("Wrong boot drive on menu")
-        for index, label in enumerate(("Systeminformationen", "Partitionen", "Recovery-Hinweise")):
+        for index, key in enumerate(("SYSTEM_INFO", "PARTITIONS", "RECOVERY")):
             row = 9 + index * 2
+            at(row, 8, key)
             attributes = data[row * 160 + 9:row * 160 + 150:2]
-            if label not in rows[row] or attributes != bytes([0x70 if index == selected else 0x17]) * 71:
+            if attributes != bytes([0x70 if index == selected else 0x17]) * 71:
                 raise ValueError("Incorrect menu label or selection highlight")
             if rows[row][5] != (">" if index == selected else " "):
                 raise ValueError("Selection arrow disagrees with highlight")
     elif view == 1:
+        for row, key in ((5, "SYSTEM_INFO"), (7, "DRIVE_HEX"), (8, "ROUTE"),
+                         (10, "REACHABLE"), (13, "DISK_ID"), (18, "BOOT_SNAPSHOT")):
+            at(row, 4, key)
         drive, _, low, high = struct.unpack("<HHII", boot)
         if (rows[7][29:31] != f"{drive:02X}" or rows[8][29:32] != mode
                 or rows[11][6:23] != f"{high:08X}:{low:08X}"
                 or rows[13][29:37] != f"{struct.unpack_from('<I', mbr, 440)[0]:08X}"):
             raise ValueError("System information differs from boot context/MBR")
     elif view == 2:
-        if "Partitionen: MBR / EBR" not in rows[5]:
-            raise ValueError("Missing partition view")
+        at(5, 4, "PARTITION_TITLE")
         if status:
-            if ("Strukturpruefung abgebrochen." not in rows[8]
-                    or not rows[10][4:74].strip() or rows[12][23:31] != f"{error_lba:08X}"
+            for row, key in ((8, "SCAN_FAILED"), (10, ERROR_KEYS[status]), (12, "LBA_HEX"),
+                             (13, "ENTRY"), (16, "NO_CHANGES"), (18, "SCAN_HELP")):
+                at(row, 4, key)
+            if (rows[12][23:31] != f"{error_lba:08X}"
                     or rows[6][4:74].strip() or rows[7][4:74].strip()):
                 raise ValueError("Missing scan error/LBA or unsafe partial success display")
-            expected_slot = str(error_slot) if error_slot else "gesamter Sektor"
+            expected_slot = str(error_slot) if error_slot else strings["WHOLE_SECTOR"]
             if rows[13][23:23 + len(expected_slot)] != expected_slot:
                 raise ValueError("Wrong failing partition entry")
         else:
-            if partitions is None or "Struktur geprueft; kein OS-Start freigegeben." not in rows[6]:
+            at(6, 4, "SCAN_OK")
+            at(7, 4, "TABLE_HEADER")
+            at(18, 4, "PAGE")
+            at(18, 20, "PAGING")
+            if partitions is None:
                 raise ValueError("Missing structural result or display oracle")
             for index in range(8):
                 row = rows[9 + index]
@@ -164,8 +192,9 @@ def check_screen(data, view, selected, mode, mbr, boot, partitions=None, page=0,
             if rows[18][10:12].strip() != str(page + 1) or rows[18][14:16].strip() != str((len(partitions) + 7) // 8):
                 raise ValueError("Incorrect partition pagination")
     elif view == 3:
-        if "Wiederherstellung ist noch nicht verfuegbar." not in rows[8]:
-            raise ValueError("Recovery availability is not stated")
+        for row, key in ((5, "RECOVERY"), (8, "RECOVERY_MISSING"),
+                         (10, "RECOVERY_PAGES"), (13, "RECOVERY_READ_ONLY")):
+            at(row, 4, key)
     else:
         raise ValueError("Unknown menu view")
     return rows
@@ -175,6 +204,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qemu", default="qemu-system-i386")
     parser.add_argument("--bios", type=Path)
+    parser.add_argument("--language", choices=LANGUAGES, default="en")
     args = parser.parse_args()
     executable = shutil.which(args.qemu)
     if not executable:
@@ -183,11 +213,13 @@ def main():
     bios = (args.bios or qemu.parent.parent / "share/seabios/bios-256k.bin").resolve()
     if not bios.is_file() or not bios.with_name("vgabios-stdvga.bin").is_file():
         raise ValueError("SeaBIOS and its standard VGA ROM must be present; use --bios")
-    source, output = ROOT / "build/hdd", ROOT / "build/menu"
+    source = ROOT / "build" / output_name("hdd", args.language)
+    output = ROOT / "build" / output_name("menu", args.language)
     prepare_output(output)
     result_file = output / "menu-results.json"
     result_file.unlink(missing_ok=True)
     manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    strings = checked_catalog(manifest, args.language)
     payload = (source / "stage2.bin").read_bytes()
     if sha256(source / "stage2.bin") != manifest["artifacts"]["stage2.bin"]["sha256"]:
         raise ValueError("Stage 2 differs from manifest")
@@ -251,7 +283,7 @@ def main():
                         check_runtime_memory(data, payload, memory, mode)
                         boot_offset = memory["symbols"]["_rb_boot"]
                         rows = check_screen(vram.read_bytes(), view, selected, mode, mbr,
-                                            data[boot_offset:boot_offset + 12], partitions=partitions,
+                                            data[boot_offset:boot_offset + 12], strings, partitions=partitions,
                                             status=expected_status, error_slot=4 if expected_status else 0)
                         text_file = output / f"{name}-{serial:02d}.txt"
                         text_file.write_text("\n".join(rows) + "\n", encoding="utf-8")
@@ -266,6 +298,8 @@ def main():
                     if process.poll() is None:
                         process.kill(); process.wait(timeout=5)
             text = log.read_text(encoding="utf-8")
+            if text.count(f"RB UI {args.language} CP437") != 1:
+                raise ValueError("Wrong menu language marker")
             check_c_status(text, mode)
             calls = check_bios_route(text, mode)
             scan_statuses = re.findall(r"^RB SCAN status=([0-9A-F]{4})", text, re.MULTILINE)
@@ -284,7 +318,7 @@ def main():
             print(f"{name}: {len(screens)} VGA/keyboard states verified; no disk writes", flush=True)
     if any(routes["EDD"] != routes["CHS"] for routes in pairs.values()):
         raise ValueError("Menu EDD/CHS sector sequences differ")
-    report = {"qemu_version": subprocess.check_output([str(qemu), "--version"], text=True).splitlines()[0],
+    report = {"ui": manifest["ui"], "qemu_version": subprocess.check_output([str(qemu), "--version"], text=True).splitlines()[0],
               "qemu_sha256": sha256(qemu), "bios_sha256": sha256(bios),
               "vga_bios_sha256": sha256(bios.with_name("vgabios-stdvga.bin")),
               "machine": "pc-i440fx-8.2", "cpu": "486", "ram_mib": 16, "cases": results}

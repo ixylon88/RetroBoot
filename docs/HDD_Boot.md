@@ -36,7 +36,9 @@ make hdd-test
 
 | Befehl | Ergebnis |
 | --- | --- |
-| `make hdd` | Eigene Bootdateien und neue Testimages unter `build/hdd/` |
+| `make hdd` | Englische Bootdateien und neue Testimages unter `build/hdd/` |
+| `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett unter `build/hdd-de/` |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild, 75 Menü- und 204 Scannerzustände |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
 | `make hdd-test` | Wiederholungsbuild, 86 Bootfälle, 75 Menüansichten und 204 Scannerzustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
@@ -59,17 +61,21 @@ qemu-system-i386 -machine pc-i440fx-8.2,accel=tcg -cpu 486 -m 16 \
 Nach der Erfolgsmeldung erscheint das bedienbare Textmenü. Das Artefakt
 **retroboot-hdd-bios** im Workflow **HDD BIOS boot** enthält dieses Image,
 Bootdateien, Linkerkarten, SHA-256-Manifest, Ergebnisse, Menü-Screenshots und I/O-Traces. Der Workflow lädt
-das große Referenzimage ausdrücklich nicht hoch.
+das große Referenzimage ausdrücklich nicht hoch. Beide Sprachvarianten sind
+enthalten: Englisch unter `hdd/`, Deutsch unter `hdd-de/`. Alle HDD-Befehle
+unterstützen `RB_LANGUAGE=en` oder `RB_LANGUAGE=de`; die frühe Bootausgabe
+bleibt englisch. Details stehen in [Languages](Languages.md).
 
 ### Manueller Test mit VirtualBox
 
-QEMU ist unser automatisierter Testweg. Das normale Image kann auch in einer
+QEMU dient als automatisierter Testweg. Das normale Image kann auch in einer
 VirtualBox-BIOS-VM auf einem Intel-/AMD-Rechner getestet werden. Der Benutzer
 hat am 9. November 2026 einen erfolgreichen VirtualBox-Start des Stands aus
 PR #3 zurückgemeldet. VirtualBox-Version und genaue VM-Einstellungen wurden
 dabei nicht protokolliert. Inzwischen wurden auch die vier C-Erfolgsmeldungen
-aus PR #5 manuell bestätigt, ohne erneute genaue Plattformangabe. Der neue
-Menüstand und der erzwungene CHS-Fallback sind noch manuell zu prüfen.
+aus PR #5 sowie Menü (PR #6) und Scanner (PR #7) manuell bestätigt, ohne
+erneute genaue Plattformangabe. Die neuen Sprachvarianten und ein ausdrücklich
+erzwungener CHS-Fallback sind noch manuell zu prüfen.
 
 Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
 `retroboot-hdd.img` lässt sie sich unter Windows/PowerShell so umwandeln:
@@ -88,7 +94,7 @@ F8 zeigt die Recovery-Hinweise. Im kompakten Image erscheinen vier primäre
 Slots und das logische Verwaltungsvolume. Der Auswahlbalken ersetzt den Cursor.
 Eine alte VDI muss aus dem neuen Image erneut erzeugt werden.
 Ein eigener CHS-Test verlangt zusätzlich ein BIOS ohne EDD beziehungsweise
-unseren beschriebenen Emulator-Testaufbau; ein normaler VirtualBox-Start
+den beschriebenen Emulator-Testaufbau; ein normaler VirtualBox-Start
 wählt bei funktionierender EDD-Unterstützung weiterhin EDD.
 
 Oracle dokumentiert die [Raw-zu-VDI-Konvertierung](https://docs.oracle.com/en/virtualization/virtualbox/7.1/user/vboxmanage.html)
@@ -117,7 +123,8 @@ Das große Image ist lokal normalerweise eine Sparse-Datei; ein Kopieren mit
 ungeeigneten Werkzeugen kann trotzdem 8 GB Speicher belegen.
 
 Die Hostwerkzeuge erlauben ausschließlich die festen Ausgabeordner
-`build/hdd/` und `build/hdd-repeat/`. Symlinks und nicht reguläre Einträge in
+`build/hdd/` und `build/hdd-repeat/` sowie deren deutsche Entsprechungen
+`build/hdd-de/` und `build/hdd-repeat-de/`. Symlinks und nicht reguläre Einträge in
 diesen Ordnern werden abgewiesen. Es gibt keine Option für einen Gerätepfad.
 
 Diese Version verlangt ein BIOS-Laufwerk **80h**, 512-Byte-Sektoren sowie

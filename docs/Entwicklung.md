@@ -10,6 +10,8 @@ bis zum C-Einstieg mit eigenem Startcode.
 Darauf baut jetzt das [lesende Textmenü](Menue.md) auf.
 Die [MBR-/EBR-Prüfung](Partitionen.md) ergänzt die Untersuchung tatsächlich
 gelesener Partitionstabellen im Menü; der Host-Layoutprüfer bleibt davon getrennt.
+Die [Sprachanleitung](Languages.md) beschreibt englische und deutsche Builds
+mit gemeinsamen Programmquellen und CP437-Zeichen einschließlich `ß`.
 Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
 
 ## Was jetzt funktioniert
@@ -57,7 +59,9 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make abi` | Isolierte BIOS-Testdisketten und Binärdateien bauen |
 | `make abi-check` | Zweimal bauen; Binärdateien, Abbilder und Manifeste vergleichen |
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
-| `make hdd` | Neue HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
+| `make hdd` | Englische HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
+| `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett; Ausgabe unter `build/hdd-de/` |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 279 UI-Zustände prüfen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
 | `make hdd-test` | Wiederholungsbuild, 86 HDD-Bootfälle, 75 Menüansichten und 204 Scanner-/Blätterzustände prüfen |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
@@ -120,7 +124,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **86 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **93 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -131,6 +135,8 @@ EBR-Adressen und das Zusammensetzen einer FAT16-Datei bis zur maximalen
 Stage-2-Größe von 48 KiB. Zwei Tests prüfen zusätzlich den VGA-Textdekoder.
 Die Scanner-Fixtures erhalten den Ladeweg und die MBR-Identität; ihre
 zusätzlichen Test-EBRs liegen im freien Bereich hinter dem Verwaltungsvolume.
+Sieben Katalogtests prüfen außerdem CP437-Zeichen einschließlich `ß`,
+C-Escapes, Feldbreiten, Schlüsselmengen und die Trennung der Sprach-Builds.
 
 Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
 Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
@@ -167,7 +173,9 @@ die C-BSS-Inhalte und das Schutzwort. Die gemeinsam verwendeten Helfer stehen
 in `runtime/`; alle sieben Disketten-Binärdateien und -Images sind nach dieser
 Umstellung bytegleich zum vorherigen Stand. Die vier C-HDD-Erfolgsmeldungen
 aus PR #5 wurden inzwischen manuell bestätigt. Die genaue Plattform dieses
-Tests wurde nicht erneut angegeben; der neue Menüstand ist noch manuell zu prüfen.
+Tests wurde nicht erneut angegeben. Am 10. November wurden auch Menü (PR #6)
+und Scanner (PR #7) manuell bestätigt, ohne zusätzliche Plattformdaten.
+Die neuen Sprachvarianten haben noch keinen eigenen manuellen Nachweis.
 
 Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
 Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in fünf
@@ -185,6 +193,9 @@ Bedingungen prüfen die Strukturlogik, darunter Disk-ID-Vergleich, Überläufe,
 204 Bildschirmzustände mit echten Scannerfehlern, I/O-Wiederholungen und
 Blättern über drei Seiten. Bei Fehlern bleiben Menü und Recovery-Hinweise
 erreichbar; unvollständige Belegungen werden nicht als Erfolg angezeigt.
+Die 75 allgemeinen und 204 Scannerzustände laufen für Englisch und Deutsch,
+zusammen 558 Bildschirmzustände. Jede Sprache wird zweimal bytegleich gebaut;
+die 86 gemeinsamen Bootfälle laufen in CI einmal mit Englisch.
 
 Die automatische CHS-Geometrie des großen QEMU-Images reicht für den
 Verwaltungsbereich, aber nicht für den gesamten erweiterten Container.
@@ -204,9 +215,10 @@ zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Menübedienung manuell bestätigen, anschließend BPB-/VBR-Plausibilität und
-   Startziele lesend prüfen; dann den Übergabevertrag mit eigenem Test-VBR
-   nachweisen (T07). Erst mit gültigen Profilen die vollständige Startauswahl ergänzen.
+1. BPB-/VBR-Plausibilität und Startziele lesend prüfen; dann den Übergabevertrag
+   mit eigenem Test-VBR nachweisen (T07). Erst mit gültigen Profilen die
+   vollständige Startauswahl ergänzen. Parallel bleiben manuelle Tests der
+   Darstellung in den neuen Sprachvarianten offen.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 

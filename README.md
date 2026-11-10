@@ -1,120 +1,115 @@
 # RetroBoot
 
-Ein eigener BIOS-Bootmanager für klassische x86-PCs: getrennte primäre
-DOS-/Windows-9x-Systeme, gemeinsame Datenvolumes und optionale Übergabe an
-vorhandene NT-Bootloader. Die Entwicklung erfolgt im Branch `historical`.
+A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
+systems, shared data volumes and optional chainloading of existing NT loaders.
+Development currently targets the `historical` branch.
 
-**Stand: lesende MBR-/EBR-Prüfung im Textmenü, erster Schritt von Phase 5.** Der eigene MBR lädt über
-BIOS-EDD oder den automatischen CHS-Fallback das verborgene
-FAT16-Verwaltungsvolume und eine fragmentierte
-Stage-2-Datei bis zum C-Einstieg. Der eigene Startcode richtet Segmente und
-Stack ein, löscht BSS und übergibt den BIOS-Kontext an C. Die C-/Assembly-
-Testdiskette bleibt als eigener Nachweis erhalten. Das Menü zeigt Systemdaten
-und prüft primäre sowie logische Partitionen. OS-Starts, Partitionsänderungen und Installer folgen.
+**Current stage: a read-only MBR/EBR scanner and an English or German text menu.**
+The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
+management volume and a fragmented Stage 2 file. Custom startup code establishes
+the C environment, clears BSS and passes the BIOS context to C. The separate
+C/assembly test floppy remains available. OS boot profiles, chainloading,
+partition changes and installation are future steps.
 
-## Dokumentation
+## Documentation
 
-- [Aktuelle Spezifikation v0.2](docs/spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md)
-- [Build, Prüfumfang und nächste Schritte](docs/Entwicklung.md)
-- [BIOS-Probe bauen und testen](docs/ABI_Probe.md)
-- [Festplattenstart, Speichervertrag und Fehlerprüfungen](docs/HDD_Boot.md)
-- [Textmenü: Bedienung und Prüfumfang](docs/Menue.md)
-- [MBR-/EBR-Prüfung und ihre Grenzen](docs/Partitionen.md)
-- [Gesicherter Arbeitsstand und Wiederaufnahme](docs/Arbeitsstand.md)
-- [Windows-/Linux-CI verständlich erklärt](docs/CI.md)
-- [Alle Unterlagen und archivierten Entwürfe](docs/README.md)
+- [English and German builds, character encoding](docs/Languages.md)
+- [Current specification v0.2](docs/spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md)
+- [Build commands, verification and next steps](docs/Entwicklung.md)
+- [BIOS/ABI test floppy](docs/ABI_Probe.md)
+- [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
+- [Menu operation and verification](docs/Menue.md)
+- [MBR/EBR checks and their limits](docs/Partitionen.md)
+- [Saved project state and resumption](docs/Arbeitsstand.md)
+- [Windows/Linux CI explained](docs/CI.md)
+- [All documents and archived drafts](docs/README.md)
 
-Die aktuelle Spezifikation ist maßgeblich. Frühere Gesprächsnotizen und der
-ursprüngliche Auftrag enthalten inzwischen korrigierte Layoutvorschläge.
+The detailed design and development documents are currently in German.
+Specification v0.2 is authoritative; earlier notes contain superseded layouts.
+Repository prose uses impersonal language and excludes private personal details;
+the conventions are recorded in [AGENTS.md](AGENTS.md).
 
-## Lokal prüfen
+## Host checks
 
-Die Hostwerkzeuge benötigen Python 3.12 und ausschließlich dessen
-Standardbibliothek. Unter Linux/macOS kann GNU Make die Aufrufe bündeln:
+The host tools require Python 3.12 and its standard library. With GNU Make:
 
 ```sh
 make check
 ```
 
-Ohne Make, beispielsweise unter Windows mit installiertem Python 3.12:
+Without Make, for example on Windows:
 
 ```powershell
 py -3.12 -m unittest discover -s tests -v
 py -3.12 tools/retroboot_layout.py profiles/rb-8g-chs255.json
 ```
 
-Einzelne Layoutprüfung und maschinenlesbarer Bericht:
+The layout checker reads a JSON plan and prints a report. It does not open
+images or physical drives, partition or format media. Successful arithmetic
+does not establish BIOS or operating-system compatibility.
 
-```sh
-python3 tools/retroboot_layout.py profiles/rb-8g-chs255.json
-python3 tools/retroboot_layout.py profiles/rb-8g-chs255.json --json
-```
+## BIOS test floppy
 
-Das Werkzeug liest einen JSON-Plan und schreibt seinen Bericht auf die
-Standardausgabe. Es öffnet keine Images oder Datenträger, partitioniert und
-formatiert nicht. Eine erfolgreiche Rechnung belegt keine BIOS- oder
-Betriebssystemkompatibilität.
-
-## BIOS-Probe
-
-Unter Linux x86_64 (Referenz: Ubuntu 24.04), mit Python 3.12, GCC, GNU Make
-und `qemu-system-x86`:
+On Linux x86_64 (reference: Ubuntu 24.04), with Python 3.12, GCC, GNU Make
+and `qemu-system-x86`:
 
 ```sh
 make toolchain
 make boot-test
 ```
 
-`make toolchain` lädt die festgelegten, per SHA-256 geprüften Werkzeuge.
-`make boot-test` baut zweimal und prüft anschließend drei Starts in QEMU:
-eine erfolgreiche Probe und zwei erwartete Fehler. Das eigene Abbild liegt
-unter `build/abi/abi-probe.img`. Der GitHub-Workflow stellt es zusammen mit
-den Prüfnachweisen als Artefakt **retroboot-abi-probe** bereit.
+The toolchain downloads are versioned and SHA-256 checked. The test builds
+twice and verifies one successful and two deliberately failing QEMU boots.
+`build/abi/abi-probe.img` is an isolated test floppy displaying `RB ABI PASS`.
+The **retroboot-abi-probe** CI artifact includes the image and evidence.
+It is not an installation or recovery disk.
 
-Dies ist eine isolierte BIOS-Testdiskette mit der Meldung `RB ABI PASS`,
-noch kein RetroBoot-Installations- oder Rettungsmedium. Details und Grenzen
-stehen in der [Probe-Anleitung](docs/ABI_Probe.md).
-
-## Festplattenprobe
-
-Mit derselben vorbereiteten Toolchain:
+## HDD builds and tests
 
 ```sh
-make hdd-test
+make hdd-test                   # English: repeat build, boot tests and UI tests
+make hdd-ui-test RB_LANGUAGE=de # German: repeat build and the same UI tests
 ```
 
-Das baut die HDD-Artefakte zweimal und prüft 86 Starts mit QEMU, darunter
-das 8-GB-Referenzlayout, beide Lesewege, fragmentierte Dateien und gezielt
-erzeugte Lese- und C-Startfehler.
-Danach werden 75 allgemeine Menüansichten und 204 Zustände der Scanner-
-Fehler- und Blättertests über echte emulierte Tastendrücke geprüft.
-Das kompakte `build/hdd/retroboot-hdd.img` öffnet nach den Erfolgsmeldungen
-das Textmenü. Pfeile wählen, Enter öffnet die Seite, Esc führt zurück;
-F2 liest und prüft MBR und EBR-Kette; Bild hoch/runter blättert durch die
-Partitionen. Fehler nennen Ursache und Sektoradresse. F8 zeigt die Recovery-Hinweise. Ohne eingerichtete
-Startprofile bleibt der automatische Start aus.
-Der Workflow **HDD BIOS boot** liefert es als Artefakt **retroboot-hdd-bios**.
-Es ist ein Testmedium für eine leere BIOS-VM, kein Installer oder Rettungsmedium.
-Grenzen und Startanleitungen für QEMU und VirtualBox stehen in der
-[HDD-Anleitung](docs/HDD_Boot.md). Für den Stand aus PR #3 wurde auch ein
-erfolgreicher manueller VirtualBox-Start zurückgemeldet. Auch die C-Erfolgsmeldungen
-aus PR #5 wurden manuell bestätigt; das neue Menü ist noch manuell zu prüfen.
+English is the default. The menu language is selected at build time; the
+program logic is shared. The German catalog includes `ÄÖÜäöüß`. Builds can
+alternate between languages without cleaning or overwriting the other output:
 
-## Quellstruktur
+```sh
+make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
+make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
+```
 
-| Pfad | Inhalt |
+The full test runs 86 boot cases covering both BIOS read paths, the 8 GB
+reference layout, fragmented files and injected failures. Each language also
+runs 75 general menu states and 204 scanner/error/paging states through
+emulated keyboard input, with VGA, memory and disk-write checks.
+
+The compact 64 MiB image opens an 80×25 text menu after the startup checks.
+Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
+Page Up/Down changes partition pages and F8 opens recovery information.
+Automatic boot remains disabled because no boot profiles exist.
+
+The **HDD BIOS boot** workflow publishes both compact images and their evidence
+in **retroboot-hdd-bios**. These images are test media for an empty BIOS VM.
+The [HDD guide](docs/HDD_Boot.md) includes QEMU and VirtualBox instructions.
+Manual success was reported for the earlier floppy, HDD startup, menu (PR #6)
+and partition scanner (PR #7). The new language builds still need their own
+manual verification; those reports do not establish a particular BIOS version.
+
+## Source layout
+
+| Path | Contents |
 | --- | --- |
-| `docs/` | Spezifikation, Entwicklungsstand und archivierte Unterlagen |
-| `profiles/` | Maschinenlesbare Testbelegungen, zunächst RB-8G-CHS255 |
-| `tools/` | Layoutprüfung, native Builds und Emulatorprüfungen |
-| `tests/` | Referenzwerte, Grenzfälle und Kommandozeilentests |
-| `tests/abi/`, `include/` | BIOS-Probe, eigene C-Schnittstellen und Speicherverträge |
-| `boot/` | MBR, FAT16-VBR und Bootstrap |
-| `core/` | Stage-2-Startcode, C-Einstieg, Menü, Auswahllogik und Linkerskript |
-| `bios/` | VGA-Textausgabe, Tastatur, BIOS-Ticks und C-Schnittstelle zum Sektorleser |
-| `runtime/` | Gemeinsam verwendete ABI-/BIOS-Ausgabehelfer und Linker-Endmarken |
-| `.github/workflows/` | Automatische Host- und BIOS-Prüfungen für Pull Requests nach `historical` |
+| `docs/` | Specification, development status and archived material |
+| `profiles/` | Machine-readable layouts, initially RB-8G-CHS255 |
+| `ui/` | UTF-8 menu catalogs; converted to CP437 during the build |
+| `tools/`, `tests/` | Host tools, native builds, emulator checks and test fixtures |
+| `tests/abi/`, `include/` | BIOS probe, C interfaces and memory contracts |
+| `boot/` | MBR, FAT16 VBR and bootstrap |
+| `core/` | Stage 2 startup, C entry, menu, scanner and linker script |
+| `bios/` | VGA, keyboard, BIOS ticks and sector-reader C interface |
+| `runtime/` | Shared ABI/BIOS helpers and linker end markers |
+| `.github/workflows/` | Host and BIOS checks for pull requests to `historical` |
 
-Die Produktionskomponenten werden gemäß der Spezifikation auf dieser
-geprüften Grundlage ergänzt. OS-Medien und BIOS-ROMs gehören nicht in dieses
-Repository.
+Operating-system media and BIOS ROMs are not included in this repository.

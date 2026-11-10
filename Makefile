@@ -1,7 +1,8 @@
 PYTHON ?= python3
+RB_LANGUAGE ?= en
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test menu-test scan-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test
 
 all: check
 
@@ -28,18 +29,22 @@ boot-test: abi-check
 	$(PYTHON) tools/test_abi_probe.py
 
 hdd:
-	$(PYTHON) tools/build_hdd.py
+	$(PYTHON) tools/build_hdd.py --language $(RB_LANGUAGE)
 
 hdd-check:
-	$(PYTHON) tools/build_hdd.py --repeat
+	$(PYTHON) tools/build_hdd.py --language $(RB_LANGUAGE) --repeat
 
 hdd-test: hdd-check
-	$(PYTHON) tools/test_hdd.py
-	$(PYTHON) tools/test_menu.py
-	$(PYTHON) tools/test_scan.py
+	$(PYTHON) tools/test_hdd.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_menu.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_scan.py --language $(RB_LANGUAGE)
+
+hdd-ui-test: hdd-check
+	$(PYTHON) tools/test_menu.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_scan.py --language $(RB_LANGUAGE)
 
 menu-test: hdd
-	$(PYTHON) tools/test_menu.py
+	$(PYTHON) tools/test_menu.py --language $(RB_LANGUAGE)
 
 scan-test: hdd
-	$(PYTHON) tools/test_scan.py
+	$(PYTHON) tools/test_scan.py --language $(RB_LANGUAGE)
