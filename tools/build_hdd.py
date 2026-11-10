@@ -13,6 +13,7 @@ try:
     from .build_abi_probe import inspect_map, prepare_output
     from .retroboot_layout import chs, load_plan, validate_plan
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+    from .handoff_fixtures import HANDOFF_CASES, FAULTS, assembler_header, c_header, mutate_handoff_fixture
     from .volume_fixtures import VOLUME_CASES, mutate_volume_fixture
     from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
     from .ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
@@ -20,6 +21,7 @@ except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from retroboot_layout import chs, load_plan, validate_plan
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+    from handoff_fixtures import HANDOFF_CASES, FAULTS, assembler_header, c_header, mutate_handoff_fixture
     from volume_fixtures import VOLUME_CASES, mutate_volume_fixture
     from scan_fixtures import SCAN_CASES, mutate_scan_fixture
     from ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
@@ -65,6 +67,7 @@ CASES = {
     "hdd-menu-model": "RB HDD PASS",
     "hdd-scan-model": "RB HDD PASS",
     "hdd-volume-model": "RB HDD PASS",
+    "hdd-handoff-model": "RB HDD PASS",
 }
 
 
@@ -286,10 +289,24 @@ def build_stage2(destination, nasm, wcc, wlink):
         if result.returncode or "Warning!" in result.stdout or "Warning!" in result.stderr:
             raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
 
+    (destination / "handoff_fixture.inc").write_text(assembler_header(), encoding="ascii")
+    test_vbr = destination / "handoff-vbr.bin"
+    run(nasm, "-Werror", "-f", "bin", "-I", "./", "-I", str(destination) + "/",
+        "tests/handoff/vbr.asm", "-o", test_vbr)
+    (destination / "handoff_fixture.h").write_text(c_header(test_vbr.read_bytes()), encoding="ascii")
+    run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
+        "-dRB_HANDOFF_TEST=1", "-i=include", "-i=" + str(destination),
+        "-fo=" + str(destination / "menu-handoff.obj"), "core/menu.c")
+    for fault in (0, *FAULTS.values()):
+        run(nasm, "-Werror", "-f", "obj", "-I", "./", f"-DRB_HANDOFF_FAULT={fault}",
+            "bios/handoff.asm", "-o", destination / f"handoff-{fault}.obj")
+
     for name, source in (("stage2-c", "core/stage2.c"), ("menu", "core/menu.c"),
                          ("menu-model", "core/menu_model.c"), ("menu-selftest", "tests/menu/model.c"),
                          ("partitions", "core/partitions.c"), ("scan-selftest", "tests/partitions/model.c"),
-                         ("volume", "core/volume.c"), ("volume-selftest", "tests/partitions/volume.c")):
+                         ("volume", "core/volume.c"), ("volume-selftest", "tests/partitions/volume.c"),
+                         ("handoff", "core/handoff.c"), ("handoff-test", "core/handoff_test.c"),
+                         ("handoff-selftest", "tests/handoff/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
@@ -305,12 +322,15 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "context-fault": ["-DRB_TEST=1", "-DRB_BAD_BOOT_CONTEXT=1"],
                 "menu-model": ["-DRB_TEST=1", "-DRB_MENU_MODEL_TEST=1"],
                 "scan-model": ["-DRB_TEST=1", "-DRB_SCAN_MODEL_TEST=1"],
-                "volume-model": ["-DRB_TEST=1", "-DRB_VOLUME_MODEL_TEST=1"]}
+                "volume-model": ["-DRB_TEST=1", "-DRB_VOLUME_MODEL_TEST=1"],
+                "handoff-model": ["-DRB_TEST=1", "-DRB_HANDOFF_MODEL_TEST=1"],
+                "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
         obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
         run(nasm, "-Werror", "-f", "obj", "-I", "./", *defines, "core/start.asm", "-o", obj)
-        linked_objects = [obj, destination / "stage2-c.obj", destination / "menu.obj",
+        handoff = variant == "handoff" or variant in {"handoff-" + name for name in FAULTS}
+        linked_objects = [obj, destination / "stage2-c.obj", destination / ("menu-handoff.obj" if handoff else "menu.obj"),
                           destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj",
                           destination / "partitions.obj", destination / "disk.obj", destination / "volume.obj", destination / "arith.obj"]
         if variant == "menu-model":
@@ -319,6 +339,13 @@ def build_stage2(destination, nasm, wcc, wlink):
             linked_objects.append(destination / "scan-selftest.obj")
         if variant == "volume-model":
             linked_objects.append(destination / "volume-selftest.obj")
+        if handoff or variant == "handoff-model":
+            linked_objects.append(destination / "handoff.obj")
+        if variant == "handoff-model":
+            linked_objects.append(destination / "handoff-selftest.obj")
+        if handoff:
+            linked_objects.extend([destination / "handoff-test.obj",
+                destination / f"handoff-{FAULTS.get(variant.removeprefix('handoff-'), 0)}.obj"])
         linked_objects.append(destination / "end.obj")
         objects = ",".join(str(path) for path in linked_objects)
         run(wlink, "@core/stage2.wlink", "name", binary, "option", "map=" + str(mapfile), "file", objects)
@@ -360,6 +387,7 @@ def build_stage2(destination, nasm, wcc, wlink):
     binary = destination / "stage2-data-fault.bin"
     binary.write_bytes(payloads["data-fault"])
     artifacts[binary.name] = {"bytes": len(bad_data), "sha256": sha256(binary)}
+    artifacts[test_vbr.name] = {"bytes": 512, "sha256": sha256(test_vbr)}
     return payloads, memory, artifacts
 
 
@@ -404,7 +432,7 @@ def build(output, language="en"):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES)):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES)):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
             if case == "hdd-menu-model":
                 variant = "menu-model"
@@ -412,6 +440,11 @@ def build(output, language="en"):
                 variant = "scan-model"
             if case == "hdd-volume-model":
                 variant = "volume-model"
+            if case == "hdd-handoff-model":
+                variant = "handoff-model"
+            if case in HANDOFF_CASES:
+                fault = HANDOFF_CASES[case].get("register_fault")
+                variant = "handoff" + ("-" + fault if fault else "")
             parts["stage2"] = stage2[variant]
             path = destination / (case + ".img")
             size, extents = fixture(parts, case)
@@ -419,13 +452,15 @@ def build(output, language="en"):
                 extents = mutate_scan_fixture(size, extents, case)
             if case in VOLUME_CASES:
                 size, extents = mutate_volume_fixture(size, extents, case)
+            if case in HANDOFF_CASES:
+                size, extents = mutate_handoff_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes())
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
     manifest = {"format_version": 2, "purpose": "phase-5-read-only-partition-scan-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
                 "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES,
-                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES}
+                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Built {destination.name} ({language}, CP437): MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest

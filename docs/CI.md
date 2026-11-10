@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 88 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner- und 318 Volume-Zustände mit EDD und CHS prüfen; beide kompakten Images bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 90 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner- und 318 Volume- und 185 Übergabezustände mit EDD und CHS prüfen; beide Diagnose- und beide Übergabetestimages bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -40,16 +40,17 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
-  VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json` und `volume-results.json`.
+  VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json`, `volume-results.json`
+  und `handoff-results.json`; zusätzlich die separaten 128-MiB-Übergabetestimages.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
 Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
-`volume/`. Die deutschen Entsprechungen liegen unter `hdd-de/`, `menu-de/`,
-`scan-de/` und `volume-de/`. Sprache, CP437-Kodierung
+`volume/`. Übergabenachweise liegen unter `handoff/`. Die deutschen Entsprechungen
+liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/` und `handoff-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 88 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 90 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -58,7 +59,8 @@ Lauf. Maßgeblich sind der Jobstatus und die Ergebnisse. `manifest.json`
 enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
 Entsprechend entstehen `menu-results.json`, `scan-results.json` und
-`volume-results.json` erst nach allen fünf, 32 beziehungsweise 43 erfolgreichen
+`volume-results.json` und `handoff-results.json` erst nach allen fünf, 32, 43
+beziehungsweise 43 erfolgreichen
 Kampagnen. Ein erwarteter,
 korrekt behandelter Scanfehler gilt dabei als bestandener Test.
 Screenshots allein ersetzen diese Prüfungen nicht.
@@ -86,7 +88,7 @@ gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
-Zusammen mit den Scanner- und Volume-Prüfungen sind es 1.194 Bildschirmzustände.
+Zusammen mit den Scanner-, Volume- und Übergabeprüfungen sind es 1.564 Bildschirmzustände.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
@@ -99,6 +101,10 @@ vor seinem Lesezugriff abgewiesen. Alle diese Nachweise sind ausschließlich les
 Die Volume-Prüfung ergänzt F3, Links/Rechts und Fehlerpfade für FAT-Header;
 114 native C16-Bedingungen prüfen zusätzlich BPB-Grenzen und die verwendeten
 32-Bit-Rechenhelfer. Ein plausibler Header bleibt ohne Startfreigabe.
+Der separate T07-Test ergänzt 29 native Vorprüfungen und eine echte Übergabe
+an den eigenen Test-VBR. Register, Stack, unveränderte Zielbytes und
+Partitionszeiger werden im Ziel und im Gast-RAM geprüft; neun Fehlerzustände
+werden absichtlich injiziert. Die normalen Images starten weiterhin kein Ziel.
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
@@ -110,8 +116,8 @@ zurückgemeldet. VirtualBox ist bislang kein zusätzlicher automatischer CI-Job.
 Die vier C-HDD-Erfolgsmeldungen aus PR #5 wurden ebenfalls manuell bestätigt;
 auch Menü (PR #6) und Scanner (PR #7) wurden am 10. November manuell bestätigt.
 Auch die Sprachvarianten aus PR #8 wurden manuell bestätigt; zusätzliche
-Plattformdaten liegen dafür nicht vor. Die neue F3-Ansicht hat noch keinen
-eigenen manuellen Nachweis.
+Plattformdaten liegen dafür nicht vor. Auch F3 aus PR #9 wurde manuell bestätigt.
+Das neue T07-Testimage hat noch keinen eigenen manuellen Nachweis.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

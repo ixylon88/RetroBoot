@@ -4,6 +4,9 @@
 #include "stage2.h"
 #include "ui_text.h"
 #include "volume.h"
+#ifdef RB_HANDOFF_TEST
+#include "handoff.h"
+#endif
 
 #define NORMAL 0x17U
 #define TITLE 0x1FU
@@ -83,7 +86,11 @@ static void geometry(const rb_loader_snapshot *snapshot, rb_u16 row)
 
 static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot,
                  const rb_partition_scan *scan, rb_u16 page,
-                 const rb_volume_probe *volume, rb_u16 volume_index)
+                 const rb_volume_probe *volume, rb_u16 volume_index
+#ifdef RB_HANDOFF_TEST
+                 , rb_u16 handoff_status, rb_u16 handoff_detail
+#endif
+                 )
 {
     rb_u16 row, index;
     const rb_partition *p;
@@ -113,6 +120,9 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(17, 4, RB_UI_DRIVE, NORMAL);
         hex(17, 19, rb_boot.drive, 2); text(17, 21, "h", NORMAL);
         text(18, 4, rb_boot.io_mode == 1 ? RB_UI_ROUTE_EDD : RB_UI_ROUTE_CHS, NORMAL);
+#ifdef RB_HANDOFF_TEST
+        text(19, 4, RB_UI_HANDOFF_HELP, 0x1E);
+#endif
     } else if (view == 1) {
         text(5, 4, labels[0], TITLE);
         text(7, 4, RB_UI_DRIVE_HEX, NORMAL); hex(7, 29, rb_boot.drive, 2);
@@ -176,6 +186,18 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             }
         }
         text(19, 4, RB_UI_VOLUME_HELP, NORMAL);
+#ifdef RB_HANDOFF_TEST
+    } else if (view == 5) {
+        text(5, 4, RB_UI_HANDOFF_FAILED, TITLE);
+        text(6, 4, handoff_status == RB_HANDOFF_SCAN ? scan_errors[handoff_detail]
+             : handoff_status == RB_HANDOFF_VOLUME ? volume_messages[handoff_detail]
+             : handoff_status == RB_HANDOFF_TARGET ? RB_UI_HANDOFF_TARGET : RB_UI_HANDOFF_CODE, 0x1E);
+        text(8, 4, RB_UI_HANDOFF_REASON, NORMAL);
+        hex(10, 4, handoff_status, 4); text(10, 9, "/", NORMAL);
+        hex(10, 11, handoff_detail, 4);
+        text(13, 4, RB_UI_NO_CHANGES, NORMAL);
+        text(18, 4, RB_UI_HANDOFF_RETRY, NORMAL);
+#endif
     } else {
         text(5, 4, labels[2], TITLE);
         text(8, 4, RB_UI_RECOVERY_MISSING, NORMAL);
@@ -237,12 +259,19 @@ void __cdecl rb_menu_run(void)
     rb_menu_state state;
     rb_u16 key, action, rescan, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
+#ifdef RB_HANDOFF_TEST
+    rb_u16 handoff_status = 0, handoff_detail = 0;
+#endif
     rb_u32 now;
     rb_loader_copy(&snapshot);
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index);
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index
+#ifdef RB_HANDOFF_TEST
+         , handoff_status, handoff_detail
+#endif
+         );
     debug_state(serial, view, state.selected, page);
     debug_text("RB UI " RB_UI_LANGUAGE " CP437\r\n");
     debug_text("RB MENU READY\r\n");
@@ -268,6 +297,14 @@ void __cdecl rb_menu_run(void)
         } else if ((key >> 8) == 0x3DU) {
             if (view != 4) { volume_index = RB_MENU_NONE; }
             state.selected = 1; view = 2; rescan = 2;
+#ifdef RB_HANDOFF_TEST
+        } else if ((key >> 8) == 0x3EU && (view == 0 || view == 5)) {
+            debug_text("RB HANDOFF BEGIN\r\n");
+            handoff_status = rb_run_handoff_test(&handoff_detail);
+            debug_text("RB HANDOFF REJECT status="); debug_hex(handoff_status);
+            debug_text(" detail="); debug_hex(handoff_detail); debug_text("\r\n");
+            view = 5;
+#endif
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
         } else if (view == 4 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
@@ -308,7 +345,11 @@ void __cdecl rb_menu_run(void)
         } else if (probe) {
             debug_text("RB VOLUME EMPTY\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index);
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index
+#ifdef RB_HANDOFF_TEST
+             , handoff_status, handoff_detail
+#endif
+             );
         debug_state(++serial, view, state.selected, page);
     }
 }

@@ -69,7 +69,8 @@ The probe does not read FAT entries, directories, files, FSInfo contents or
 backup sectors. It checks jump syntax, not the destination or behavior of
 boot code. It cannot establish that FAT copies agree or that a root cluster
 contains a directory. A later start path must freshly validate its target,
-configuration and identity and implement the separate T07 handoff contract.
+configuration and identity. The separate [T07 test](Handoff.md) now proves
+the transition to an owned VBR, without authorizing arbitrary OS code.
 
 ## Manual check of the compact image
 
@@ -94,9 +95,9 @@ F3, F2, Esc and F8 remain usable. The large reference image has unformatted
 OS/data placeholders: their missing VBR signature is expected. Its management
 volume L2 is the successful FAT16 case.
 
-Manual success for the English/German builds from PR #8 was reported on
-10 November 2026, without new platform details. The new F3 page still needs
-its own manual check; earlier reports do not cover it.
+Manual success for the English/German builds from PR #8 and subsequently the
+F3 page from PR #9 was reported without new platform details. The new separate
+T07 test image still needs its own manual check.
 
 ## Native arithmetic and verification
 
@@ -125,9 +126,9 @@ make volume-test RB_LANGUAGE=en
 images can be checked with `python3 tools/test_volume.py --language en`, with
 optional `--qemu` and `--bios` paths as in the other emulator tests.
 
-- 97 host tests include four fixture checks for preserved loader data, fixed
+- 102 host tests include four fixture checks for preserved loader data, fixed
   header values, disjoint ranges and rejected inputs.
-- The 88-case boot suite includes the native `hdd-volume-model` with both
+- The 90-case boot suite includes the native `hdd-volume-model` with both
   EDD and CHS: 114 assertions (`V=072`, hexadecimal), comprising 30 arithmetic
   and 84 parser/read-bound assertions, followed by `RB VOLUME MODEL PASS`.
 - Each language runs 43 volume campaigns with 318 VGA/keyboard states.
@@ -142,7 +143,8 @@ optional `--qemu` and `--bios` paths as in the other emulator tests.
 The 19 new 128 MiB fixtures contain test headers alongside the existing
 management volume. Their added FAT16/FAT32 regions have no boot program,
 FAT contents or directories and are deliberately not bootable filesystems.
-These fixtures and the large reference image are not uploaded. Reports,
+These fault/header fixtures and the large reference image are not uploaded.
+The separate T07 image is described in its own guide. Reports,
 text pages, screenshots, RAM/VGA snapshots and traces are under `build/volume/`
 or `build/volume-de/`, and `volume/` or `volume-de/` in the CI artifact.
 `volume-results.json` is written only after the entire campaign succeeds.

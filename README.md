@@ -4,12 +4,13 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only partition and FAT header checks in an English or German menu.**
+**Current stage: read-only diagnostics and a separate test-VBR handoff image.**
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
 C/assembly test floppy remains available. OS boot profiles, chainloading,
-partition changes and installation are future steps.
+partition changes and installation are future steps. An independent test VBR now
+checks the real-mode transition in an explicitly selected test image.
 
 ## Documentation
 
@@ -21,6 +22,7 @@ partition changes and installation are future steps.
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
 - [F3 FAT volume header checks and their limits](docs/VolumeHeaders.md)
+- [T07 test-VBR handoff and manual test](docs/Handoff.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
@@ -81,11 +83,11 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 88 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 90 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
-header states through emulated keyboard input, with VGA, memory and disk-write
-checks: 1,194 states across both languages. There are 97 host tests.
+header states plus 185 handoff states through emulated keyboard input, with VGA, memory and disk-write
+checks: 1,564 states across both languages. There are 102 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -94,13 +96,19 @@ F3 checks FAT16/FAT32 headers; Left/Right cycles through data partitions.
 Header plausibility does not establish filesystem integrity or OS bootability.
 Automatic boot remains disabled because no boot profiles exist.
 
-The **HDD BIOS boot** workflow publishes both compact images and their evidence
+The **HDD BIOS boot** workflow publishes both compact diagnostic images, both
+128 MiB handoff-test images and their evidence
 in **retroboot-hdd-bios**. These images are test media for an empty BIOS VM.
 The [HDD guide](docs/HDD_Boot.md) includes QEMU and VirtualBox instructions.
 Manual success was reported for the earlier floppy, HDD startup, menu (PR #6)
-and partition scanner (PR #7), followed by the English/German builds (PR #8).
-The new F3 view still needs manual verification; the latest reports do not
+and partition scanner (PR #7), followed by the English/German builds (PR #8) and F3 view (PR #9).
+The new T07 image still needs manual verification; the latest reports do not
 establish a particular BIOS version.
+
+For T07, boot `retroboot-handoff.img` and press **F4 from the main menu**.
+The expected result is `RB HANDOFF PASS`; rebooting returns to RetroBoot.
+F4 is absent from the normal diagnostic image. The [handoff guide](docs/Handoff.md)
+describes the contract and why this result does not yet authorize an OS start.
 
 ## Source layout
 

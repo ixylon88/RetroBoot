@@ -76,5 +76,11 @@
   "VOLUME_TOTAL_LABEL": "Volume-Sektoren (hex):",
   "VOLUME_CLUSTERS": "Datencluster (hex):",
   "VOLUME_DATA": "Datenanfang LBA (hex):",
-  "VOLUME_HELP": "Links/Rechts: Volume  F3: Tabellen und Header erneut lesen"
+  "VOLUME_HELP": "Links/Rechts: Volume  F3: Tabellen und Header erneut lesen",
+  "HANDOFF_HELP": "F4: Test-VBR starten (Rückkehr nur durch Neustart)",
+  "HANDOFF_FAILED": "Testübergabe abgewiesen",
+  "HANDOFF_REASON": "Status / Detail (hex); das Testziel wurde nicht gestartet.",
+  "HANDOFF_TARGET": "Testpartition stimmt nicht mit dem eingebauten Prüfmuster überein.",
+  "HANDOFF_CODE": "Bootsektor weicht vom eingebauten Test-VBR ab.",
+  "HANDOFF_RETRY": "F4: Test wiederholen  Esc: Menü  F2: Partitionen"
 }

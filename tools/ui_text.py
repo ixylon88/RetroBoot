@@ -24,6 +24,8 @@ KEYS = (
     "VOLUME_TITLE", "VOLUME_SCOPE", "VOLUME_NONE", "VOLUME_ENTRY", "VOLUME_PTYPE",
     "VOLUME_LBA", "VOLUME_KIND", "VOLUME_BYTES", "VOLUME_TOTAL_LABEL",
     "VOLUME_CLUSTERS", "VOLUME_DATA", "VOLUME_HELP",
+    "HANDOFF_HELP", "HANDOFF_FAILED", "HANDOFF_REASON",
+    "HANDOFF_TARGET", "HANDOFF_CODE", "HANDOFF_RETRY",
 ) + ERROR_KEYS + VOLUME_KEYS
 # Most text begins at column 4 and must end before the frame at column 78.
 WIDTHS = dict.fromkeys(KEYS, 74)
@@ -36,7 +38,7 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 
