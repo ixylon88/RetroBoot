@@ -1,9 +1,11 @@
 """Boot HDD fixtures in disposable QEMU overlays; verify diagnostics and I/O."""
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import time
@@ -25,6 +27,34 @@ def check_result(name, code, output, marker, stopped_after_marker=False):
         raise ValueError(f"{name}: contradictory success/error markers")
     if not positive and ("RB HDD PASS" in output or "Stage 2 ready" in output):
         raise ValueError(f"{name}: invalid handoff after an error")
+
+
+def check_c_status(output, mode):
+    if ("C entry, data, BSS, pointers and integer calls OK" not in output
+            or f"BIOS disk path: {mode}" not in output
+            or f"BIOS disk path: {'CHS' if mode == 'EDD' else 'EDD'}" in output):
+        raise ValueError("Missing C startup evidence or wrong BIOS mode handed to C")
+
+
+def check_runtime_memory(data, payload, memory, mode):
+    """Inspect the normal image's actual RAM after C returns successfully."""
+    if len(data) != 0x10000 or data[:len(payload)] != payload:
+        raise ValueError("Loaded Stage 2 differs byte-for-byte from the built file")
+    header, symbols = memory["header"], memory["symbols"]
+    start, end = header["bss_begin"], header["bss_end"]
+    boot = data[symbols["_rb_boot"]:symbols["_rb_boot"] + 12]
+    drive, selected, low, high = struct.unpack("<HHII", boot)
+    if (drive, selected) != (0x80, 1 if mode == "EDD" else 0) or not (low or high):
+        raise ValueError("Incorrect C boot context in guest RAM")
+    expected = bytearray(end - start)
+    offset = symbols["_rb_boot"] - start
+    expected[offset:offset + 12] = boot
+    struct.pack_into("<H", expected, symbols["_rb_bss_word"] - start, 0xBEAD)
+    if data[start:end] != expected:
+        raise ValueError("C BSS contents differ from initialized runtime state")
+    if struct.unpack_from("<H", data, header["stack_low"])[0] != 0xA55A:
+        raise ValueError("C stack guard was overwritten")
+    return hashlib.sha256(data[:len(payload)]).hexdigest()
 
 
 def check_trace(trace, fault_sector=None, expected_reads=None):
@@ -199,16 +229,21 @@ def main():
         if uninstrumented:
             dump = directory / (name + "-memory.bin")
             dump.unlink(missing_ok=True)
-            code, error = run_until_marker(invocation, log, marker, dump, len(expected_memory))
+            code, error = run_until_marker(invocation, log, marker, dump, 0x10000)
         else:
             result = subprocess.run(invocation, capture_output=True, text=True, timeout=30)
             code, error = result.returncode, result.stderr
         output = log.read_text(encoding="utf-8") if log.exists() else ""
         check_result(name, code, output + error, marker, uninstrumented)
+        if marker == "RB HDD PASS" or case.source == "hdd-c-stack-fault":
+            check_c_status(output, case.mode)
+        causes = {"hdd-c-bss-fault": "C BSS ERROR", "hdd-c-data-fault": "C data ERROR",
+                  "hdd-c-context-fault": "C context ERROR"}
+        if case.source in causes and causes[case.source] not in output:
+            raise ValueError(f"{name}: missing specific C failure diagnostic")
         if uninstrumented:
-            if dump.read_bytes() != expected_memory:
-                raise ValueError(f"{name}: loaded Stage 2 differs byte-for-byte from the built file")
-            memory_hash = sha256(dump)
+            memory_hash = check_runtime_memory(dump.read_bytes(), expected_memory,
+                                               manifest["memory"]["normal"], case.mode)
         trace_text = trace.read_text(encoding="utf-8")
         check_trace(trace_text, 483 if once is not None else None, 2 if once else 3)
         calls = check_bios_route(output, case.mode) if case.rom is not None else []
@@ -223,6 +258,7 @@ def main():
                       "stopped_after_marker": uninstrumented, "expected_result": marker,
                       "mode": case.mode, "bios_calls_after_probe": calls,
                       "loaded_stage2_sha256": memory_hash, "read_lbas": lbas,
+                      "c_runtime_memory_verified": uninstrumented,
                       "image_unchanged": True, "block_writes": 0, "log": output})
         print(f"{name}: {marker}; no block writes; source unchanged", flush=True)
     for name, routes in pairs.items():
@@ -233,7 +269,7 @@ def main():
               "machine": "pc-i440fx-8.2", "accelerator": "tcg", "cpu": "486",
               "ram_mib": 16, "disk_access": "EDD and CHS, IDE, disposable snapshot overlay",
               "identical_sector_sequence_pairs": len(pairs), "cases": cases}
-    print(f"EDD/CHS: {len(pairs)} identical sector sequences; Stage 2 memory matches built file", flush=True)
+    print(f"EDD/CHS: {len(pairs)} identical sector sequences; Stage 2, C BSS and stack guard verified in RAM", flush=True)
     result_file.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 

@@ -109,7 +109,8 @@ def build(output):
     common = ["-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx", "-i=include"]
     run(wcc, *common, "-fo=" + str(destination / "probe.obj"), "tests/abi/probe.c")
     for name in ("helpers", "end"):
-        run(nasm, "-Werror", "-f", "obj", "-I", "./", f"tests/abi/{name}.asm", "-o", destination / (name + ".obj"))
+        source = "runtime/abi.asm" if name == "helpers" else "runtime/end.asm"
+        run(nasm, "-Werror", "-f", "obj", "-I", "./", source, "-o", destination / (name + ".obj"))
     artifacts, memory = {}, None
     for variant, defines in (("abi-probe", []), ("abi-probe-bss-fault", ["-DRB_SKIP_BSS_CLEAR=1"])):
         obj, binary, mapfile = (destination / (variant + suffix) for suffix in (".obj", ".bin", ".map"))

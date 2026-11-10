@@ -2,19 +2,21 @@
 
 import argparse
 import json
+import os
+import re
 import struct
 import subprocess
 import sys
 import zlib
 
 try:
-    from .build_abi_probe import prepare_output
+    from .build_abi_probe import inspect_map, prepare_output
     from .retroboot_layout import chs, load_plan, validate_plan
-    from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256
+    from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
 except ImportError:
-    from build_abi_probe import prepare_output
+    from build_abi_probe import inspect_map, prepare_output
     from retroboot_layout import chs, load_plan, validate_plan
-    from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256
+    from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
 
 SECTOR = 512
 COMPACT_BYTES = 64 * 1024 * 1024
@@ -44,6 +46,16 @@ CASES = {
     "hdd-bad-header": "RB HEADER ERROR",
     "hdd-bad-crc": "RB CRC ERROR",
     "hdd-last-fragment": "RB CRC ERROR",
+    "hdd-old-header": "RB HEADER ERROR",
+    "hdd-bss-overlap": "RB HEADER ERROR",
+    "hdd-bss-overflow": "RB HEADER ERROR",
+    "hdd-bss-empty": "RB HEADER ERROR",
+    "hdd-stack-contract": "RB HEADER ERROR",
+    "hdd-header-flags": "RB HEADER ERROR",
+    "hdd-c-bss-fault": "RB C STARTUP ERROR",
+    "hdd-c-data-fault": "RB C STARTUP ERROR",
+    "hdd-c-stack-fault": "RB C STARTUP ERROR",
+    "hdd-c-context-fault": "RB C STARTUP ERROR",
 }
 
 
@@ -58,12 +70,22 @@ def seal_sum(data, offset):
     return bytes(result)
 
 
-def seal_stage2(data):
-    if (not 33 <= len(data) <= STAGE2_MAX or data[:6] != b"\xeb\x1eRBS1"
+def inspect_stage2(data):
+    if (not 33 <= len(data) <= STAGE2_MAX or data[:6] != b"\xeb\x1eRBS2"
             or struct.unpack_from("<H", data, 6)[0] != 32
             or struct.unpack_from("<I", data, 8)[0] != len(data)
-            or struct.unpack_from("<3H", data, 16) != (0x1000, 32, 1)):
+            or struct.unpack_from("<3H", data, 16) != (0x1000, 32, 2)):
         raise ValueError("Invalid stage2 header or memory budget")
+    bss_begin, bss_end, stack_low, stack_top, flags = struct.unpack_from("<5H", data, 22)
+    if (not len(data) <= bss_begin < bss_end <= 0xE000
+            or (stack_low, stack_top, flags) != (0xE000, 0xFFFE, 0)):
+        raise ValueError("Invalid stage2 BSS/stack bounds or flags")
+    return {"file_bytes": len(data), "bss_begin": bss_begin, "bss_end": bss_end,
+            "stack_low": stack_low, "stack_top": stack_top}
+
+
+def seal_stage2(data):
+    inspect_stage2(data)
     result = bytearray(data)
     struct.pack_into("<I", result, 12, zlib.crc32(data[32:]))
     return bytes(result)
@@ -149,7 +171,7 @@ def fixture(parts, case):
     stage_clusters = [20, 21, 22] if case == "hdd-contiguous" else [20, 300, 40]
     if case == "hdd-boundaries":
         stage_clusters = [25, 151, 40]  # LBAs 503/1007: track/cylinder edges, 16/63
-    if len(stage2) != 5000 or len(boot_clusters) > 4:
+    if not 2 * cluster_bytes < len(stage2) <= 3 * cluster_bytes or len(boot_clusters) > 4:
         raise ValueError("Fixture allocation needs updating for changed payload sizes")
     table = bytearray(spf * SECTOR)
     struct.pack_into("<HH", table, 0, 0xFFF8, 0xFFFF)
@@ -185,6 +207,15 @@ def fixture(parts, case):
         stage2[100] ^= 1
     if case == "hdd-last-fragment":
         stage2[-1] ^= 1
+    if case == "hdd-old-header":
+        stage2[2:6] = b"RBS1"
+        struct.pack_into("<H", stage2, 20, 1)
+    header_faults = {"hdd-bss-overlap": (22, len(stage2) - 1),
+                     "hdd-bss-overflow": (24, 0xE002),
+                     "hdd-bss-empty": (24, struct.unpack_from("<H", stage2, 22)[0]),
+                     "hdd-stack-contract": (28, 0xFFFC), "hdd-header-flags": (30, 1)}
+    if case in header_faults:
+        struct.pack_into("<H", stage2, *header_faults[case])
     vbr = bytearray(parts["vbr"])
     vbr[13] = spc
     struct.pack_into("<H", vbr, 22, spf)
@@ -232,6 +263,75 @@ def write_fixture(path, size, extents):
             stream.write(data)
 
 
+def build_stage2(destination, nasm, wcc, wlink):
+    """Link the production C entry and explicit, CRC-valid startup fault builds."""
+    env = {key: value for key, value in os.environ.items()
+           if key.upper() not in {"WCC", "WLINK", "WATCOM", "INCLUDE", "LIB", "LIBPATH"}}
+
+    def run(*args):
+        result = subprocess.run([str(a) for a in args], cwd=ROOT, env=env,
+                                capture_output=True, text=True)
+        if result.returncode or "Warning!" in result.stdout or "Warning!" in result.stderr:
+            raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
+
+    run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
+        "-i=include", "-fo=" + str(destination / "stage2-c.obj"), "core/stage2.c")
+    for name in ("abi", "end"):
+        run(nasm, "-Werror", "-f", "obj", "-I", "./", "-DRB_HDD_FIXTURE=1", f"runtime/{name}.asm",
+            "-o", destination / (name + ".obj"))
+    payloads, memory, artifacts = {}, {}, {}
+    variants = {"normal": [], "test": ["-DRB_TEST=1"],
+                "bss-fault": ["-DRB_TEST=1", "-DRB_SKIP_BSS_CLEAR=1"],
+                "stack-fault": ["-DRB_TEST=1", "-DRB_BAD_STACK_GUARD=1"],
+                "context-fault": ["-DRB_TEST=1", "-DRB_BAD_BOOT_CONTEXT=1"]}
+    for variant, defines in variants.items():
+        stem = "stage2" + ("" if variant == "normal" else "-" + variant)
+        obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
+        run(nasm, "-Werror", "-f", "obj", "-I", "./", *defines, "core/start.asm", "-o", obj)
+        objects = ",".join(str(path) for path in
+                           (obj, destination / "stage2-c.obj", destination / "abi.obj", destination / "end.obj"))
+        run(wlink, "@core/stage2.wlink", "name", binary, "option", "map=" + str(mapfile), "file", objects)
+        linked = binary.read_bytes()
+        header = inspect_stage2(linked)
+        segments = inspect_map(mapfile, header)
+        symbols = {name: int(address, 16) for address, name in re.findall(
+            r"^([0-9a-fA-F]{8})[+*]?\s+(\w+)\s*$", mapfile.read_text(encoding="utf-8"), re.MULTILINE)}
+        required = ("rb_entry", "rb_file_end", "rb_bss_begin", "rb_bss_end",
+                    "_rb_initialized_word", "_rb_initialized_long", "_rb_boot",
+                    "_rb_bss_word", "_rb_bss_long", "_rb_bss_array")
+        if not all(name in symbols for name in required):
+            raise ValueError("Missing Stage 2 map symbols")
+        symbols = {name: symbols[name] for name in required}
+        if (symbols["rb_entry"] != 32 or symbols["rb_file_end"] != len(linked)
+                or symbols["rb_bss_begin"] != header["bss_begin"]
+                or symbols["rb_bss_end"] != header["bss_end"]
+                or any(s["start"] + s["size"] > len(linked)
+                       for s in segments.values() if s["class"] in {"CODE", "DATA"})):
+            raise ValueError("Stage 2 header, file and map disagree")
+        for name, size in (("_rb_initialized_word", 2), ("_rb_initialized_long", 4)):
+            if not 32 <= symbols[name] <= len(linked) - size:
+                raise ValueError("Initialized C data outside loaded file")
+        for name, size in (("_rb_boot", 12), ("_rb_bss_word", 2),
+                           ("_rb_bss_long", 4), ("_rb_bss_array", 17)):
+            if not header["bss_begin"] <= symbols[name] <= header["bss_end"] - size:
+                raise ValueError("C variable outside cleared BSS")
+        # The end object emits padding so that BSS follows the entire file.
+        if not 4096 < len(linked) <= 6144:
+            raise ValueError("C payload outgrew the three-cluster fixture; update allocation")
+        payloads[variant] = seal_stage2(linked)
+        binary.write_bytes(payloads[variant])
+        memory[variant] = {"header": header, "fixture_padding_bytes": 4096,
+                           "segments": segments, "symbols": symbols}
+        artifacts[binary.name] = {"bytes": len(linked), "sha256": sha256(binary)}
+    bad_data = bytearray(payloads["test"])
+    struct.pack_into("<H", bad_data, memory["test"]["symbols"]["_rb_initialized_word"], 0xDEAD)
+    payloads["data-fault"] = seal_stage2(bad_data)
+    binary = destination / "stage2-data-fault.bin"
+    binary.write_bytes(payloads["data-fault"])
+    artifacts[binary.name] = {"bytes": len(bad_data), "sha256": sha256(binary)}
+    return payloads, memory, artifacts
+
+
 def build(output):
     if output not in ("hdd", "hdd-repeat"):
         raise ValueError("Output must be hdd or hdd-repeat")
@@ -239,10 +339,13 @@ def build(output):
     prepare_output(destination)
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     nasm = TOOLCHAIN / ("nasm-" + lock["nasm"]["version"]) / "nasm"
+    wcc, wlink = (TOOLCHAIN / "watcom" / name for name in ("wcc", "wlink"))
+    for name, path in (("wcc", wcc), ("wlink", wlink)):
+        verify(path, lock["open_watcom"]["executables"][name])
     version = subprocess.check_output([str(nasm), "-v"], text=True).strip()
     if version.split()[:3] != ["NASM", "version", lock["nasm"]["version"]]:
         raise ValueError(f"Unexpected assembler: {version}")
-    artifacts = {}
+    stage2, memory, artifacts = build_stage2(destination, nasm, wcc, wlink)
     for mode in range(9):
         path = destination / f"int13-{mode}.rom"
         subprocess.run([str(nasm), "-Werror", "-f", "bin", f"-DRB_ROM_MODE={mode}",
@@ -255,7 +358,7 @@ def build(output):
         artifacts[path.name] = {"bytes": len(rom), "sha256": sha256(path)}
     for test in (False, True):
         parts = {}
-        for name in ("mbr", "vbr", "bootstrap", "stage2"):
+        for name in ("mbr", "vbr", "bootstrap"):
             path = destination / (name + ("-test" if test else "") + ".bin")
             subprocess.run([str(nasm), "-Werror", "-f", "bin", "-I", "./",
                             *(["-DRB_TEST=1"] if test else []), f"boot/{name}.asm", "-o", str(path)],
@@ -265,21 +368,22 @@ def build(output):
                 data = bytearray(data)
                 struct.pack_into("<H", data, 6, len(data))
                 data = seal_sum(data, 8)
-            if name == "stage2":
-                data = seal_stage2(data)
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
         for case in (CASES if test else ("retroboot-hdd",)):
+            variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
+            parts["stage2"] = stage2[variant]
             path = destination / (case + ".img")
             size, extents = fixture(parts, case)
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
-    manifest = {"format_version": 1, "purpose": "phase-3-edd-chs-fat16-loader-fixtures",
-                "nasm_source": lock["nasm"], "nasm_executable_sha256": sha256(nasm),
-                "artifacts": artifacts}
+    manifest = {"format_version": 2, "purpose": "phase-3-edd-chs-fat16-c-runtime-fixtures",
+                "toolchain": lock, "host_executable_sha256": {
+                    "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
+                "memory": memory, "artifacts": artifacts}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"Built {output}: MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, stage2 {len(parts['stage2'])} bytes", flush=True)
+    print(f"Built {output}: MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest
 
 

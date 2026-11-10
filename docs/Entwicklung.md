@@ -1,11 +1,12 @@
 # Entwicklung – Hostprüfungen und erste Bootlader
 
-Stand: 9. November 2026.
+Stand: 10. November 2026.
 
 Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
 Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
 Layoutprüfers bleibt gültig; er selbst erzeugt weiterhin nur Berichte.
-Hinzu kommt der [Festplattenladeweg](HDD_Boot.md) über BIOS-EDD/CHS und FAT16.
+Hinzu kommt der [Festplattenladeweg](HDD_Boot.md) über BIOS-EDD/CHS und FAT16
+bis zum C-Einstieg mit eigenem Startcode.
 Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
 
 ## Was jetzt funktioniert
@@ -55,7 +56,7 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 | `make hdd` | Neue HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild und 62 positive/negative HDD-Boots in QEMU prüfen |
+| `make hdd-test` | Wiederholungsbuild und 82 positive/negative HDD-Boots in QEMU prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -114,7 +115,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **76 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **80 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -135,19 +136,29 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-62 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien und echte induzierte
+82 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 26 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 36 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
 für den vorherigen Stand aus PR #3 als erfolgreich zurückgemeldet; Version,
 Host-CPU und genaue VM-Einstellungen liegen dazu noch nicht vor.
+
+Stage 2 führt inzwischen Open-Watcom-C/16 aus. Der Assembly-Startcode
+initialisiert BSS und Stack und übergibt Laufwerk, BIOS-Leseweg und erreichbare
+Sektorzahl. Fehlende BSS-Löschung, beschädigte Initialwerte, falscher Kontext
+und ein zerstörtes Stack-Schutzwort führen zum erwarteten Abbruch. Für das
+normale Image bestätigt ein RAM-Abzug zusätzlich die geladenen Dateibytes,
+die C-BSS-Inhalte und das Schutzwort. Die gemeinsam verwendeten Helfer stehen
+in `runtime/`; alle sieben Disketten-Binärdateien und -Images sind nach dieser
+Umstellung bytegleich zum vorherigen Stand. Der aktuelle C-HDD-Stand ist noch
+nicht manuell in VirtualBox oder auf der historischen Zielmaschine geprüft.
 
 Damit liegen T01-Nachweise für beide Artefaktgruppen sowie T02/T03/T04 und ein
 abgegrenzter T05-Nachweis für den beschriebenen QEMU-Testaufbau vor.
@@ -157,8 +168,7 @@ zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Den geprüften C-/Assembly-Vertrag in Stage 2 integrieren und darauf das
-   zunächst ausschließlich lesende Menü aufbauen.
+1. Auf dem geprüften C-Einstieg das zunächst ausschließlich lesende Menü aufbauen.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 

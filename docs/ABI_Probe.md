@@ -1,7 +1,8 @@
 # BIOS- und C-/Assembly-Probe
 
-Stand: 9. November 2026. Diese Stufe prüft die native Werkzeugkette und die
-Schnittstelle zu C, bevor der produktive Festplattenlader entsteht.
+Stand: 10. November 2026. Diese eigenständige Probe prüft die native
+Werkzeugkette und die Schnittstelle zu C. Der [HDD-Ladeweg](HDD_Boot.md)
+verwendet inzwischen denselben Vertrag und dieselben Helfer aus `runtime/`.
 
 ## Bauen und starten
 
@@ -138,7 +139,8 @@ Die Probe besitzt **kein FAT-Dateisystem**, keinen MBR, keine Partitionstabelle
 und keinen Festplattenzugriff. Sie ist ein eigenes Testmedium; sie ersetzt
 weder die geplante FAT12-Rettungsdiskette noch den produktiven
 MBR → Verwaltungs-VBR → FAT16-Bootstrap → Stage-2-Ladeweg. Dessen Prüfsummen,
-EDD-/CHS-Fallbacks und Wiederherstellung gehören in die folgenden Stufen.
+EDD-/CHS-Fallback und C-Einstieg werden separat geprüft; Wiederherstellung
+gehört weiterhin zu einer späteren Stufe.
 
 ## Nachweise und Artefakte
 
