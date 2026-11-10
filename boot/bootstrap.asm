@@ -192,7 +192,7 @@ entry:
     mov es, ax
     cmp word [es:0], 0x1EEB
     jne header_error
-    cmp dword [es:2], 'RBS1'
+    cmp dword [es:2], 'RBS2'
     jne header_error
     cmp word [es:6], RB_HEADER
     jne header_error
@@ -203,7 +203,20 @@ entry:
     jne header_error
     cmp word [es:18], RB_HEADER
     jne header_error
-    cmp word [es:20], 1
+    cmp word [es:20], 2
+    jne header_error
+    cmp [es:22], ax             ; BSS starts at or after the exact file end
+    jb header_error
+    mov dx, [es:24]
+    cmp dx, [es:22]
+    jbe header_error
+    cmp dx, RB_STACK_LOW
+    ja header_error
+    cmp word [es:26], RB_STACK_LOW
+    jne header_error
+    cmp word [es:28], RB_STACK_TOP
+    jne header_error
+    cmp word [es:30], 0
     jne header_error
     mov ecx, eax
     sub ecx, RB_HEADER
@@ -226,6 +239,16 @@ entry:
     not edx
     cmp edx, [es:12]
     jne crc_error
+%ifdef RB_TEST
+    ; Poison only the now-validated BSS, after the last partial sector load.
+    ; This proves that startup clears it, independent of initial guest RAM.
+    mov di, [es:22]
+    mov cx, [es:24]
+    sub cx, di
+    mov al, 0xA5
+    cld
+    rep stosb
+%endif
     mov dl, [RB_DRIVE]
     jmp RB_STAGE2_SEG:RB_HEADER
 

@@ -14,7 +14,7 @@ wir lokal ausführen können.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader zweimal bauen, 62 Start-/Fehlerszenarien mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Stage-2 zweimal bauen, 82 Start-/Fehlerszenarien mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -39,7 +39,7 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-hdd-bios`: kompaktes HDD-Testimage, Binärdateien, Manifest,
-  Bootprotokolle und I/O-Traces.
+  Linkerkarten, Bootprotokolle und I/O-Traces.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
@@ -60,7 +60,8 @@ Ein kleines eigenes **Test-Option-ROM** kann dem Lader fehlende EDD-Funktionen
 oder fehlerhafte BIOS-Antworten vorspiegeln. Dadurch wird der unveränderte MBR
 zur echten automatischen CHS-Auswahl veranlasst. Die Tests protokollieren die
 BIOS-Aufrufe, vergleichen die gelesenen Sektorfolgen und lesen Stage 2 zur
-Byteprüfung aus dem VM-Speicher zurück. Das ROM gehört nur zum Testaufbau;
+Byteprüfung aus dem VM-Speicher zurück. Für das normale Image werden auch
+C-Bootkontext, BSS und Stack-Schutzwort geprüft. Das ROM gehört nur zum Testaufbau;
 für den manuellen Start des Images wird es nicht benötigt.
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen

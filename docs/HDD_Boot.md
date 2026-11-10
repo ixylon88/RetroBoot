@@ -1,8 +1,18 @@
-# Festplattenstart: EDD-/CHS-Ladeweg über FAT16
+# Festplattenstart: EDD-/CHS-Ladeweg über FAT16 bis C
 
-Stand: 9. November 2026. Dies ist ein überprüfbarer Teil von Phase 3.
-Der Start erreicht ohne Betriebssystem die Meldungen
-`RetroBoot Stage 2 ready` und `RB HDD PASS`.
+Stand: 10. November 2026. Dies ist ein überprüfbarer Teil von Phase 3.
+Der Start erreicht ohne Betriebssystem den eigenen C-Einstieg. Erfolgsbild
+bei einem BIOS mit EDD:
+
+```text
+C entry, data, BSS, pointers and integer calls OK
+BIOS disk path: EDD
+RetroBoot Stage 2 ready
+RB HDD PASS
+```
+
+Beim Fallback steht in der zweiten Zeile `CHS`. Die letzten beiden Zeilen
+erscheinen erst nach erfolgreicher C-Rückkehr und den Assembly-Nachprüfungen.
 
 Der MBR lädt den eigenen VBR des verborgenen logischen FAT16-Volumes. Dieser
 lädt die zusammenhängende Datei `RBBOOT.SYS` über ihren installierten
@@ -25,7 +35,7 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Eigene Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild und 62 QEMU-Szenarien einschließlich Fehlerfällen |
+| `make hdd-test` | Wiederholungsbuild und 82 QEMU-Szenarien einschließlich Fehlerfällen |
 | `python3 tools/test_hdd.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin` | Bereits gebaute Images mit ausdrücklich gewähltem Emulator/BIOS prüfen |
 
 Das kompakte `build/hdd/retroboot-hdd.img` ist 64 MiB groß und kann als erste
@@ -43,7 +53,7 @@ qemu-system-i386 -machine pc-i440fx-8.2,accel=tcg -cpu 486 -m 16 \
 
 Nach der Erfolgsmeldung hält Stage 2 an; ein Menü folgt später. Das Artefakt
 **retroboot-hdd-bios** im Workflow **HDD BIOS boot** enthält dieses Image,
-Bootdateien, SHA-256-Manifest, Ergebnisse und I/O-Traces. Der Workflow lädt
+Bootdateien, Linkerkarten, SHA-256-Manifest, Ergebnisse und I/O-Traces. Der Workflow lädt
 das große Referenzimage ausdrücklich nicht hoch.
 
 ### Manueller Test mit VirtualBox
@@ -52,7 +62,8 @@ QEMU ist unser automatisierter Testweg. Das normale Image kann auch in einer
 VirtualBox-BIOS-VM auf einem Intel-/AMD-Rechner getestet werden. Der Benutzer
 hat am 9. November 2026 einen erfolgreichen VirtualBox-Start des Stands aus
 PR #3 zurückgemeldet. VirtualBox-Version und genaue VM-Einstellungen wurden
-dabei nicht protokolliert; das ist noch kein Nachweis für den neuen CHS-Fallback.
+dabei nicht protokolliert; das ist noch kein manueller Nachweis für die neue
+C-Integration oder für den CHS-Fallback.
 
 Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
 `retroboot-hdd.img` lässt sie sich unter Windows/PowerShell so umwandeln:
@@ -120,14 +131,24 @@ Mediengröße; zusätzliche echte Lesefehler werden über den BIOS-Status erkann
 Die historische Zielmaschine und weitere reale BIOS-Varianten sind noch
 nicht vermessen. T04 ist für den unten beschriebenen QEMU-Testaufbau belegt.
 
-Stage 2 ist hier ein kleiner Assembly-Testkörper mit 5.000 Byte einschließlich
-Prüfdaten. Die separate C-/Assembly-Probe bleibt bestehen; ihre geprüfte
-C-Laufzeit wird erst im nächsten Integrationsschritt in Stage 2 eingebunden.
+Stage 2 besteht jetzt aus `core/start.asm`, `core/stage2.c` und den gemeinsam
+mit der Diskettenprobe verwendeten Helfern in `runtime/`. Open Watcom C/16
+und NASM erzeugen OMF-Objekte, WLINK daraus eine flache Binärdatei ohne DOS-
+oder C-Standardbibliothek. Compilerflags und Werkzeugfixierung entsprechen
+der [ABI-Probe](ABI_Probe.md). Der Build prüft die ausführbaren Compilerdateien,
+behandelt Warnungen als Fehler und gleicht Header, Linkersegmente und die
+Adressen der C-Variablen ab.
+
+4.096 Byte festes Padding am Ende der initialisierten Daten erzwingen weiterhin
+drei FAT-Cluster. BSS folgt erst nach diesem Padding. Damit bleiben die
+Fragmentierungs- und Grenztests aussagekräftig; der Build stoppt, wenn die Datei
+nicht mehr in genau drei Cluster passt. Die exakten Dateigrößen und Speicher-
+grenzen jedes Builds stehen in `manifest.json`.
 Es gibt noch keine OS-Übergabe, Partitionserkennung, Umschaltung oder Recovery.
 
 ## Speichervertrag
 
-Die Adressen stehen in `include/boot.inc`. Alle frühen Lader verwenden DS=0
+Die Adressen stehen in `include/boot.inc` und `include/memory.inc`. Alle frühen Lader verwenden DS=0
 und einen Stack unterhalb von `0000:7C00`. Der MBR normalisiert CS und kopiert
 sich vollständig nach `0000:0600`, bevor der VBR an die BIOS-Ladeadresse kommt.
 
@@ -140,14 +161,38 @@ sich vollständig nach `0000:0600`, bevor der VBR an die BIOS-Ladeadresse kommt.
 | `02000h–03FFFh` | Maximal 8 KiB zusammenhängender Bootstrap; derzeit 1.536 Byte |
 | `04000h–07BFFh` | Freiraum und früher, nach unten wachsender Stack |
 | `07C00h–07DFFh` | Verwaltungs-VBR mit einem reservierten Sektor |
-| `10000h–1BFFFh` | Stage-2-Datei, höchstens 48 KiB einschließlich Header |
-| `1C000h–1DFFFh` | Reserve für spätere Daten-/BSS-Integration |
-| `1E000h–1FFFFh` | Stage-2-Stackbereich, initial `SS=1000h`, `SP=FFFEh` |
+| Ab `10000h`, maximal bis `1BFFFh` | Stage-2-Datei, höchstens 48 KiB einschließlich Header und Padding |
+| Ab `10000h + bss_begin` bis vor `10000h + bss_end` | C-BSS einschließlich Bootkontext; beginnt nach der Datei und endet spätestens bei `1E000h` |
+| `1E000h–1E001h` | Stack-Schutzwort `A55Ah` |
+| `1E002h–1FFFDh` | C-Stack, initial `SS=1000h`, `SP=FFFEh`, wächst abwärts |
 
 Vor dem Laden von Stage 2 prüft der Bootstrap mit INT 12h mindestens 128 KiB
 konventionellen Speicher und, falls vorhanden, die EBDA-Untergrenze aus der
-BDA. Stage 2 setzt DS/ES/SS auf `1000h`, löscht DF und erhält DL=`80h`.
-Der jetzige Assembly-Test benötigt keine BSS-Initialisierung.
+BDA. Stage 2 setzt DS/ES/SS auf `1000h`, richtet SP ein, löscht DF und die vom
+Linker bestimmte BSS und setzt das Stack-Schutzwort. Erst danach werden
+Interrupts freigegeben und C aufgerufen. Zum Löschen verwendet der Startcode
+seine gelinkten Symbole, nicht die eingelesenen Headerwerte. Die Headergrenzen
+sind eine zusätzliche Prüfung vor der Übergabe.
+
+`rb_main(const rb_boot_context *boot)` bekommt einen Near-Zeiger auf eine
+Kopie des Loader-Kontexts in der eigenen BSS. Der Vertrag steht in
+`include/stage2.h`; alle Felder sind vor dem C-Aufruf initialisiert:
+
+| Offset im Kontext | Typ | Inhalt |
+| --- | --- | --- |
+| 0 | `rb_u16` | BIOS-Laufwerk, derzeit `0080h` |
+| 2 | `rb_u16` | Leseweg: 0 für CHS, 1 für EDD |
+| 4 | `rb_u32` | Untere 32 Bit der erreichbaren Sektorzahl |
+| 8 | `rb_u32` | Obere 32 Bit der erreichbaren Sektorzahl |
+
+Die Sektorzahl stammt aus AH=48h oder der CHS-Geometrie; bei CHS ist sie keine
+unabhängige Messung der Mediengröße. C prüft Kontext, initialisierte Daten,
+BSS, Near-/Far-Zeiger und Integeraufrufe. Nach der Rückkehr prüft Assembly
+SI/DI/BP, DS/SS, IF/DF, den ausgeglichenen Stack, das Schutzwort und eine
+32-Bit-C-Rückgabe in DX:AX. ES ist nach dem Watcom-Vertrag caller-saved und
+wird nach C-Rückkehr nicht als erhalten vorausgesetzt. Ein Fehler liefert
+`RB C STARTUP ERROR` und Halt. Das Schutzwort ersetzt keine spätere Analyse
+des maximalen Stackbedarfs.
 
 ## Binärformate und Abbruchbedingungen
 
@@ -156,7 +201,27 @@ Der jetzige Assembly-Test benötigt keine BSS-Initialisierung.
 | MBR | Genau 440 Byte einschließlich Padding; Magic `RBM1` bei 432, Verwaltungs-VBR-LBA bei 436. Der Host ersetzt nur Byte 0–439; Byte 440–511 bleiben erhalten. |
 | VBR | 512 Byte, `55AA`, FAT16-BPB, Magic `RBV1` bei 62; Bootstrap-LBA bei 66, Sektorzahl bei 70, Prüfsumme bei 72. Der MBR verlangt eine 16-Bit-Wortsumme von null über den gesamten VBR. |
 | Bootstrap | Magic `RBB1` bei 2, gepaddete Dateilänge bei 6, Wortprüfsumme bei 8, Einstieg bei 32. VBR prüft Bereich, 1–16 Sektoren, Magic, Länge und Wortsumme vor der Übergabe. |
-| Stage 2 | Magic `RBS1` bei 2; Headerlänge bei 6, Dateilänge bei 8, CRC32 bei 12, Ladesegment bei 16, Einstieg bei 18, Version bei 20. Erwartet werden 32-Byte-Header, Segment `1000h`, Einstieg 32 und Version 1. CRC32 umfasst Byte 32 bis Dateiende. |
+| Stage 2 | 32-Byte-Header `RBS2`, Speichergrenzen und CRC32; die Felder stehen unten. |
+
+Der Stage-2-Header wurde auf Version 2 angehoben, weil er jetzt auch den
+C-Speichervertrag beschreibt. Bootstrap und Stage-2-Datei müssen gemeinsam
+aktualisiert werden; ein alter `RBS1`-Header wird abgewiesen.
+
+| Byteoffset | Breite | Inhalt / Erwartung |
+| --- | --- | --- |
+| 0 | 2 | `EB 1E`, Sprung zum Einstieg bei 32 |
+| 2 | 4 | `RBS2` |
+| 6 | 2 | Headergröße 32 |
+| 8 | 4 | Exakte Dateilänge einschließlich Header und Padding |
+| 12 | 4 | CRC32 über Byte 32 bis Dateiende |
+| 16 | 2 | Ladesegment `1000h` |
+| 18 | 2 | Eintrittsoffset 32 |
+| 20 | 2 | Formatversion 2 |
+| 22 | 2 | BSS-Anfang als Segmentoffset, mindestens Dateilänge |
+| 24 | 2 | Exklusives BSS-Ende, größer als Anfang und höchstens `E000h` |
+| 26 | 2 | Stack-Untergrenze `E000h` |
+| 28 | 2 | Initialer SP `FFFEh` |
+| 30 | 2 | Reserviert, muss null sein |
 
 Mehrbytewerte sind Little Endian. CRC32 verwendet das reflektierte Polynom
 `EDB88320h`, Anfangswert `FFFFFFFFh` und abschließende Invertierung. Beide
@@ -185,21 +250,31 @@ beziehungsweise Ursache an und halten den Rechner an.
 
 Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
 
-- 76 Hosttests, darunter MBR-Erhalt, EBR-Adressierung und unabhängiges
+- 80 Hosttests, darunter MBR-Erhalt, EBR-Adressierung und unabhängiges
   Zusammensetzen der fragmentierten Datei über ihre FAT-Kette.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 62 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 82 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
+  Dazu kommen alte Header, überlappende/leere/überlaufende BSS-Grenzen,
+  falscher Stackvertrag und gesetzte reservierte Headerbits.
+- Vier C-Fehlervarianten je Leseweg: fehlende BSS-Löschung, beschädigte
+  Initialwerte, falscher Bootkontext und zerstörtes Stack-Schutzwort. Alle
+  haben gültige Datei-CRCs und erreichen tatsächlich den C-Startcode. Der
+  Test-Bootstrap füllt die validierte BSS nach dem Laden mit `A5h`; zufällig
+  nullgefüllter VM-Speicher oder die Sektorrundung können den BSS-Fehler somit
+  nicht verdecken. Das normale Image enthält diese Testeingriffe nicht.
 - QEMU-`blkdebug` erzeugt einen einmaligen und einen dauerhaften echten
   Blocklesefehler. Die IDE-Traces zeigen zwei beziehungsweise drei Versuche
   am betroffenen LBA; danach folgt Erfolg beziehungsweise `RB READ ERROR`.
 - Das ausgelieferte Image ohne QEMU-Testausstieg wird ebenfalls gestartet.
   Die Teststeuerung stoppt nach seiner Erfolgsmeldung die VM über QMP,
-  liest alle 5.000 Byte Stage 2 aus dem physischen Speicher ab `10000h` zurück
-  und vergleicht sie mit `stage2.bin`. Dies geschieht mit EDD, mit CHS und
+  liest das 64-KiB-Stage-2-Segment ab `10000h` zurück und vergleicht alle
+  Dateibytes mit `stage2.bin`. Zusätzlich müssen C-Bootkontext, das von C
+  geschriebene BSS-Wort `BEADh`, alle übrigen BSS-Bytes und das Stack-Schutzwort
+  stimmen. Dies geschieht mit EDD, mit CHS und
   zusätzlich einmal ohne das Test-Option-ROM. Erst danach wird QEMU beendet.
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
@@ -212,7 +287,7 @@ Sie reservieren 1 KiB am oberen Ende des konventionellen Speichers über den
 BDA-Speicherzähler und hängen sich in den INT-13h-Vektor ein. Diese Eingriffe
 gehören zum Testaufbau, nicht zum ausgelieferten Festplattenimage.
 
-26 Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
+36 Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
 dieselbe geordnete Sektorfolge einschließlich Wiederholungen enthalten.
 Die BIOS-Traces beweisen dabei die Benutzung von AH=42h beziehungsweise
 AH=02h nach der Auswahl. Spur-/Zylinderwechsel werden bei 16/63 geprüft;

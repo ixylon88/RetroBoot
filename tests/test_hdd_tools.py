@@ -8,7 +8,8 @@ from pathlib import Path
 
 from tools.build_hdd import (COMPACT_BYTES, STAGE2_MAX, fixture, layout,
                              patch_mbr, seal_stage2, seal_sum, write_fixture)
-from tools.test_hdd import check_bios_route, check_result, check_trace, read_lbas, scenarios
+from tools.test_hdd import (check_bios_route, check_c_status, check_result,
+                            check_runtime_memory, check_trace, read_lbas, scenarios)
 
 
 def samples():
@@ -22,8 +23,9 @@ def samples():
     bootstrap[:6] = b"\xeb\x1eRBB1"
     struct.pack_into("<H", bootstrap, 6, len(bootstrap))
     stage2 = bytearray(5000)
-    stage2[:6] = b"\xeb\x1eRBS1"
-    struct.pack_into("<HIIHHH", stage2, 6, 32, 5000, 0, 0x1000, 32, 1)
+    stage2[:6] = b"\xeb\x1eRBS2"
+    struct.pack_into("<HII8H", stage2, 6, 32, 5000, 0, 0x1000, 32, 2,
+                     5000, 5036, 0xE000, 0xFFFE, 0)
     stage2[32:] = bytes(index % 251 for index in range(4968))
     return {"mbr": bytes(mbr), "vbr": bytes(vbr),
             "bootstrap": seal_sum(bootstrap, 8), "stage2": seal_stage2(stage2)}
@@ -72,6 +74,23 @@ class DiskFormatTests(unittest.TestCase):
         oversized = data + bytes(STAGE2_MAX)
         with self.assertRaises(ValueError):
             seal_stage2(oversized)
+
+    def test_stage2_rejects_bss_overlap_wrap_and_stack_changes(self):
+        for offset, value in ((22, 4999), (22, 5040), (24, 4999), (24, 5000),
+                              (24, 0xE001), (24, 0), (26, 0xDF00), (28, 0), (30, 1)):
+            bad = bytearray(samples()["stage2"])
+            struct.pack_into("<H", bad, offset, value)
+            with self.subTest(offset=offset, value=value), self.assertRaises(ValueError):
+                seal_stage2(bad)
+
+    def test_header_faults_leave_payload_crc_valid(self):
+        for case in ("hdd-old-header", "hdd-bss-overlap", "hdd-bss-overflow",
+                     "hdd-bss-empty", "hdd-stack-contract", "hdd-header-flags"):
+            _, extents = fixture(samples(), case)
+            data = b"".join(extents[lba * 512] for lba in (483, 1603, 563))
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                seal_stage2(data)
+            self.assertEqual(struct.unpack_from("<I", data, 12)[0], zlib.crc32(data[32:]))
 
     def test_compact_hidden_logical_volume_and_free_first_track(self):
         size, admin, extents = layout(False)
@@ -155,6 +174,33 @@ class DiskFormatTests(unittest.TestCase):
 
 
 class EvidenceTests(unittest.TestCase):
+    def test_c_evidence_requires_runtime_success_and_selected_route(self):
+        good = "C entry, data, BSS, pointers and integer calls OK\nBIOS disk path: EDD\n"
+        check_c_status(good, "EDD")
+        for output, mode in (("RB HDD PASS", "EDD"), (good, "CHS"),
+                              (good + "BIOS disk path: CHS", "EDD")):
+            with self.subTest(output=output, mode=mode), self.assertRaises(ValueError):
+                check_c_status(output, mode)
+
+    def test_memory_capture_checks_file_bss_context_and_guard(self):
+        payload = samples()["stage2"]
+        memory = {"header": {"bss_begin": 5000, "bss_end": 5036, "stack_low": 0xE000},
+                  "symbols": {"_rb_boot": 5000, "_rb_bss_word": 5016}}
+        data = bytearray(0x10000)
+        data[:len(payload)] = payload
+        struct.pack_into("<HHII", data, 5000, 0x80, 1, 131072, 0)
+        struct.pack_into("<H", data, 5016, 0xBEAD)
+        struct.pack_into("<H", data, 0xE000, 0xA55A)
+        self.assertEqual(len(check_runtime_memory(data, payload, memory, "EDD")), 64)
+        for offset in (100, 5000, 5002, 5016, 5020, 0xE000):
+            bad = bytearray(data)
+            bad[offset] ^= 1
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                check_runtime_memory(bad, payload, memory, "EDD")
+        data[5004:5012] = bytes(8)
+        with self.assertRaises(ValueError):
+            check_runtime_memory(data, payload, memory, "EDD")
+
     def test_bios_trace_requires_real_fallback_and_no_mixed_reads(self):
         self.assertEqual(check_bios_route("@02\n@41\n@48\n@42\n", "EDD"), ["48", "42"])
         self.assertEqual(check_bios_route("@02\n@41\n@08\n@02\n@00\n@02\n", "CHS"),

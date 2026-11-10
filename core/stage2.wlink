@@ -1,0 +1,10 @@
+# Raw BIOS payload: no DOS/CRT, emitted code/data, separate BSS and stack.
+format raw bin
+option quiet
+option nodefaultlibs
+option offset=0
+option start=rb_entry
+order clname CODE segment _TEXT
+      clname DATA segment CONST segment CONST2 segment _DATA
+      clname BSS noemit segment _BSS
+      clname STACK offset=0xE000 noemit segment STACK

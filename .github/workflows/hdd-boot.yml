@@ -41,6 +41,7 @@ jobs:
             build/hdd/retroboot-hdd.img
             build/hdd/*.bin
             build/hdd/*.rom
+            build/hdd/*.map
             build/hdd/manifest.json
             build/hdd/boot-results.json
             build/hdd/*.log
