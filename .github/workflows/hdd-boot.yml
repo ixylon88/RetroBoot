@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Reproduce HDD images and verify loader and menu
+      - name: Reproduce HDD images and verify loader, menu and partition scanner
         run: make hdd-test
       - name: Upload compact HDD fixture and evidence
         if: always()
@@ -53,3 +53,10 @@ jobs:
             build/menu/*.txt
             build/menu/*.bin
             build/menu/*.png
+            build/scan/*.json
+            build/scan/*.log
+            build/scan/*.trace
+            build/scan/*.txt
+            build/scan/*.bin
+            build/scan/*.png
+            build/scan/*.conf

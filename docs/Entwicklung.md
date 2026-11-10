@@ -8,6 +8,8 @@ Layoutprüfers bleibt gültig; er selbst erzeugt weiterhin nur Berichte.
 Hinzu kommt der [Festplattenladeweg](HDD_Boot.md) über BIOS-EDD/CHS und FAT16
 bis zum C-Einstieg mit eigenem Startcode.
 Darauf baut jetzt das [lesende Textmenü](Menue.md) auf.
+Die [MBR-/EBR-Prüfung](Partitionen.md) ergänzt die Untersuchung tatsächlich
+gelesener Partitionstabellen im Menü; der Host-Layoutprüfer bleibt davon getrennt.
 Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
 
 ## Was jetzt funktioniert
@@ -57,8 +59,9 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 | `make hdd` | Neue HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild, 84 positive/negative HDD-Boots und 60 Menüansichten prüfen |
+| `make hdd-test` | Wiederholungsbuild, 86 HDD-Bootfälle, 75 Menüansichten und 204 Scanner-/Blätterzustände prüfen |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
+| `make scan-test` | Einmal bauen und gezielt Scannerfehler, Wiederholungen und mehrseitige Tabellen prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -117,7 +120,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **83 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **86 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -126,6 +129,8 @@ der Ausgabeziele und der Auswertung der Emulatorergebnisse.
 Die HDD-Ergänzung prüft außerdem den Erhalt der geschützten MBR-Bytes, binäre
 EBR-Adressen und das Zusammensetzen einer FAT16-Datei bis zur maximalen
 Stage-2-Größe von 48 KiB. Zwei Tests prüfen zusätzlich den VGA-Textdekoder.
+Die Scanner-Fixtures erhalten den Ladeweg und die MBR-Identität; ihre
+zusätzlichen Test-EBRs liegen im freien Bereich hinter dem Verwaltungsvolume.
 
 Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
 Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
@@ -139,14 +144,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-84 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menülogik und echte induzierte
+86 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 37 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 38 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -165,27 +170,42 @@ aus PR #5 wurden inzwischen manuell bestätigt. Die genaue Plattform dieses
 Tests wurde nicht erneut angegeben; der neue Menüstand ist noch manuell zu prüfen.
 
 Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
-Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in vier
-QEMU-Kampagnen: kompaktes und großes Layout jeweils mit EDD und CHS.
-60 echte VGA-Textseiten werden nach emulierten Tastendrücken auf Texte,
-MBR-Werte und Auswahlattribute geprüft. Dateibytes, BSS und Stack-Schutzwort
+Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in fünf
+QEMU-Kampagnen: kompaktes und großes Layout jeweils mit EDD und CHS sowie
+ein erwarteter Geometriefehler. 75 echte VGA-Textseiten werden nach emulierten
+Tastendrücken auf Texte, Partitionswerte und Auswahlattribute geprüft. Dateibytes, BSS und Stack-Schutzwort
 bleiben bei jeder Aktion gültig; es gibt keine Disk-Schreibzugriffe.
 26 native C/16-Bedingungen prüfen Auswahl- und Timerlogik, auch Tageswechsel
 und fehlerhafte Zeitquellen. Im normalen Menü ist der Timer ausgeschaltet,
 weil noch keine registrierten Startprofile existieren.
 
+F2 liest inzwischen den MBR und eine begrenzte EBR-Kette. 51 native C/16-
+Bedingungen prüfen die Strukturlogik, darunter Disk-ID-Vergleich, Überläufe,
+Überlappungen, falsche Typen und Schleifen. Weitere 32 QEMU-Kampagnen prüfen
+204 Bildschirmzustände mit echten Scannerfehlern, I/O-Wiederholungen und
+Blättern über drei Seiten. Bei Fehlern bleiben Menü und Recovery-Hinweise
+erreichbar; unvollständige Belegungen werden nicht als Erfolg angezeigt.
+
+Die automatische CHS-Geometrie des großen QEMU-Images reicht für den
+Verwaltungsbereich, aber nicht für den gesamten erweiterten Container.
+Der Scanner weist das korrekt ab. Die positiven Referenz-Menütests verwenden
+eine ausdrücklich vorgegebene logische BIOS-Geometrie; Belegung und Imagegröße
+bleiben die des eingefrorenen Referenzplans. Details stehen in der Partitionsanleitung.
+
 Damit liegen T01-Nachweise für beide Artefaktgruppen sowie T02/T03/T04 und ein
 abgegrenzter T05-Nachweis für den beschriebenen QEMU-Testaufbau vor.
 Für T08 sind Bedienung und Zeitrechnung abgegrenzt geprüft; die Integration
 mit gültigen Startprofilen und einem echten Startziel steht noch aus.
-T06 erfordert später die Prüfung tatsächlich vorgefundener Partitionsstrukturen.
+T06 ist für die beschriebenen MBR-/EBR-Strukturfehler abgegrenzt geprüft.
+Persistente Medienidentität, Dateisystem-/VBR-Plausibilität und eine Freigabe
+anhand echter Startprofile fehlen noch; eine passende Typkennung reicht dafür nicht.
 Die alten Zielmaschinen und weitere reale BIOS-Implementierungen bleiben
 zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Menübedienung manuell bestätigen, anschließend MBR-/EBR-Strukturen und
-   Startziele lesend prüfen (T06); dann den Übergabevertrag mit eigenem Test-VBR
+1. Menübedienung manuell bestätigen, anschließend BPB-/VBR-Plausibilität und
+   Startziele lesend prüfen; dann den Übergabevertrag mit eigenem Test-VBR
    nachweisen (T07). Erst mit gültigen Profilen die vollständige Startauswahl ergänzen.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.

@@ -14,7 +14,7 @@ wir lokal ausführen können.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Menü zweimal bauen, 84 Start-/Fehlerszenarien und 60 Menüansichten mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Menü zweimal bauen, 86 Bootfälle, 75 Menüansichten und 204 Scanner-/Blätterzustände mit EDD und CHS prüfen, kompaktes Testimage bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -40,18 +40,21 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-hdd-bios`: kompaktes HDD-Testimage, Binärdateien, Manifest,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
-  VGA-/RAM-Abzüge und `menu-results.json`.
+  VGA-/RAM-Abzüge, `menu-results.json` und `scan-results.json`.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
-Bildschirm- und Tastaturnachweise unter `menu/`.
+allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
+Fehler- und Blätternachweise unter `scan/`.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
 Lauf. Maßgeblich sind der Jobstatus und die Ergebnisse. `manifest.json`
 enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
-Entsprechend entsteht `menu-results.json` erst nach allen vier erfolgreichen
-Menükampagnen. Screenshots allein ersetzen diese Prüfungen nicht.
+Entsprechend entstehen `menu-results.json` und `scan-results.json` erst nach
+allen fünf beziehungsweise 32 erfolgreichen Kampagnen. Ein erwarteter,
+korrekt behandelter Scanfehler gilt dabei als bestandener Test.
+Screenshots allein ersetzen diese Prüfungen nicht.
 
 ## Warum zweimal bauen?
 
@@ -71,12 +74,19 @@ C-Bootkontext, BSS und Stack-Schutzwort geprüft. Das ROM gehört nur zum Testau
 für den manuellen Start des Images wird es nicht benötigt.
 
 Die Menüprüfung startet das normale Image auf dem kompakten und dem großen
-Referenzlayout, jeweils mit EDD und CHS. Sie sendet Pfeile, Enter, Esc, F2,
+Referenzlayout, jeweils mit EDD und CHS. Ein weiterer Lauf prüft eine für den
+gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
+
+Die Scannerprüfung ergänzt echte MBR-/EBR-Fehler, Lesewiederholungen und
+mehrseitige Tabellen. Die 51 nativen C/16-Parserbedingungen prüfen unter
+anderem andere Disk-ID, Überläufe und nicht aufsteigende EBR-Ketten.
+Die Menütests müssen auch nach Fehlern bedienbar bleiben; ein 17. EBR wird
+vor seinem Lesezugriff abgewiesen. Alle diese Nachweise sind ausschließlich lesend.
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche

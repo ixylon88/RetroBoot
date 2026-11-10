@@ -13,10 +13,12 @@ try:
     from .build_abi_probe import inspect_map, prepare_output
     from .retroboot_layout import chs, load_plan, validate_plan
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+    from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from retroboot_layout import chs, load_plan, validate_plan
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+    from scan_fixtures import SCAN_CASES, mutate_scan_fixture
 
 SECTOR = 512
 COMPACT_BYTES = 64 * 1024 * 1024
@@ -57,6 +59,7 @@ CASES = {
     "hdd-c-stack-fault": "RB C STARTUP ERROR",
     "hdd-c-context-fault": "RB C STARTUP ERROR",
     "hdd-menu-model": "RB HDD PASS",
+    "hdd-scan-model": "RB HDD PASS",
 }
 
 
@@ -279,10 +282,12 @@ def build_stage2(destination, nasm, wcc, wlink):
             raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
 
     for name, source in (("stage2-c", "core/stage2.c"), ("menu", "core/menu.c"),
-                         ("menu-model", "core/menu_model.c"), ("menu-selftest", "tests/menu/model.c")):
+                         ("menu-model", "core/menu_model.c"), ("menu-selftest", "tests/menu/model.c"),
+                         ("partitions", "core/partitions.c"), ("scan-selftest", "tests/partitions/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-fo=" + str(destination / (name + ".obj")), source)
-    run(nasm, "-Werror", "-f", "obj", "-I", "./", "bios/ui.asm", "-o", destination / "ui.obj")
+    for name in ("ui", "disk"):
+        run(nasm, "-Werror", "-f", "obj", "-I", "./", f"bios/{name}.asm", "-o", destination / (name + ".obj"))
     for name in ("abi", "end"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", "-DRB_HDD_FIXTURE=1", f"runtime/{name}.asm",
             "-o", destination / (name + ".obj"))
@@ -291,15 +296,19 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "bss-fault": ["-DRB_TEST=1", "-DRB_SKIP_BSS_CLEAR=1"],
                 "stack-fault": ["-DRB_TEST=1", "-DRB_BAD_STACK_GUARD=1"],
                 "context-fault": ["-DRB_TEST=1", "-DRB_BAD_BOOT_CONTEXT=1"],
-                "menu-model": ["-DRB_TEST=1", "-DRB_MENU_MODEL_TEST=1"]}
+                "menu-model": ["-DRB_TEST=1", "-DRB_MENU_MODEL_TEST=1"],
+                "scan-model": ["-DRB_TEST=1", "-DRB_SCAN_MODEL_TEST=1"]}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
         obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
         run(nasm, "-Werror", "-f", "obj", "-I", "./", *defines, "core/start.asm", "-o", obj)
         linked_objects = [obj, destination / "stage2-c.obj", destination / "menu.obj",
-                          destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj"]
+                          destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj",
+                          destination / "partitions.obj", destination / "disk.obj"]
         if variant == "menu-model":
             linked_objects.append(destination / "menu-selftest.obj")
+        if variant == "scan-model":
+            linked_objects.append(destination / "scan-selftest.obj")
         linked_objects.append(destination / "end.obj")
         objects = ",".join(str(path) for path in linked_objects)
         run(wlink, "@core/stage2.wlink", "name", binary, "option", "map=" + str(mapfile), "file", objects)
@@ -383,19 +392,23 @@ def build(output):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference")):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES)):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
             if case == "hdd-menu-model":
                 variant = "menu-model"
+            if case == "hdd-scan-model":
+                variant = "scan-model"
             parts["stage2"] = stage2[variant]
             path = destination / (case + ".img")
             size, extents = fixture(parts, case)
+            if case in SCAN_CASES:
+                extents = mutate_scan_fixture(size, extents, case)
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
-    manifest = {"format_version": 2, "purpose": "phase-4-read-only-menu-fixtures",
+    manifest = {"format_version": 2, "purpose": "phase-5-read-only-partition-scan-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
-                "memory": memory, "artifacts": artifacts}
+                "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Built {output}: MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest

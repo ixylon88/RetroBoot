@@ -9,6 +9,9 @@ extern rb_bss_end, rb_file_end, _rb_main, _rb_c_mix, _rb_putc, _rb_boot
 %ifdef RB_MENU_MODEL_TEST
 extern _rb_menu_selftest
 %endif
+%ifdef RB_SCAN_MODEL_TEST
+extern _rb_scan_selftest
+%endif
 %ifndef RB_TEST
 extern _rb_menu_run
 %endif
@@ -94,6 +97,17 @@ rb_entry:
     mov si, menu_model_message
     call print
 %endif
+%ifdef RB_SCAN_MODEL_TEST
+    call _rb_scan_selftest
+    test ax, ax
+    jnz failed
+    cmp sp, RB_STACK_TOP
+    jne failed
+    cmp word [RB_STACK_LOW], RB_STACK_GUARD
+    jne failed
+    mov si, scan_model_message
+    call print
+%endif
     mov si, ready_message
     call print
 %ifdef RB_TEST
@@ -165,6 +179,9 @@ ready_message db 'RetroBoot Stage 2 ready', 13, 10, 'RB HDD PASS', 13, 10, 0
 failed_message db 'RB C STARTUP ERROR', 13, 10, 0
 %ifdef RB_MENU_MODEL_TEST
 menu_model_message db 'RB MENU MODEL PASS', 13, 10, 0
+%endif
+%ifdef RB_SCAN_MODEL_TEST
+scan_model_message db 'RB SCAN MODEL PASS', 13, 10, 0
 %endif
 
 segment CONST public align=2 class=DATA use16

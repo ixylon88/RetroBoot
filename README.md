@@ -4,13 +4,13 @@ Ein eigener BIOS-Bootmanager für klassische x86-PCs: getrennte primäre
 DOS-/Windows-9x-Systeme, gemeinsame Datenvolumes und optionale Übergabe an
 vorhandene NT-Bootloader. Die Entwicklung erfolgt im Branch `historical`.
 
-**Stand: bedienbares, ausschließlich lesendes Textmenü in Phase 4.** Der eigene MBR lädt über
+**Stand: lesende MBR-/EBR-Prüfung im Textmenü, erster Schritt von Phase 5.** Der eigene MBR lädt über
 BIOS-EDD oder den automatischen CHS-Fallback das verborgene
 FAT16-Verwaltungsvolume und eine fragmentierte
 Stage-2-Datei bis zum C-Einstieg. Der eigene Startcode richtet Segmente und
 Stack ein, löscht BSS und übergibt den BIOS-Kontext an C. Die C-/Assembly-
 Testdiskette bleibt als eigener Nachweis erhalten. Das Menü zeigt Systemdaten
-und die vier primären MBR-Einträge. OS-Starts, Partitionsänderungen und Installer folgen.
+und prüft primäre sowie logische Partitionen. OS-Starts, Partitionsänderungen und Installer folgen.
 
 ## Dokumentation
 
@@ -19,6 +19,7 @@ und die vier primären MBR-Einträge. OS-Starts, Partitionsänderungen und Insta
 - [BIOS-Probe bauen und testen](docs/ABI_Probe.md)
 - [Festplattenstart, Speichervertrag und Fehlerprüfungen](docs/HDD_Boot.md)
 - [Textmenü: Bedienung und Prüfumfang](docs/Menue.md)
+- [MBR-/EBR-Prüfung und ihre Grenzen](docs/Partitionen.md)
 - [Gesicherter Arbeitsstand und Wiederaufnahme](docs/Arbeitsstand.md)
 - [Windows-/Linux-CI verständlich erklärt](docs/CI.md)
 - [Alle Unterlagen und archivierten Entwürfe](docs/README.md)
@@ -82,13 +83,15 @@ Mit derselben vorbereiteten Toolchain:
 make hdd-test
 ```
 
-Das baut die HDD-Artefakte zweimal und prüft 84 Starts mit QEMU, darunter
+Das baut die HDD-Artefakte zweimal und prüft 86 Starts mit QEMU, darunter
 das 8-GB-Referenzlayout, beide Lesewege, fragmentierte Dateien und gezielt
 erzeugte Lese- und C-Startfehler.
-Danach werden 60 Menüansichten über echte emulierte Tastendrücke geprüft.
+Danach werden 75 allgemeine Menüansichten und 204 Zustände der Scanner-
+Fehler- und Blättertests über echte emulierte Tastendrücke geprüft.
 Das kompakte `build/hdd/retroboot-hdd.img` öffnet nach den Erfolgsmeldungen
 das Textmenü. Pfeile wählen, Enter öffnet die Seite, Esc führt zurück;
-F2 zeigt die MBR-Einträge, F8 die Recovery-Hinweise. Ohne eingerichtete
+F2 liest und prüft MBR und EBR-Kette; Bild hoch/runter blättert durch die
+Partitionen. Fehler nennen Ursache und Sektoradresse. F8 zeigt die Recovery-Hinweise. Ohne eingerichtete
 Startprofile bleibt der automatische Start aus.
 Der Workflow **HDD BIOS boot** liefert es als Artefakt **retroboot-hdd-bios**.
 Es ist ein Testmedium für eine leere BIOS-VM, kein Installer oder Rettungsmedium.
@@ -108,7 +111,7 @@ aus PR #5 wurden manuell bestätigt; das neue Menü ist noch manuell zu prüfen.
 | `tests/abi/`, `include/` | BIOS-Probe, eigene C-Schnittstellen und Speicherverträge |
 | `boot/` | MBR, FAT16-VBR und Bootstrap |
 | `core/` | Stage-2-Startcode, C-Einstieg, Menü, Auswahllogik und Linkerskript |
-| `bios/` | VGA-Textausgabe, Tastatur und BIOS-Ticks für das Menü |
+| `bios/` | VGA-Textausgabe, Tastatur, BIOS-Ticks und C-Schnittstelle zum Sektorleser |
 | `runtime/` | Gemeinsam verwendete ABI-/BIOS-Ausgabehelfer und Linker-Endmarken |
 | `.github/workflows/` | Automatische Host- und BIOS-Prüfungen für Pull Requests nach `historical` |
 

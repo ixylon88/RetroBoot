@@ -4,33 +4,40 @@ Stand: 10. November 2026.
 
 ## Gesicherte Grundlage
 
-PR #5 ist in `historical` übernommen. Der C-Einstieg von Festplatte ist mit
-80 Hosttests, drei ABI- und 82 HDD-Startfällen geprüft. Der Benutzer hat die
-vier erwarteten C-/EDD-/Stage-2-Erfolgsmeldungen auch beim manuellen Start
-bestätigt. Genaue Rechner-, BIOS- und VM-Daten sind noch nicht protokolliert.
+PR #6 (lesendes Menü) ist in `historical` übernommen, Merge-Commit
+`57cb2155922e964c643f34e39b8da476794c7811`. Seine CI war vollständig grün.
+Der Benutzer hat den manuellen Menütest für den Abend des 10. November
+angekündigt; diese Rückmeldung steht noch aus. Der C-Einstieg aus PR #5 und
+die Testdiskette wurden zuvor manuell bestätigt. Genaue Rechner-/BIOS-Daten
+fehlen weiterhin.
 
-## Aktueller Schritt: lesendes Menü
+## Aktueller Schritt: lesende Partitionsprüfung
 
-Branch `codex/read-only-menu`: bedienbares 80×25-Textmenü mit Pfeilen,
-Enter, Esc, F2 und F8. Es zeigt den BIOS-Kontext und die vier primären
-Einträge des beim Booten geladenen MBR. Es gibt noch keine registrierten
-Startprofile; automatische Starts bleiben aus. Datenträger werden nicht
-verändert. Recovery erhält zunächst eine Informationsseite.
+Branch `codex/read-only-partition-scan`: F2 liest MBR und EBR-Kette und prüft
+Grenzen, Überläufe, Überlappungen, Typen, Aktivflags und Schleifen. Die Disk-ID
+wird mit der Kopie aus dem Bootvorgang verglichen. Vier primäre und bis zu
+16 logische Einträge erscheinen auf Seiten mit je acht Zeilen. Bild hoch/runter
+blättert. Fehler nennen Ursache und LBA; Esc/F8 bleiben bedienbar.
 
-Implementiert sind VGA-Ausgabe, BIOS-Tastatur, Auswahlbalken und die drei
-Informationsseiten. Die [Menüanleitung](Menue.md) beschreibt Bedienung und
-Grenzen. Es gibt keine OS-Übergabe, Partitionsänderung oder Wiederherstellung.
+Der BIOS-Leser verwendet denselben EDD-/CHS-Code wie der Loader. Es gibt keine
+Schreibfunktion, OS-Übergabe oder automatische Startfreigabe. Bedienung und
+Grenzen stehen in [Menü](Menue.md) und [Partitionsprüfung](Partitionen.md).
 Die eingefrorene Spezifikation v0.2 bleibt unverändert.
 
 Lokaler Prüfumfang für diesen Stand:
 
-- 83 Hosttests und der Referenzlayout-Bericht.
-- Zwei bytegleiche HDD-Builds; 84 Bootfälle mit 37 EDD-/CHS-Paaren.
+- 86 Hosttests und der Referenzlayout-Bericht.
+- Zwei bytegleiche HDD-Builds; 86 Bootfälle mit 38 EDD-/CHS-Paaren.
 - 26 native C/16-Bedingungen für Auswahl und Timer, in beiden Lesewegen.
-- Vier Menükampagnen mit insgesamt 60 geprüften VGA-/Tastaturzuständen,
-  einschließlich RAM-, BSS-, Stack- und Schreibüberwachung.
-- Zwei bytegleiche ABI-Builds und drei Diskettenstarts; alle sieben
-  ABI-Binärdateien und -Images entsprechen weiterhin dem bisherigen Stand.
+- 51 native C/16-Bedingungen des Partitionsparsers, in beiden Lesewegen.
+- Fünf allgemeine Menükampagnen mit 75 VGA-/Tastaturzuständen.
+- 32 Scanner-Kampagnen mit 204 Zuständen, einschließlich echter Lesefehler,
+  Blättern, exakter Sektorfolgen sowie RAM-, BSS-, Stack- und Schreibüberwachung.
+
+Wichtiger Befund: Die automatische CHS-Geometrie des großen QEMU-Images
+deckt das Verwaltungsvolume, aber nicht den gesamten Container ab. Das wird
+als eigener negativer Menüfall geprüft. Positive Referenz-Menütests verwenden
+die dokumentierte logische BIOS-Geometrie. Das Layout selbst wird nicht verändert.
 
 Die zugehörigen CI-Ergebnisse und Artefakte stehen am Pull Request dieses
 Branches. `historical` wird erst durch den vom Benutzer geprüften Merge
@@ -40,10 +47,11 @@ aktualisiert. Die lokale Arbeitskopie allein ist kein dauerhafter Sicherungspunk
 
 1. Das Menü manuell in VirtualBox beziehungsweise auf der Zielmaschine
    bedienen; VM-/BIOS-Version, Rechnermodell und Leseweg protokollieren.
-2. MBR-/EBR-Strukturen und Startziele lesend prüfen (T06), danach den
+2. BPB-/VBR-Plausibilität und Startziele lesend prüfen, danach den
    Übergabevertrag mit einem eigenen Test-VBR nachweisen (T07).
 3. Erst anschließend gültige Startprofile und die vollständige Startauswahl
-   anbinden. Die Zeitrechnung ist getestet, ein automatischer OS-Start nicht.
+   anbinden. Persistente Medienidentität und Installationsstatus ergänzen;
+   die bisherige Disk-ID-Prüfung allein ist noch kein solcher Nachweis.
 
 ## Nach einer Unterbrechung
 

@@ -1,6 +1,6 @@
 # Festplattenstart: EDD-/CHS-Ladeweg über FAT16 bis C
 
-Stand: 10. November 2026. Ladeweg aus Phase 3, jetzt mit dem Menü aus Phase 4.
+Stand: 10. November 2026. Ladeweg aus Phase 3, mit Menü und lesendem MBR-/EBR-Scanner.
 Der Start erreicht ohne Betriebssystem den eigenen C-Einstieg. Bootmeldungen
 bei einem BIOS mit EDD:
 
@@ -38,8 +38,9 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Eigene Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild, 84 Bootfälle und 60 Menüansichten in QEMU |
+| `make hdd-test` | Wiederholungsbuild, 86 Bootfälle, 75 Menüansichten und 204 Scannerzustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
+| `make scan-test` | Einmal bauen und gezielt Scannerfehler und Blättern prüfen |
 | `python3 tools/test_hdd.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin` | Bereits gebaute Images mit ausdrücklich gewähltem Emulator/BIOS prüfen |
 
 Das kompakte `build/hdd/retroboot-hdd.img` ist 64 MiB groß und kann als erste
@@ -82,8 +83,9 @@ Eine leere VM mit beispielsweise 32 MiB RAM und einer CPU anlegen, EFI/UEFI
 deaktivieren und die VDI als erste IDE-Festplatte (Primary Master) einhängen.
 Von dieser Platte starten; ein Installations-ISO ist nicht erforderlich.
 Nach den Bootmeldungen erscheint jetzt das Menü. Pfeile wählen eine
-Informationsseite, Enter öffnet sie, Esc führt zurück; F2 zeigt die primären
-MBR-Einträge und F8 die Recovery-Hinweise. Der Auswahlbalken ersetzt den Cursor.
+Informationsseite, Enter öffnet sie, Esc führt zurück; F2 prüft MBR und EBR-Kette,
+F8 zeigt die Recovery-Hinweise. Im kompakten Image erscheinen vier primäre
+Slots und das logische Verwaltungsvolume. Der Auswahlbalken ersetzt den Cursor.
 Eine alte VDI muss aus dem neuen Image erneut erzeugt werden.
 Ein eigener CHS-Test verlangt zusätzlich ein BIOS ohne EDD beziehungsweise
 unseren beschriebenen Emulator-Testaufbau; ein normaler VirtualBox-Start
@@ -103,7 +105,9 @@ und die [BIOS-/UEFI-Auswahl](https://docs.oracle.com/en/virtualization/virtualbo
 | `hdd-reference.img` | Sparse-Datei mit exakt 8.000.000.000 Byte und MBR-/EBR-Adressen aus `rb-8g-chs255.json`; Verwaltungs-VBR bei LBA 11.518.668 |
 | `retroboot-reference.img` | Dasselbe große Referenzlayout mit normalem, bedienbarem Menü; nur lokal gebaut, kein CI-Upload |
 | `hdd-menu-model.img` | Native C/16-Auswahl- und Timerprüfungen mit QEMU-Testausstieg |
+| `hdd-scan-model.img` | 51 native C/16-Parserbedingungen mit QEMU-Testausstieg |
 | Weitere `hdd-*.img` | Jeweils ein absichtlich beschädigter Ladeweg |
+| `scan-*.img` | Normaler Ladeweg und normales Menü mit gezielten Partitionsfehlern beziehungsweise langen EBR-Ketten; kein CI-Upload |
 
 Nur das eigene Verwaltungsvolume wird in diesen **neu erzeugten** Dateien
 mit FAT16-Strukturen befüllt. Die übrigen Volumes des Referenzimages sind
@@ -153,8 +157,9 @@ mehrere FAT-Cluster. BSS folgt erst nach diesem Padding. Damit bleiben die
 Fragmentierungs- und Grenztests aussagekräftig. Der Imagebau verlängert die
 Kette entsprechend der Dateigröße; das Budget bleibt 48 KiB. Die exakten Dateigrößen und Speicher-
 grenzen jedes Builds stehen in `manifest.json`.
-Nach dem C-Starttest ruft das normale Image `rb_menu_run()` auf. Es gibt noch
-keine OS-Übergabe, Partitionsprüfung, Umschaltung oder Recovery.
+Nach dem C-Starttest ruft das normale Image `rb_menu_run()` auf. Die lesende
+Partitionsprüfung ist in der [Scanner-Anleitung](Partitionen.md) beschrieben.
+Es gibt noch keine OS-Übergabe, Partitionsänderung oder Recovery.
 
 ## Speichervertrag
 
@@ -260,11 +265,11 @@ beziehungsweise Ursache an und halten den Rechner an.
 
 Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
 
-- 83 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+- 86 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
   unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 84 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 86 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -288,8 +293,12 @@ Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
   zusätzlich einmal ohne das Test-Option-ROM. Erst danach wird QEMU beendet.
 - Zwei der Bootfälle prüfen 26 Bedingungen der tatsächlichen C/16-Menülogik
   einschließlich Auswahl, ungültigem Standard, Timeout und Tageswechsel.
-  Zusätzlich werden die normalen Images in vier Menükampagnen bedient:
-  insgesamt 60 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
+  Zwei weitere prüfen 51 Bedingungen des C/16-Partitionsparsers.
+  Zusätzlich werden die normalen Images in fünf Menükampagnen bedient:
+  insgesamt 75 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
+- 32 Scanner-Kampagnen prüfen weitere 204 Zustände: Strukturfehler, begrenzte
+  EBR-Suche, echte Lesefehler und Blättern. Die exakten Scan-Sektorfolgen und
+  erhaltene Bedienbarkeit werden kontrolliert, siehe [Partitionsprüfung](Partitionen.md).
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
 und kann EDD als nicht vorhanden melden. Der MBR selbst bleibt in diesen
@@ -301,7 +310,7 @@ Sie reservieren 1 KiB am oberen Ende des konventionellen Speichers über den
 BDA-Speicherzähler und hängen sich in den INT-13h-Vektor ein. Diese Eingriffe
 gehören zum Testaufbau, nicht zum ausgelieferten Festplattenimage.
 
-37 Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
+38 Boot-Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
 dieselbe geordnete Sektorfolge einschließlich Wiederholungen enthalten.
 Die BIOS-Traces beweisen dabei die Benutzung von AH=42h beziehungsweise
 AH=02h nach der Auswahl. Spur-/Zylinderwechsel werden bei 16/63 geprüft;
@@ -309,6 +318,12 @@ das 8-GB-Image prüft auch Zylinder über 255. Zwei zusätzliche Tests begrenzen
 die echte emulierte BIOS-Geometrie: Ein unerreichbarer VBR führt zu
 `RB MBR ERROR`, ein nur teilweise erreichbares Verwaltungsvolume zu
 `RB BPB ERROR`. Die Dateisystemdaten werden dabei nicht angepasst.
+
+Der neue Scanner prüft zusätzlich die Reichweite aller eingetragenen
+Partitionen. Beim großen Referenzimage reicht QEMUs automatische CHS-Geometrie
+für das Verwaltungsvolume, aber nicht für ganz P4. Ein negativer Menütest
+prüft die verständliche Ablehnung dieser Konstellation; die positiven
+Referenz-Menütests verwenden eine festgelegte ausreichende logische BIOS-Geometrie.
 
 QEMU verwendet wegwerfbare Snapshot-Overlays, weil sein IDE-Frontend ein
 schreibbares Medium verlangt. Die Quelldateien werden davor und danach
