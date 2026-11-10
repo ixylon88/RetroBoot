@@ -1,5 +1,6 @@
 #include "bios_ui.h"
 #include "menu.h"
+#include "partitions.h"
 #include "stage2.h"
 
 #define NORMAL 0x17U
@@ -7,9 +8,17 @@
 #define SELECTED 0x70U
 
 static const char * const labels[3] = {
-    "Systeminformationen", "MBR-Partitionen", "Recovery-Hinweise"
+    "Systeminformationen", "Partitionen", "Recovery-Hinweise"
 };
 static const char digits[] = "0123456789ABCDEF";
+static const char * const scan_errors[] = {
+    "OK", "Sektor konnte nicht gelesen werden", "Ungueltige Sektorsignatur",
+    "Disk-ID stimmt nicht mit dem Bootvorgang ueberein", "Ungueltige Aktivflags",
+    "Partitionstyp wird nicht unterstuetzt", "Leerer Eintrag enthaelt Daten",
+    "32-Bit-LBA-Ueberlauf", "Bereich ausserhalb der erlaubten Grenzen",
+    "Ueberlappende Daten- oder Tabellenbereiche", "Mehrere erweiterte Partitionen",
+    "Zusaetzlicher Eintrag im EBR", "Schleife in der EBR-Kette", "Mehr als 16 EBR-Sektoren"
+};
 
 static void text(rb_u16 row, rb_u16 column, const char *value, rb_u16 color)
 {
@@ -63,10 +72,11 @@ static void geometry(const rb_loader_snapshot *snapshot, rb_u16 row)
     }
 }
 
-static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot)
+static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot,
+                 const rb_partition_scan *scan, rb_u16 page)
 {
     rb_u16 row, index;
-    const rb_u8 *entry;
+    const rb_partition *p;
     rb_video_fill(0, 2000, 0x1720);
     for (row = 2; row < 23; ++row) {
         cell(row, 1, 0xB3); cell(row, 78, 0xB3);
@@ -105,24 +115,35 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         geometry(snapshot, 15);
         text(18, 4, "Angaben aus dem Bootvorgang.", NORMAL);
     } else if (view == 2) {
-        text(5, 4, "Primaere MBR-Eintraege", TITLE);
-        if (snapshot->mbr[510] != 0x55 || snapshot->mbr[511] != 0xAA) {
-            text(8, 4, "Ungueltige MBR-Signatur im Boot-Abbild.", 0x1E);
+        text(5, 4, "Partitionen: MBR / EBR", TITLE);
+        if (scan->status != RB_SCAN_OK) {
+            text(8, 4, "Strukturpruefung abgebrochen.", 0x1E);
+            text(10, 4, scan_errors[scan->status], 0x1E);
+            text(12, 4, "LBA (hex):", NORMAL); hex(12, 23, scan->error_lba, 8);
+            text(13, 4, "Eintrag:", NORMAL);
+            if (scan->error_slot != 0) { decimal(13, 23, scan->error_slot); }
+            else { text(13, 23, "gesamter Sektor", NORMAL); }
+            text(16, 4, "Es wurden keine Datentraegerdaten veraendert.", NORMAL);
+            text(18, 4, "Esc: zurueck. F2: erneut lesen.", NORMAL);
         } else {
-            text(7, 4, "Slot  Flag  Typ    Start-LBA       Sektoren", TITLE);
-            for (index = 0; index < 4; ++index) {
-                row = 9 + index;
-                entry = snapshot->mbr + 446 + index * 16;
-                decimal(row, 5, index + 1);
-                hex(row, 10, entry[0], 2);
-                hex(row, 16, entry[4], 2);
-                hex(row, 23, read32(entry + 8), 8);
-                hex(row, 39, read32(entry + 12), 8);
+            text(6, 4, "Struktur geprueft; kein OS-Start freigegeben.", NORMAL);
+            text(7, 4, "Eintr Flag  Typ    Start-LBA       Sektoren       Tabelle-LBA", TITLE);
+            for (index = page * 8; index < scan->count && index < page * 8 + 8; ++index) {
+                row = 9 + index - page * 8;
+                p = &scan->entries[index];
+                text(row, 4, p->logical ? "L" : "P", NORMAL);
+                decimal(row, 5, p->slot);
+                hex(row, 10, p->flag, 2);
+                hex(row, 16, p->type, 2);
+                hex(row, 23, p->start, 8);
+                hex(row, 39, p->sectors, 8);
+                hex(row, 54, p->table_lba, 8);
             }
-            text(14, 4, "Flag, Typ, Start-LBA und Sektoren: hexadezimal.", NORMAL);
+            text(18, 4, "Seite", NORMAL); decimal(18, 10, page + 1);
+            text(18, 12, "/", NORMAL); decimal(18, 14, (scan->count + 7) / 8);
+            text(18, 20, "Bild hoch/runter: Blaettern", NORMAL);
         }
-        geometry(snapshot, 16);
-        text(18, 4, "MBR-Abbild aus dem Bootvorgang; keine OS-Erkennung.", NORMAL);
+        geometry(snapshot, 19);
     } else {
         text(5, 4, labels[2], TITLE);
         text(8, 4, "Wiederherstellung ist noch nicht verfuegbar.", NORMAL);
@@ -150,26 +171,28 @@ static void debug_hex(rb_u16 value)
     }
 }
 
-static void debug_state(rb_u16 serial, rb_u16 view, rb_u16 selected)
+static void debug_state(rb_u16 serial, rb_u16 view, rb_u16 selected, rb_u16 page)
 {
     debug_text("RB MENU "); debug_hex(serial);
     debug_text(" view="); debug_hex(view);
     debug_text(" selected="); debug_hex(selected);
+    debug_text(" page="); debug_hex(page);
     debug_text("\r\n");
 }
 
 void __cdecl rb_menu_run(void)
 {
     rb_loader_snapshot snapshot;
+    rb_partition_scan scan;
     rb_menu_state state;
-    rb_u16 key, action, view = 0, serial = 0;
+    rb_u16 key, action, rescan, view = 0, serial = 0, page = 0;
     rb_u32 now;
     rb_loader_copy(&snapshot);
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot);
-    debug_state(serial, view, state.selected);
+    draw(&state, view, &snapshot, &scan, page);
+    debug_state(serial, view, state.selected, page);
     debug_text("RB MENU READY\r\n");
     for (;;) {
         key = rb_key_poll();
@@ -179,20 +202,37 @@ void __cdecl rb_menu_run(void)
             rb_idle();
             continue;
         }
+        rescan = 0;
         if (view == 0) {
             action = rb_menu_step(&state, key, now);
-            if (action != RB_MENU_NONE) { view = action + 1; }
+            if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
         } else {
             state.remaining_ticks = 0;
         }
         if ((key & 0xFFU) == 27U) {
             view = 0;
         } else if ((key >> 8) == 0x3CU) {
-            state.selected = 1; view = 2;
+            state.selected = 1; view = 2; rescan = 1;
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
+        } else if (view == 2 && !rescan && scan.status == RB_SCAN_OK) {
+            if ((key >> 8) == 0x49U && page != 0) { --page; }
+            if ((key >> 8) == 0x51U && (page + 1) * 8 < scan.count) { ++page; }
         }
-        draw(&state, view, &snapshot);
-        debug_state(++serial, view, state.selected);
+        if (view != 2) { page = 0; }
+        if (rescan) {
+            page = 0;
+            debug_text("RB SCAN BEGIN\r\n");
+            rb_scan_partitions(&scan, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440));
+            debug_text("RB SCAN status="); debug_hex(scan.status);
+            debug_text(" count="); debug_hex(scan.count);
+            debug_text(" ebr="); debug_hex(scan.ebr_count);
+            debug_text(" lba="); debug_hex((rb_u16)(scan.error_lba >> 16)); debug_hex((rb_u16)scan.error_lba);
+            debug_text(" slot="); debug_hex(scan.error_slot); debug_text("\r\n");
+        }
+        draw(&state, view, &snapshot, &scan, page);
+        debug_state(++serial, view, state.selected, page);
     }
 }

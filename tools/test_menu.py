@@ -3,6 +3,7 @@
 import argparse
 import json
 import queue
+import re
 import shutil
 import struct
 import subprocess
@@ -80,7 +81,37 @@ def screen_rows(data):
     return [data[row * 160:(row + 1) * 160:2].decode("cp437") for row in range(25)]
 
 
-def check_screen(data, view, selected, mode, mbr, boot):
+def expected_partitions(image):
+    """Read display values from known-valid fixtures, without judging validity."""
+    def record(block, slot, table=0, logical=0, base=0):
+        raw = block[446 + 16 * slot:462 + 16 * slot]
+        start, count = struct.unpack_from("<II", raw, 8)
+        return {"kind": "L" if logical else "P", "slot": logical or slot + 1,
+                "flag": raw[0], "type": raw[4], "start": base + start,
+                "sectors": count, "table": table}
+
+    with image.open("rb") as stream:
+        mbr = stream.read(512)
+        entries = [record(mbr, slot) for slot in range(4)]
+        extended = [p for p in entries if p["type"] in (5, 15)]
+        if not extended:
+            return entries
+        base = current = extended[0]["start"]
+        visited = set()
+        while current not in visited and len(visited) < 16:
+            visited.add(current)
+            stream.seek(current * 512)
+            block = stream.read(512)
+            if block[450]:
+                entries.append(record(block, 0, current, len(entries) - 3, current))
+            if not block[466]:
+                return entries
+            current = base + struct.unpack_from("<I", block, 470)[0]
+    raise ValueError("Display oracle only accepts bounded known-valid fixtures")
+
+
+def check_screen(data, view, selected, mode, mbr, boot, partitions=None, page=0,
+                 status=0, error_lba=0, error_slot=0):
     rows = screen_rows(data)
     if "RetroBoot" not in rows[2] or "Nur lesen" not in rows[2] or "Esc: Menue" not in rows[21]:
         raise ValueError("Missing menu frame or keyboard help")
@@ -91,7 +122,7 @@ def check_screen(data, view, selected, mode, mbr, boot):
             raise ValueError("Wrong BIOS route on menu")
         if rows[17][19:22] != f"{struct.unpack_from('<H', boot)[0]:02X}h":
             raise ValueError("Wrong boot drive on menu")
-        for index, label in enumerate(("Systeminformationen", "MBR-Partitionen", "Recovery-Hinweise")):
+        for index, label in enumerate(("Systeminformationen", "Partitionen", "Recovery-Hinweise")):
             row = 9 + index * 2
             attributes = data[row * 160 + 9:row * 160 + 150:2]
             if label not in rows[row] or attributes != bytes([0x70 if index == selected else 0x17]) * 71:
@@ -105,16 +136,33 @@ def check_screen(data, view, selected, mode, mbr, boot):
                 or rows[13][29:37] != f"{struct.unpack_from('<I', mbr, 440)[0]:08X}"):
             raise ValueError("System information differs from boot context/MBR")
     elif view == 2:
-        if "Primaere MBR-Eintraege" not in rows[5]:
-            raise ValueError("Missing MBR view")
-        for index in range(4):
-            entry = mbr[446 + 16 * index:462 + 16 * index]
-            start, count = struct.unpack_from("<II", entry, 8)
-            row = rows[9 + index]
-            if (row[5] != str(index + 1) or row[10:12] != f"{entry[0]:02X}"
-                    or row[16:18] != f"{entry[4]:02X}" or row[23:31] != f"{start:08X}"
-                    or row[39:47] != f"{count:08X}"):
-                raise ValueError(f"Displayed primary slot {index + 1} differs from the source MBR")
+        if "Partitionen: MBR / EBR" not in rows[5]:
+            raise ValueError("Missing partition view")
+        if status:
+            if ("Strukturpruefung abgebrochen." not in rows[8]
+                    or not rows[10][4:74].strip() or rows[12][23:31] != f"{error_lba:08X}"
+                    or rows[6][4:74].strip() or rows[7][4:74].strip()):
+                raise ValueError("Missing scan error/LBA or unsafe partial success display")
+            expected_slot = str(error_slot) if error_slot else "gesamter Sektor"
+            if rows[13][23:23 + len(expected_slot)] != expected_slot:
+                raise ValueError("Wrong failing partition entry")
+        else:
+            if partitions is None or "Struktur geprueft; kein OS-Start freigegeben." not in rows[6]:
+                raise ValueError("Missing structural result or display oracle")
+            for index in range(8):
+                row = rows[9 + index]
+                if page * 8 + index >= len(partitions):
+                    if row[4:62].strip():
+                        raise ValueError("Stale partition row after page change")
+                    continue
+                p = partitions[page * 8 + index]
+                if (row[4:7].strip() != f"{p['kind']}{p['slot']}"
+                        or row[10:12] != f"{p['flag']:02X}" or row[16:18] != f"{p['type']:02X}"
+                        or row[23:31] != f"{p['start']:08X}" or row[39:47] != f"{p['sectors']:08X}"
+                        or row[54:62] != f"{p['table']:08X}"):
+                    raise ValueError(f"Displayed partition {page * 8 + index} differs from source sectors")
+            if rows[18][10:12].strip() != str(page + 1) or rows[18][14:16].strip() != str((len(partitions) + 7) // 8):
+                raise ValueError("Incorrect partition pagination")
     elif view == 3:
         if "Wiederherstellung ist noch nicht verfuegbar." not in rows[8]:
             raise ValueError("Recovery availability is not stated")
@@ -160,18 +208,25 @@ def main():
                ("ret", 1, 0), ("esc", 0, 0)]
     results, pairs = [], {}
     for image_name in ("retroboot-hdd", "retroboot-reference"):
-        for mode, rom in (("EDD", 0), ("CHS", 1)):
+        geometry = ",lcyls=973,lheads=255,lsecs=63" if image_name == "retroboot-reference" else ""
+        campaigns = [("EDD", 0, geometry, 0), ("CHS", 1, geometry, 0)]
+        if image_name == "retroboot-reference":
+            campaigns.append(("CHS", 1, "", 8))  # automatic geometry is one cylinder too short for P4
+        for mode, rom, geometry, expected_status in campaigns:
             name = image_name + "-menu-" + mode.lower()
+            if expected_status:
+                name += "-short-geometry"
             image = source / (image_name + ".img")
             before = sha256(image)
             if before != manifest["artifacts"][image.name]["sha256"]:
                 raise ValueError("Unexpected menu image content")
             with image.open("rb") as stream:
                 mbr = stream.read(512)
+            partitions = expected_partitions(image) if not expected_status else None
             log, trace, error = (output / (name + suffix) for suffix in (".log", ".trace", "-stderr.log"))
             log.unlink(missing_ok=True); trace.unlink(missing_ok=True)
             invocation = command + ["-drive", f"file={str(image).replace(',', ',,')},format=raw,if=none,id=rb,snapshot=on",
-                                    "-device", "ide-hd,drive=rb,bus=ide.0,unit=0",
+                                    "-device", "ide-hd,drive=rb,bus=ide.0,unit=0" + geometry,
                                     "-option-rom", str(source / f"int13-{rom}.rom"),
                                     "-debugcon", "file:" + str(log), "-trace",
                                     f"events={events},file={trace}"]
@@ -195,7 +250,9 @@ def main():
                         memory = manifest["memory"]["normal"]
                         check_runtime_memory(data, payload, memory, mode)
                         boot_offset = memory["symbols"]["_rb_boot"]
-                        rows = check_screen(vram.read_bytes(), view, selected, mode, mbr, data[boot_offset:boot_offset + 12])
+                        rows = check_screen(vram.read_bytes(), view, selected, mode, mbr,
+                                            data[boot_offset:boot_offset + 12], partitions=partitions,
+                                            status=expected_status, error_slot=4 if expected_status else 0)
                         text_file = output / f"{name}-{serial:02d}.txt"
                         text_file.write_text("\n".join(rows) + "\n", encoding="utf-8")
                         if serial in (0, 3, 4, 6, 8, 13):
@@ -211,13 +268,18 @@ def main():
             text = log.read_text(encoding="utf-8")
             check_c_status(text, mode)
             calls = check_bios_route(text, mode)
+            scan_statuses = re.findall(r"^RB SCAN status=([0-9A-F]{4})", text, re.MULTILINE)
+            if scan_statuses != [f"{expected_status:04X}"] * 2:
+                raise ValueError("Wrong number/result of menu partition scans")
             trace_text = trace.read_text(encoding="utf-8")
             check_trace(trace_text)
             lbas = read_lbas(trace_text)
-            pairs.setdefault(image_name, {})[mode] = lbas
+            if not expected_status:
+                pairs.setdefault(image_name, {})[mode] = lbas
             if sha256(image) != before:
                 raise ValueError("Menu changed its source image")
-            results.append({"name": name, "mode": mode, "screens": screens, "read_lbas": lbas,
+            results.append({"name": name, "mode": mode, "geometry": geometry,
+                            "scan_status": expected_status, "screens": screens, "read_lbas": lbas,
                             "bios_calls_after_probe": calls, "image_unchanged": True, "block_writes": 0})
             print(f"{name}: {len(screens)} VGA/keyboard states verified; no disk writes", flush=True)
     if any(routes["EDD"] != routes["CHS"] for routes in pairs.values()):

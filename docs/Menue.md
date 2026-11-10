@@ -1,6 +1,6 @@
 # Textmenü: Bedienung und Nachweisstand
 
-Stand: 10. November 2026. Erster bedienbarer Teil von Phase 4.
+Stand: 10. November 2026. Menü aus Phase 4 mit lesender Partitionsprüfung aus Phase 5.
 
 Das normale `retroboot-hdd.img` öffnet nach den vier C-/Stage-2-Erfolgsmeldungen
 ein blaues 80×25-Textmenü. Der Auswahlbalken ersetzt den blinkenden Cursor.
@@ -14,7 +14,8 @@ Deshalb steht ausdrücklich **Automatischer Start: aus** im Hauptmenü.
 | Pfeil hoch / herunter | Informationsseite auswählen; am Listenende umlaufen |
 | Enter | Ausgewählte Informationsseite öffnen |
 | Esc | Zum Hauptmenü zurückkehren; Auswahl bleibt erhalten |
-| F2 | Von jeder Seite zu den vier primären MBR-Einträgen wechseln |
+| F2 | MBR und EBR-Kette erneut lesen und prüfen; Partitionen ab Seite 1 anzeigen |
+| Bild hoch / herunter | Auf der Partitionsseite blättern; maximal acht Einträge pro Seite |
 | F8 | Von jeder Seite zu den Recovery-Hinweisen wechseln |
 
 Andere Tasten starten keine Aktion. Auf einer Informationsseite verändern
@@ -24,14 +25,16 @@ verfügbare Funktion; F8 bietet noch keine Wiederherstellung an.
 | Seite | Angezeigte Daten |
 | --- | --- |
 | Systeminformationen | BIOS-Laufwerk, tatsächlich gewählter Leseweg EDD/CHS, erreichbare Sektorzahl, Disk-ID und gegebenenfalls BIOS-CHS-Geometrie |
-| MBR-Partitionen | Alle vier primären Slots mit Aktivflag, Typ, Start-LBA und Sektorzahl; die Werte sind hexadezimal |
+| Partitionen | Vier primäre Slots und bis zu 16 logische Einträge mit Flag, Typ, Start-LBA, Sektorzahl und Tabellen-LBA; Werte außer den Eintragsnummern sind hexadezimal |
 | Recovery-Hinweise | Hinweis auf die noch fehlende Wiederherstellung und die verfügbaren Informationsseiten |
 
-Die MBR-Daten stammen aus dem Sektor, der beim Start bereits in den Speicher
-geladen wurde. Das Menü liest keine weiteren Plattensektoren. Leere Slots
-werden mit ihren Nullwerten angezeigt. Aus einem Typbyte wird weder ein
-Betriebssystemname noch die Startfähigkeit abgeleitet. Das ist noch kein
-MBR-/EBR-Scanner oder vollständiger Partition Manager nach T06.
+Die Systeminformationen stammen weiterhin aus dem Bootvorgang. Die
+Partitionsseite liest dagegen die Tabellensektoren frisch ein und prüft
+unter anderem Grenzen, Überlappungen, Typen, Disk-ID und EBR-Schleifen.
+Leere primäre Slots werden mit ihren Nullwerten angezeigt. Ein Fehler zeigt
+Ursache und betroffene LBA; Esc und F8 bleiben bedienbar. Aus einem Typbyte
+wird kein Betriebssystemname oder gültiges Dateisystem abgeleitet. Der
+[Scanner-Nachweis und seine Grenzen](Partitionen.md) sind getrennt beschrieben.
 
 Bei CHS ist die Sektorzahl die vom BIOS adressierbare Reichweite, keine
 unabhängig gemessene Mediengröße. Bei EDD wird keine CHS-Geometrie erfunden;
@@ -47,13 +50,15 @@ eine früher konvertierte VDI enthält weiterhin den alten Programmstand.
 1. Das Hauptmenü zeigt keine Startprofile und keinen Countdown.
 2. Pfeile bewegen den Balken über alle drei Zeilen und über den Listenrand.
 3. Enter öffnet die gewählte Seite, Esc bringt das Hauptmenü zurück.
-4. F2 zeigt vier Slots. Im kompakten Image sind 1–3 leer; Slot 4 hat Typ `05`.
+4. F2 zeigt im kompakten Image fünf Einträge: P1–P3 leer, P4 Typ `05`,
+   L1 Typ `16`. Das Ergebnis lautet „Struktur geprueft; kein OS-Start freigegeben.“
 5. F8 zeigt, dass Wiederherstellung noch nicht verfügbar ist.
 6. Unter Systeminformationen stehen Laufwerk `80` und der verwendete Leseweg.
 
 Bitte bei einer Rückmeldung auch VM-/BIOS-Version oder Rechnermodell und die
 beobachtete Leseart nennen. Das neue Menü ist bislang automatisch in QEMU
-geprüft; der manuell bestätigte C-Einstieg aus PR #5 ist die Vorgängerversion.
+geprüft. Der Menüstand aus PR #6 wartet weiterhin auf den angekündigten
+manuellen Test; der C-Einstieg aus PR #5 wurde bereits manuell bestätigt.
 
 ## Implementierung und Grenzen
 
@@ -64,8 +69,8 @@ Schreibzugriffe auf 2.000 Textzellen. Zwischen Eingaben wartet die CPU mit
 `STI; HLT` auf einen Interrupt. Debugmeldungen gehen nur an Port `E9h` und
 überschreiben deshalb keine Menütexte.
 
-Menüzustand und die 520-Byte-Kopie von Geometrie und MBR liegen auf dem eigenen
-C-Stack. Der bestehende Stage-2-Speichervertrag, das Schutzwort und die
+Menüzustand, die 520-Byte-Kopie von Geometrie und MBR sowie das 480-Byte-
+Scannergebnis liegen auf dem eigenen C-Stack. Der bestehende Stage-2-Speichervertrag, das Schutzwort und die
 BSS-Prüfungen bleiben erhalten. Das Image enthält weder einen Disk-Schreibpfad
 noch eine OS-Übergabe. Die Spezifikation v0.2 bleibt unverändert.
 
@@ -94,8 +99,8 @@ make check
 make hdd-test
 ```
 
-`make hdd-test` baut zweimal, prüft 84 positive/negative HDD-Startfälle und
-führt anschließend die Menüprüfung aus. `make menu-test` baut einmal und
+`make hdd-test` baut zweimal, prüft 86 positive/negative HDD-Startfälle und
+führt anschließend Menü- und Scannerprüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
 ```sh
@@ -107,11 +112,13 @@ python3 tools/test_menu.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.
   gesperrte Listen, ungültiger Standard, Umlaufen, Enter, Tastendruck beim
   Ablauf, Tageswechsel und fehlerhafte Uhren.
 - Die normalen Images `retroboot-hdd.img` und `retroboot-reference.img`
-  laufen jeweils mit EDD und CHS. QMP sendet echte emulierte PS/2-Tastendrücke.
-  Jede der vier Kampagnen prüft 15 Zustände, insgesamt 60 VGA-Textseiten.
+  laufen jeweils mit EDD und CHS. Der positive Referenztest verwendet eine
+  festgelegte ausreichende logische BIOS-Geometrie. Eine fünfte Kampagne
+  prüft die korrekte Ablehnung der zu kleinen automatischen CHS-Reichweite.
+  QMP sendet echte emulierte PS/2-Tastendrücke: je 15 Zustände, insgesamt 75 VGA-Textseiten.
 - Die Prüfung liest Zeichen und Attribute direkt aus dem VGA-Speicher:
-  Auswahlbalken, Texte, BIOS-Kontext und alle vier MBR-Einträge müssen stimmen.
-  Letztere werden mit den Bytes des Quellimages verglichen.
+  Auswahlbalken, Texte, BIOS-Kontext sowie primäre und logische Einträge müssen
+  stimmen. Die Tabellenwerte werden mit den Bytes des Quellimages verglichen.
 - Nach jeder Aktion werden Stage-2-Dateibytes, C-BSS und Stack-Schutzwort
   erneut im RAM geprüft. Die Disk-Traces dürfen keine Schreiboperation
   enthalten; vollständige SHA-256-Werte der Images bleiben gleich. Beide
@@ -121,6 +128,8 @@ Ergebnisse stehen in `build/menu/menu-results.json`, Textseiten, VGA-/RAM-Abzüg
 ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
-Stage-2-Dateigröße von 48 KiB. Insgesamt sind es 83 Hosttests.
+Stage-2-Dateigröße von 48 KiB. Einschließlich der Scanner-Fixtures sind es
+86 Hosttests. Die zusätzlichen 32 Scanner-Kampagnen mit 204 Bildschirmzuständen
+stehen in der [Partitionsprüfung](Partitionen.md).
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).

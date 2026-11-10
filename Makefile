@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test menu-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test menu-test scan-test
 
 all: check
 
@@ -36,6 +36,10 @@ hdd-check:
 hdd-test: hdd-check
 	$(PYTHON) tools/test_hdd.py
 	$(PYTHON) tools/test_menu.py
+	$(PYTHON) tools/test_scan.py
 
 menu-test: hdd
 	$(PYTHON) tools/test_menu.py
+
+scan-test: hdd
+	$(PYTHON) tools/test_scan.py
