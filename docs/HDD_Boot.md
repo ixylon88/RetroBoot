@@ -1,7 +1,7 @@
 # Festplattenstart: EDD-/CHS-Ladeweg über FAT16 bis C
 
-Stand: 10. November 2026. Dies ist ein überprüfbarer Teil von Phase 3.
-Der Start erreicht ohne Betriebssystem den eigenen C-Einstieg. Erfolgsbild
+Stand: 10. November 2026. Ladeweg aus Phase 3, jetzt mit dem Menü aus Phase 4.
+Der Start erreicht ohne Betriebssystem den eigenen C-Einstieg. Bootmeldungen
 bei einem BIOS mit EDD:
 
 ```text
@@ -13,12 +13,15 @@ RB HDD PASS
 
 Beim Fallback steht in der zweiten Zeile `CHS`. Die letzten beiden Zeilen
 erscheinen erst nach erfolgreicher C-Rückkehr und den Assembly-Nachprüfungen.
+Das normale Image öffnet anschließend das [Textmenü](Menue.md). Die Meldungen
+werden dabei vom Menübild abgelöst und bleiben im QEMU-Debugprotokoll erhalten.
 
 Der MBR lädt den eigenen VBR des verborgenen logischen FAT16-Volumes. Dieser
 lädt die zusammenhängende Datei `RBBOOT.SYS` über ihren installierten
 Sektorzeiger. Der Bootstrap sucht `RBSTG2.BIN` im FAT16-Rootverzeichnis,
 folgt ihrer Clusterkette und prüft ihren Header und CRC32 vor der Übergabe.
-Die Testdatei liegt in den Clustern **20 → 300 → 40**. Damit werden sowohl
+Die Testdatei liegt fragmentiert, beginnend mit **20 → 300 → 40 → 500 → 60**;
+die benötigte Kettenlänge wächst mit der Datei. Damit werden sowohl
 Fragmentierung als auch FAT-Einträge in unterschiedlichen Sektoren benutzt.
 
 ## Bauen und starten
@@ -35,7 +38,8 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Eigene Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild und 82 QEMU-Szenarien einschließlich Fehlerfällen |
+| `make hdd-test` | Wiederholungsbuild, 84 Bootfälle und 60 Menüansichten in QEMU |
+| `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
 | `python3 tools/test_hdd.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin` | Bereits gebaute Images mit ausdrücklich gewähltem Emulator/BIOS prüfen |
 
 Das kompakte `build/hdd/retroboot-hdd.img` ist 64 MiB groß und kann als erste
@@ -51,9 +55,9 @@ qemu-system-i386 -machine pc-i440fx-8.2,accel=tcg -cpu 486 -m 16 \
   -drive file=build/hdd/retroboot-hdd.img,format=raw,if=ide,snapshot=on
 ```
 
-Nach der Erfolgsmeldung hält Stage 2 an; ein Menü folgt später. Das Artefakt
+Nach der Erfolgsmeldung erscheint das bedienbare Textmenü. Das Artefakt
 **retroboot-hdd-bios** im Workflow **HDD BIOS boot** enthält dieses Image,
-Bootdateien, Linkerkarten, SHA-256-Manifest, Ergebnisse und I/O-Traces. Der Workflow lädt
+Bootdateien, Linkerkarten, SHA-256-Manifest, Ergebnisse, Menü-Screenshots und I/O-Traces. Der Workflow lädt
 das große Referenzimage ausdrücklich nicht hoch.
 
 ### Manueller Test mit VirtualBox
@@ -62,8 +66,9 @@ QEMU ist unser automatisierter Testweg. Das normale Image kann auch in einer
 VirtualBox-BIOS-VM auf einem Intel-/AMD-Rechner getestet werden. Der Benutzer
 hat am 9. November 2026 einen erfolgreichen VirtualBox-Start des Stands aus
 PR #3 zurückgemeldet. VirtualBox-Version und genaue VM-Einstellungen wurden
-dabei nicht protokolliert; das ist noch kein manueller Nachweis für die neue
-C-Integration oder für den CHS-Fallback.
+dabei nicht protokolliert. Inzwischen wurden auch die vier C-Erfolgsmeldungen
+aus PR #5 manuell bestätigt, ohne erneute genaue Plattformangabe. Der neue
+Menüstand und der erzwungene CHS-Fallback sind noch manuell zu prüfen.
 
 Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
 `retroboot-hdd.img` lässt sie sich unter Windows/PowerShell so umwandeln:
@@ -76,8 +81,10 @@ Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
 Eine leere VM mit beispielsweise 32 MiB RAM und einer CPU anlegen, EFI/UEFI
 deaktivieren und die VDI als erste IDE-Festplatte (Primary Master) einhängen.
 Von dieser Platte starten; ein Installations-ISO ist nicht erforderlich.
-Nach `RetroBoot Stage 2 ready` und `RB HDD PASS` ist der Test beendet.
-Stage 2 hält bewusst an. Ein weiterhin blinkender Textcursor ist dabei normal.
+Nach den Bootmeldungen erscheint jetzt das Menü. Pfeile wählen eine
+Informationsseite, Enter öffnet sie, Esc führt zurück; F2 zeigt die primären
+MBR-Einträge und F8 die Recovery-Hinweise. Der Auswahlbalken ersetzt den Cursor.
+Eine alte VDI muss aus dem neuen Image erneut erzeugt werden.
 Ein eigener CHS-Test verlangt zusätzlich ein BIOS ohne EDD beziehungsweise
 unseren beschriebenen Emulator-Testaufbau; ein normaler VirtualBox-Start
 wählt bei funktionierender EDD-Unterstützung weiterhin EDD.
@@ -91,9 +98,11 @@ und die [BIOS-/UEFI-Auswahl](https://docs.oracle.com/en/virtualization/virtualbo
 | --- | --- |
 | `retroboot-hdd.img` | 64 MiB; MBR-Slots 1–3 leer, Slot 4 Typ `05h` ab LBA 63; EBR bei 63; verborgenes FAT16-Volume Typ `16h` ab LBA 126 mit 128.457 Sektoren; alle Aktivflags null |
 | `hdd-fragmented.img` | Gleicher Aufbau mit QEMU-Testausstieg; Stage 2 fragmentiert |
-| `hdd-contiguous.img` | Stage 2 in Clustern 20 → 21 → 22 |
-| `hdd-boundaries.img` | Cluster 25 → 151 → 40; Zugriffe über LBA 503/504 und 1007/1008 prüfen Spur-/Zylindergrenzen bei 16 Köpfen und 63 Sektoren/Spur |
+| `hdd-contiguous.img` | Stage 2 zusammenhängend ab Cluster 20 |
+| `hdd-boundaries.img` | Kette beginnt mit 25 → 151 → 40; Zugriffe über LBA 503/504 und 1007/1008 prüfen Spur-/Zylindergrenzen bei 16 Köpfen und 63 Sektoren/Spur |
 | `hdd-reference.img` | Sparse-Datei mit exakt 8.000.000.000 Byte und MBR-/EBR-Adressen aus `rb-8g-chs255.json`; Verwaltungs-VBR bei LBA 11.518.668 |
+| `retroboot-reference.img` | Dasselbe große Referenzlayout mit normalem, bedienbarem Menü; nur lokal gebaut, kein CI-Upload |
+| `hdd-menu-model.img` | Native C/16-Auswahl- und Timerprüfungen mit QEMU-Testausstieg |
 | Weitere `hdd-*.img` | Jeweils ein absichtlich beschädigter Ladeweg |
 
 Nur das eigene Verwaltungsvolume wird in diesen **neu erzeugten** Dateien
@@ -131,8 +140,8 @@ Mediengröße; zusätzliche echte Lesefehler werden über den BIOS-Status erkann
 Die historische Zielmaschine und weitere reale BIOS-Varianten sind noch
 nicht vermessen. T04 ist für den unten beschriebenen QEMU-Testaufbau belegt.
 
-Stage 2 besteht jetzt aus `core/start.asm`, `core/stage2.c` und den gemeinsam
-mit der Diskettenprobe verwendeten Helfern in `runtime/`. Open Watcom C/16
+Stage 2 besteht aus dem Startcode und C-Code in `core/`, den Menü-BIOS-Helfern
+in `bios/` und den mit der Diskettenprobe geteilten Helfern in `runtime/`. Open Watcom C/16
 und NASM erzeugen OMF-Objekte, WLINK daraus eine flache Binärdatei ohne DOS-
 oder C-Standardbibliothek. Compilerflags und Werkzeugfixierung entsprechen
 der [ABI-Probe](ABI_Probe.md). Der Build prüft die ausführbaren Compilerdateien,
@@ -140,11 +149,12 @@ behandelt Warnungen als Fehler und gleicht Header, Linkersegmente und die
 Adressen der C-Variablen ab.
 
 4.096 Byte festes Padding am Ende der initialisierten Daten erzwingen weiterhin
-drei FAT-Cluster. BSS folgt erst nach diesem Padding. Damit bleiben die
-Fragmentierungs- und Grenztests aussagekräftig; der Build stoppt, wenn die Datei
-nicht mehr in genau drei Cluster passt. Die exakten Dateigrößen und Speicher-
+mehrere FAT-Cluster. BSS folgt erst nach diesem Padding. Damit bleiben die
+Fragmentierungs- und Grenztests aussagekräftig. Der Imagebau verlängert die
+Kette entsprechend der Dateigröße; das Budget bleibt 48 KiB. Die exakten Dateigrößen und Speicher-
 grenzen jedes Builds stehen in `manifest.json`.
-Es gibt noch keine OS-Übergabe, Partitionserkennung, Umschaltung oder Recovery.
+Nach dem C-Starttest ruft das normale Image `rb_menu_run()` auf. Es gibt noch
+keine OS-Übergabe, Partitionsprüfung, Umschaltung oder Recovery.
 
 ## Speichervertrag
 
@@ -250,11 +260,11 @@ beziehungsweise Ursache an und halten den Rechner an.
 
 Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
 
-- 80 Hosttests, darunter MBR-Erhalt, EBR-Adressierung und unabhängiges
-  Zusammensetzen der fragmentierten Datei über ihre FAT-Kette.
+- 83 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+  unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 82 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 84 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -276,6 +286,10 @@ Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
   geschriebene BSS-Wort `BEADh`, alle übrigen BSS-Bytes und das Stack-Schutzwort
   stimmen. Dies geschieht mit EDD, mit CHS und
   zusätzlich einmal ohne das Test-Option-ROM. Erst danach wird QEMU beendet.
+- Zwei der Bootfälle prüfen 26 Bedingungen der tatsächlichen C/16-Menülogik
+  einschließlich Auswahl, ungültigem Standard, Timeout und Tageswechsel.
+  Zusätzlich werden die normalen Images in vier Menükampagnen bedient:
+  insgesamt 60 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
 und kann EDD als nicht vorhanden melden. Der MBR selbst bleibt in diesen
@@ -287,7 +301,7 @@ Sie reservieren 1 KiB am oberen Ende des konventionellen Speichers über den
 BDA-Speicherzähler und hängen sich in den INT-13h-Vektor ein. Diese Eingriffe
 gehören zum Testaufbau, nicht zum ausgelieferten Festplattenimage.
 
-36 Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
+37 Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
 dieselbe geordnete Sektorfolge einschließlich Wiederholungen enthalten.
 Die BIOS-Traces beweisen dabei die Benutzung von AH=42h beziehungsweise
 AH=02h nach der Auswahl. Spur-/Zylinderwechsel werden bei 16/63 geprüft;

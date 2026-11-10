@@ -14,7 +14,7 @@ wir lokal ausführen können.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Stage-2 zweimal bauen, 82 Start-/Fehlerszenarien mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Menü zweimal bauen, 84 Start-/Fehlerszenarien und 60 Menüansichten mit EDD und CHS in QEMU prüfen, kompaktes Testimage bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -39,13 +39,19 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-hdd-bios`: kompaktes HDD-Testimage, Binärdateien, Manifest,
-  Linkerkarten, Bootprotokolle und I/O-Traces.
+  Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
+  VGA-/RAM-Abzüge und `menu-results.json`.
+
+Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
+Bildschirm- und Tastaturnachweise unter `menu/`.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
 Lauf. Maßgeblich sind der Jobstatus und die Ergebnisse. `manifest.json`
 enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
+Entsprechend entsteht `menu-results.json` erst nach allen vier erfolgreichen
+Menükampagnen. Screenshots allein ersetzen diese Prüfungen nicht.
 
 ## Warum zweimal bauen?
 
@@ -64,6 +70,14 @@ Byteprüfung aus dem VM-Speicher zurück. Für das normale Image werden auch
 C-Bootkontext, BSS und Stack-Schutzwort geprüft. Das ROM gehört nur zum Testaufbau;
 für den manuellen Start des Images wird es nicht benötigt.
 
+Die Menüprüfung startet das normale Image auf dem kompakten und dem großen
+Referenzlayout, jeweils mit EDD und CHS. Sie sendet Pfeile, Enter, Esc, F2,
+F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
+Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
+Auswahlfarben. RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
+Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
+vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
+
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
 Prüfung. Dein erfolgreicher Diskettentest mit `RB ABI PASS` ergänzt die CI um
@@ -71,6 +85,8 @@ genau diesen praktischen Startnachweis; genaue Rechner-/BIOS-Daten sind dazu
 noch nicht protokolliert.
 Auch ein erfolgreicher manueller HDD-Start in VirtualBox wurde für PR #3
 zurückgemeldet. VirtualBox ist bislang kein zusätzlicher automatischer CI-Job.
+Die vier C-HDD-Erfolgsmeldungen aus PR #5 wurden ebenfalls manuell bestätigt;
+ein manueller Nachweis für die Menübedienung steht noch aus.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

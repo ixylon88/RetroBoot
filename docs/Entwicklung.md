@@ -7,6 +7,7 @@ Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
 Layoutprüfers bleibt gültig; er selbst erzeugt weiterhin nur Berichte.
 Hinzu kommt der [Festplattenladeweg](HDD_Boot.md) über BIOS-EDD/CHS und FAT16
 bis zum C-Einstieg mit eigenem Startcode.
+Darauf baut jetzt das [lesende Textmenü](Menue.md) auf.
 Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
 
 ## Was jetzt funktioniert
@@ -56,7 +57,8 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 | `make hdd` | Neue HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild und 82 positive/negative HDD-Boots in QEMU prüfen |
+| `make hdd-test` | Wiederholungsbuild, 84 positive/negative HDD-Boots und 60 Menüansichten prüfen |
+| `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -115,14 +117,15 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **80 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **83 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
 erzeugt. Hinzu kommen Prüfungen des binären Probe-Headers, der Größenbudgets,
 der Ausgabeziele und der Auswertung der Emulatorergebnisse.
 Die HDD-Ergänzung prüft außerdem den Erhalt der geschützten MBR-Bytes, binäre
-EBR-Adressen und das Zusammensetzen einer fragmentierten FAT16-Datei.
+EBR-Adressen und das Zusammensetzen einer FAT16-Datei bis zur maximalen
+Stage-2-Größe von 48 KiB. Zwei Tests prüfen zusätzlich den VGA-Textdekoder.
 
 Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
 Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
@@ -136,14 +139,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-82 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler und echte induzierte
+84 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menülogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 36 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 37 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -157,18 +160,33 @@ und ein zerstörtes Stack-Schutzwort führen zum erwarteten Abbruch. Für das
 normale Image bestätigt ein RAM-Abzug zusätzlich die geladenen Dateibytes,
 die C-BSS-Inhalte und das Schutzwort. Die gemeinsam verwendeten Helfer stehen
 in `runtime/`; alle sieben Disketten-Binärdateien und -Images sind nach dieser
-Umstellung bytegleich zum vorherigen Stand. Der aktuelle C-HDD-Stand ist noch
-nicht manuell in VirtualBox oder auf der historischen Zielmaschine geprüft.
+Umstellung bytegleich zum vorherigen Stand. Die vier C-HDD-Erfolgsmeldungen
+aus PR #5 wurden inzwischen manuell bestätigt. Die genaue Plattform dieses
+Tests wurde nicht erneut angegeben; der neue Menüstand ist noch manuell zu prüfen.
+
+Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
+Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in vier
+QEMU-Kampagnen: kompaktes und großes Layout jeweils mit EDD und CHS.
+60 echte VGA-Textseiten werden nach emulierten Tastendrücken auf Texte,
+MBR-Werte und Auswahlattribute geprüft. Dateibytes, BSS und Stack-Schutzwort
+bleiben bei jeder Aktion gültig; es gibt keine Disk-Schreibzugriffe.
+26 native C/16-Bedingungen prüfen Auswahl- und Timerlogik, auch Tageswechsel
+und fehlerhafte Zeitquellen. Im normalen Menü ist der Timer ausgeschaltet,
+weil noch keine registrierten Startprofile existieren.
 
 Damit liegen T01-Nachweise für beide Artefaktgruppen sowie T02/T03/T04 und ein
 abgegrenzter T05-Nachweis für den beschriebenen QEMU-Testaufbau vor.
+Für T08 sind Bedienung und Zeitrechnung abgegrenzt geprüft; die Integration
+mit gültigen Startprofilen und einem echten Startziel steht noch aus.
 T06 erfordert später die Prüfung tatsächlich vorgefundener Partitionsstrukturen.
 Die alten Zielmaschinen und weitere reale BIOS-Implementierungen bleiben
 zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Auf dem geprüften C-Einstieg das zunächst ausschließlich lesende Menü aufbauen.
+1. Menübedienung manuell bestätigen, anschließend MBR-/EBR-Strukturen und
+   Startziele lesend prüfen (T06); dann den Übergabevertrag mit eigenem Test-VBR
+   nachweisen (T07). Erst mit gültigen Profilen die vollständige Startauswahl ergänzen.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 
