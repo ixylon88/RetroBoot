@@ -29,6 +29,8 @@ jobs:
         run: make toolchain
       - name: Reproduce HDD images and verify loader, menu and partition scanner
         run: make hdd-test
+      - name: Reproduce German images and verify localized VGA screens
+        run: make hdd-ui-test RB_LANGUAGE=de
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -60,3 +62,21 @@ jobs:
             build/scan/*.bin
             build/scan/*.png
             build/scan/*.conf
+            build/hdd-de/retroboot-hdd.img
+            build/hdd-de/*.bin
+            build/hdd-de/*.rom
+            build/hdd-de/*.map
+            build/hdd-de/manifest.json
+            build/menu-de/*.json
+            build/menu-de/*.log
+            build/menu-de/*.trace
+            build/menu-de/*.txt
+            build/menu-de/*.bin
+            build/menu-de/*.png
+            build/scan-de/*.json
+            build/scan-de/*.log
+            build/scan-de/*.trace
+            build/scan-de/*.txt
+            build/scan-de/*.bin
+            build/scan-de/*.png
+            build/scan-de/*.conf

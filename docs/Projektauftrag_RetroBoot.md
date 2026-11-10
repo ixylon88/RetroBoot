@@ -1,10 +1,12 @@
 # Projektauftrag: RetroBoot – Eigener BIOS-Multibootmanager für DOS, Windows 95 und Windows 98
 
-Ich möchte mit dir ein vollständiges Softwareprojekt namens **RetroBoot** entwickeln. Ich werde eigens dazu ein Repo in meinem GitHub Konto gleichen Namens anlegen.
+**RetroBoot** ist ein eigenständiges Softwareprojekt mit einem gleichnamigen GitHub-Repository.
+
+Redaktioneller Hinweis: Persönliche Anreden wurden neutralisiert. Die ursprünglichen technischen Anforderungen bleiben dokumentiert; bei Abweichungen gilt die aktuelle Spezifikation v0.2.
 
 ## 1. Projektziel
 
-Entwickle einen eigenständigen Bootmanager für klassische x86-PCs mit BIOS und MBR.
+Projektziel ist ein eigenständiger Bootmanager für klassische x86-PCs mit BIOS und MBR.
 
 RetroBoot soll technisch folgende Betriebssysteme parallel auf einer Festplatte unterstützen:
 
@@ -159,9 +161,9 @@ Ein eigenes Wiederherstellungssystem soll Folgendes ermöglichen:
 
 ## 10. Entwicklungsanforderungen
 
-Bitte entwickle das Projekt schrittweise und nachvollziehbar.
+Die Entwicklung erfolgt schrittweise und nachvollziehbar.
 
-Ich möchte:
+Vorgesehene Lieferbestandteile:
 
 * Vollständigen Quellcode
 * Sinnvolle Projektstruktur
@@ -173,11 +175,11 @@ Ich möchte:
 * Bootfähige ISO-Datei
 * Bootfähiges Festplattenimage
 
-Bitte verwende geeignete Programmiersprachen für einen klassischen x86-Bootloader, beispielsweise Assembly und C.
+Geeignete Programmiersprachen für einen klassischen x86-Bootloader sind beispielsweise Assembly und C.
 
 ## 11. Entwicklungsreihenfolge
 
-Arbeite in folgenden Phasen:
+Die Entwicklung gliedert sich in folgende Phasen:
 
 **Phase 1:** Technische Spezifikation und Überprüfung der historischen Kompatibilität.
 
@@ -213,18 +215,18 @@ Arbeite in folgenden Phasen:
 
 ## 13. Arbeitsweise
 
-Bitte beginne nicht sofort mit einer großen Menge ungetestetem Code.
+Kleine, geprüfte Entwicklungsschritte bilden die Grundlage.
 
-Gehe schrittweise vor:
+Vorgesehener Ablauf:
 
-1. Prüfe zunächst die technische Architektur.
-2. Identifiziere mögliche Probleme mit den angebeben Betriebssystemen aus Punkt 1.
-3. Korrigiere gegebenenfalls die Partitionierungsplanung.
-4. Erstelle eine vollständige technische Spezifikation.
-5. Beginne anschließend mit dem ersten lauffähigen Bootloader.
-6. Liefere jede Komponente mit vollständigem Quellcode und Build-Anleitung.
-7. Teste die einzelnen Entwicklungsstufen, bevor du die nächste beginnst.
+1. Technische Architektur prüfen.
+2. Mögliche Probleme mit den angegebenen Betriebssystemen aus Punkt 1 identifizieren.
+3. Partitionierungsplanung gegebenenfalls korrigieren.
+4. Vollständige technische Spezifikation erstellen.
+5. Ersten lauffähigen Bootloader entwickeln.
+6. Jede Komponente mit vollständigem Quellcode und Build-Anleitung bereitstellen.
+7. Jede Entwicklungsstufe vor Beginn der nächsten testen.
 
-**Mein Ziel ist ein tatsächlich bootfähiges, selbst entwickeltes Retro-Multibootsystem namens RetroBoot und nicht nur ein Konzept oder eine Simulation.**
+**Ziel ist ein tatsächlich bootfähiges, selbst entwickeltes Retro-Multibootsystem namens RetroBoot.**
 
-Beginne jetzt mit Phase 1: Technische Prüfung und endgültige Architekturplanung.
+Am Anfang steht Phase 1: technische Prüfung und endgültige Architekturplanung.

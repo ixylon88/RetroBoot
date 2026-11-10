@@ -5,7 +5,10 @@ Stand: 10. November 2026. Menü aus Phase 4 mit lesender Partitionsprüfung aus 
 Das normale `retroboot-hdd.img` öffnet nach den vier C-/Stage-2-Erfolgsmeldungen
 ein blaues 80×25-Textmenü. Der Auswahlbalken ersetzt den blinkenden Cursor.
 Es gibt drei Informationsseiten, noch keine registrierten Startprofile.
-Deshalb steht ausdrücklich **Automatischer Start: aus** im Hauptmenü.
+Deshalb steht ausdrücklich **Automatic boot: off** beziehungsweise
+**Automatischer Start: aus** im Hauptmenü. Englisch ist Standard;
+`RB_LANGUAGE=de` wählt Deutsch mit Umlauten und `ß`.
+Die [Sprachanleitung](Languages.md) beschreibt Kodierung und Ausgabepfade.
 
 ## Bedienung
 
@@ -44,21 +47,24 @@ die Anzeige erklärt, dass sie nicht abgefragt wurde.
 
 Das kompakte Image aus dem erfolgreichen Workflow **HDD BIOS boot** wie in
 der [HDD-Anleitung](HDD_Boot.md) beschrieben in QEMU oder einer leeren
-VirtualBox-BIOS-VM starten. Für ein neues Image eine neue VDI erzeugen;
+VirtualBox-BIOS-VM starten. Das Artefakt enthält Englisch unter `hdd/` und
+Deutsch unter `hdd-de/`. Für ein neues Image eine neue VDI erzeugen;
 eine früher konvertierte VDI enthält weiterhin den alten Programmstand.
 
 1. Das Hauptmenü zeigt keine Startprofile und keinen Countdown.
 2. Pfeile bewegen den Balken über alle drei Zeilen und über den Listenrand.
 3. Enter öffnet die gewählte Seite, Esc bringt das Hauptmenü zurück.
 4. F2 zeigt im kompakten Image fünf Einträge: P1–P3 leer, P4 Typ `05`,
-   L1 Typ `16`. Das Ergebnis lautet „Struktur geprueft; kein OS-Start freigegeben.“
+   L1 Typ `16`. Das Ergebnis lautet „Structure checked; no OS boot authorized.“
+   beziehungsweise „Struktur geprüft; kein OS-Start freigegeben.“
 5. F8 zeigt, dass Wiederherstellung noch nicht verfügbar ist.
 6. Unter Systeminformationen stehen Laufwerk `80` und der verwendete Leseweg.
 
-Bitte bei einer Rückmeldung auch VM-/BIOS-Version oder Rechnermodell und die
-beobachtete Leseart nennen. Das neue Menü ist bislang automatisch in QEMU
-geprüft. Der Menüstand aus PR #6 wartet weiterhin auf den angekündigten
-manuellen Test; der C-Einstieg aus PR #5 wurde bereits manuell bestätigt.
+Ein Testprotokoll enthält nach Möglichkeit VM-/BIOS-Version oder Rechnermodell
+und die beobachtete Leseart. Menü (PR #6) und Scanner (PR #7) wurden am
+10. November manuell als erfolgreich bestätigt; zusätzliche Plattformdaten
+wurden nicht angegeben. Die neuen Sprachvarianten sind davon getrennt zu
+prüfen, einschließlich der Darstellung von Umlauten und `ß`.
 
 ## Implementierung und Grenzen
 
@@ -97,6 +103,7 @@ Zeitrechnung vor; die vollständige Startintegration bleibt offen.
 make toolchain
 make check
 make hdd-test
+make hdd-ui-test RB_LANGUAGE=de
 ```
 
 `make hdd-test` baut zweimal, prüft 86 positive/negative HDD-Startfälle und
@@ -128,8 +135,11 @@ Ergebnisse stehen in `build/menu/menu-results.json`, Textseiten, VGA-/RAM-Abzüg
 ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
-Stage-2-Dateigröße von 48 KiB. Einschließlich der Scanner-Fixtures sind es
-86 Hosttests. Die zusätzlichen 32 Scanner-Kampagnen mit 204 Bildschirmzuständen
+Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
+Katalogprüfungen sind es 93 Hosttests. Beide Sprachen durchlaufen
+dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
+deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
+Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen
 stehen in der [Partitionsprüfung](Partitionen.md).
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).

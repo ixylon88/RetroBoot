@@ -13,8 +13,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 try:
+    from .ui_text import LANGUAGES, checked_catalog, output_name
     from .build_hdd import CASES, ROOT, prepare_output, sha256
 except ImportError:
+    from ui_text import LANGUAGES, checked_catalog, output_name
     from build_hdd import CASES, ROOT, prepare_output, sha256
 
 
@@ -172,6 +174,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qemu", default="qemu-system-i386")
     parser.add_argument("--bios", type=Path)
+    parser.add_argument("--language", choices=LANGUAGES, default="en")
     args = parser.parse_args()
     executable = shutil.which(args.qemu)
     if not executable:
@@ -180,11 +183,12 @@ def main():
     bios = (args.bios or qemu.parent.parent / "share/seabios/bios-256k.bin").resolve()
     if not bios.is_file() or not bios.with_name("vgabios-stdvga.bin").is_file():
         raise ValueError("SeaBIOS and its VGA ROM must be present; use --bios")
-    directory = ROOT / "build/hdd"
+    directory = ROOT / "build" / output_name("hdd", args.language)
     prepare_output(directory)
     result_file = directory / "boot-results.json"
     result_file.unlink(missing_ok=True)
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    checked_catalog(manifest, args.language)
     events = directory / "ide-events.txt"
     events.write_text("ide_sector_read\nide_sector_write\nblk_co_pwritev\n", encoding="ascii")
     version = subprocess.check_output([str(qemu), "--version"], text=True).splitlines()[0]
@@ -268,7 +272,7 @@ def main():
     for name, routes in pairs.items():
         if set(routes) != {"EDD", "CHS"} or routes["EDD"] != routes["CHS"]:
             raise ValueError(f"{name}: EDD and CHS read different sector sequences")
-    report = {"qemu_version": version, "qemu_sha256": sha256(qemu),
+    report = {"ui": manifest["ui"], "qemu_version": version, "qemu_sha256": sha256(qemu),
               "bios_sha256": sha256(bios), "vga_bios_sha256": sha256(bios.with_name("vgabios-stdvga.bin")),
               "machine": "pc-i440fx-8.2", "accelerator": "tcg", "cpu": "486",
               "ram_mib": 16, "disk_access": "EDD and CHS, IDE, disposable snapshot overlay",

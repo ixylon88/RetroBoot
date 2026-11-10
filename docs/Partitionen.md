@@ -100,6 +100,7 @@ Im lokalen QEMU-8.2.2-/SeaBIOS-Lauf ergaben sich:
 make toolchain
 make check
 make hdd-test
+make hdd-ui-test RB_LANGUAGE=de
 ```
 
 `make scan-test` baut einmal und prüft gezielt die neuen Scanner-Szenarien.
@@ -109,7 +110,8 @@ Mit bereits gebauten Images ist auch ein direkter Aufruf möglich:
 python3 tools/test_scan.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin
 ```
 
-- 86 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures.
+- 93 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures
+  und die Kodierungs-/Feldbreitenprüfungen für beide Menükataloge.
 - 51 Bedingungen im tatsächlichen C/16-Parser, jeweils nach einem EDD- und
   CHS-Start. Darunter sind andere Disk-ID, fehlende Signaturen, falsche Typen,
   Aktivflags, Überlappungen, Überläufe, leere Einträge und rückwärts laufende
@@ -127,12 +129,18 @@ Jede Kampagne prüft zweimaliges Einlesen, Esc/F8 nach Fehlern, die exakte
 Sektorfolge einschließlich Wiederholungen und ausbleibende Schreibzugriffe.
 VGA-Zeichen und Attribute, geladene Dateibytes, BSS und Stackschutz werden
 im Gast-RAM geprüft. Vollständige Image-Hashes bleiben gleich.
+Die allgemeinen Menü- und Scanner-Kampagnen laufen für Englisch und Deutsch,
+zusammen 558 Bildschirmzustände. Alle sichtbaren übersetzten Texte werden
+geprüft, einschließlich der konkreten Fehlermeldung mit Umlauten und `ß`.
+Die [Sprachanleitung](Languages.md) beschreibt die Build-Auswahl.
 
 `build/scan/scan-results.json` entsteht erst nach dem vollständigen Erfolg.
 Screenshots, VGA-/RAM-Abzüge, Textseiten, BIOS- und I/O-Protokolle liegen
 daneben und werden im CI-Artefakt unter `scan/` bereitgestellt. Die absichtlich
 fehlerhaften Images gehören nicht zum Download; dieser enthält das normale
-kompakte Menüimage unter `hdd/retroboot-hdd.img`.
+kompakte englische Menüimage unter `hdd/retroboot-hdd.img`. Die deutsche
+Entsprechung liegt unter `hdd-de/retroboot-hdd.img`, ihre Scanner-Nachweise
+unter `scan-de/` beziehungsweise lokal `build/scan-de/`.
 
 Formatgrundlage: Microsoft, *Windows NT Server Resource Guide 4.0*, Kapitel 3,
 Abschnitt „Extended Partitions“ ([Originaldokument auf Archivspiegel](https://bitsavers.trailing-edge.com/pdf/microsoft/resource_kits/Windows_NT_4.0_Resource_Kit_1996/097-0001648_Windows_NT_4.0_Server_Resource_Guide_1996.pdf)).

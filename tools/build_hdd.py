@@ -14,11 +14,13 @@ try:
     from .retroboot_layout import chs, load_plan, validate_plan
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
+    from .ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from retroboot_layout import chs, load_plan, validate_plan
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from scan_fixtures import SCAN_CASES, mutate_scan_fixture
+    from ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
 
 SECTOR = 512
 COMPACT_BYTES = 64 * 1024 * 1024
@@ -285,7 +287,8 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("menu-model", "core/menu_model.c"), ("menu-selftest", "tests/menu/model.c"),
                          ("partitions", "core/partitions.c"), ("scan-selftest", "tests/partitions/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
-            "-i=include", "-fo=" + str(destination / (name + ".obj")), source)
+            "-i=include", "-i=" + str(destination),
+            "-fo=" + str(destination / (name + ".obj")), source)
     for name in ("ui", "disk"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", f"bios/{name}.asm", "-o", destination / (name + ".obj"))
     for name in ("abi", "end"):
@@ -353,11 +356,13 @@ def build_stage2(destination, nasm, wcc, wlink):
     return payloads, memory, artifacts
 
 
-def build(output):
+def build(output, language="en"):
     if output not in ("hdd", "hdd-repeat"):
         raise ValueError("Output must be hdd or hdd-repeat")
-    destination = ROOT / "build" / output
+    header = render_header(load_catalog(language), language)
+    destination = ROOT / "build" / output_name(output, language)
     prepare_output(destination)
+    (destination / "ui_text.h").write_text(header, encoding="ascii", newline="\n")
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     nasm = TOOLCHAIN / ("nasm-" + lock["nasm"]["version"]) / "nasm"
     wcc, wlink = (TOOLCHAIN / "watcom" / name for name in ("wcc", "wlink"))
@@ -408,18 +413,20 @@ def build(output):
     manifest = {"format_version": 2, "purpose": "phase-5-read-only-partition-scan-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
-                "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES}
+                "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES,
+                "ui": catalog_metadata(language)}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(f"Built {output}: MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
+    print(f"Built {destination.name} ({language}, CP437): MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repeat", action="store_true")
+    parser.add_argument("--language", choices=LANGUAGES, default="en")
     args = parser.parse_args()
-    first = build("hdd")
-    if args.repeat and first != build("hdd-repeat"):
+    first = build("hdd", args.language)
+    if args.repeat and first != build("hdd-repeat", args.language):
         raise ValueError("Repeated HDD builds differ")
     if args.repeat:
         print("Reproducibility: all HDD binaries, images and manifests are identical")

@@ -1,0 +1,96 @@
+# English and German menu builds
+
+The Stage 2 menu supports English (`en`, default) and German (`de`). Both
+variants use the same C/assembly code, disk layout, keys and validation rules.
+Language selection changes the menu text, not the boot logic. The early boot
+messages, failure codes and automated-test markers remain English ASCII.
+
+## Building and alternating languages
+
+After `make toolchain`, with the prerequisites listed in the root README:
+
+```sh
+make hdd RB_LANGUAGE=en
+make hdd RB_LANGUAGE=de
+make hdd RB_LANGUAGE=en
+```
+
+Each invocation performs a complete native build. English and German have
+separate fixed output directories; switching language does not reuse an
+object or generated header from the other build. No clean step is required.
+The language cannot currently be changed inside the running menu.
+
+| Purpose | English | German |
+| --- | --- | --- |
+| Compact image | `build/hdd/retroboot-hdd.img` | `build/hdd-de/retroboot-hdd.img` |
+| Independent repeat build | `build/hdd-repeat/` | `build/hdd-repeat-de/` |
+| General menu evidence | `build/menu/` | `build/menu-de/` |
+| Scanner and paging evidence | `build/scan/` | `build/scan-de/` |
+
+The **retroboot-hdd-bios** CI artifact contains both compact images. Inside
+the archive the paths start with `hdd/` and `hdd-de/`; the outer `build/`
+directory is omitted. A new image needs a fresh raw-to-VDI conversion for
+VirtualBox; an older VDI still contains the older program.
+
+## Characters and encoding
+
+The source catalogs [en.json](../ui/en.json) and [de.json](../ui/de.json) are
+UTF-8. The build converts the selected catalog to CP437 for the BIOS VGA text
+mode and writes an ASCII C header using exactly three octal digits per byte.
+This avoids dependence on the host or compiler locale and prevents a following
+digit from extending an escape sequence.
+
+| Character | CP437 byte, hexadecimal |
+| --- | --- |
+| Ä | `8E` |
+| Ö | `99` |
+| Ü | `9A` |
+| ä | `84` |
+| ö | `94` |
+| ü | `81` |
+| ß (Eszett) | `E1` |
+
+The mapping is recorded in the [Unicode Consortium's CP437 table](https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT).
+For example, German screens contain `Köpfe`, `Menü`, `Überlappende` and
+`außerhalb`. The original `ae/oe/ue` spellings were text choices, not a limit
+of VGA output. Writing unconverted UTF-8 bytes into VGA text memory would
+produce incorrect characters.
+
+The build rejects missing or duplicate keys, extra keys, empty text, control
+characters, characters outside CP437 and text exceeding its assigned screen
+field. CP437 is not full Unicode: the capital `ẞ` and the euro sign, for
+example, are not representable. Rendering assumes a VGA-compatible CP437
+font supplied by the BIOS. No custom font is installed.
+
+## Verification
+
+```sh
+make check
+make hdd-test RB_LANGUAGE=en
+make hdd-ui-test RB_LANGUAGE=de
+```
+
+The 93 host tests include seven catalog tests, with independent byte values
+for all six umlauts and `ß`, field bounds and stale-language detection.
+Each language is built twice and all binaries, images and manifests must
+match between its two builds. Different languages are expected to produce
+different Stage 2 binaries.
+
+The full 86-case boot suite runs once in CI with English, covering the shared
+loader, C startup, native menu-model and native parser tests. Both languages
+run all five general menu campaigns and all 32 scanner campaigns: 279
+VGA/keyboard states per language, 558 total. Every visible translated label,
+including specific scanner error messages, is checked against the selected
+catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
+active. QEMU screenshots provide additional visual evidence.
+
+The build manifest records the selected language, `cp437` encoding and the
+catalog SHA-256. UI tests reject a stale or mismatched catalog and require
+the matching `RB UI en CP437` or `RB UI de CP437` boot marker. Test reports
+include the same metadata. A full German boot suite is also available with
+`make hdd-test RB_LANGUAGE=de`; it is not duplicated in CI because the shared
+boot logic is unchanged.
+
+Manual success for PR #6 and PR #7 was reported before this language change.
+It covers those earlier menu/scanner builds. Manual rendering checks of the
+new language variants, especially on historical VGA/BIOS hardware, remain open.

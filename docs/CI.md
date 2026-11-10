@@ -8,13 +8,13 @@ Diese Prüfungen laufen bei Änderungen am PR erneut.
 Die Anweisungen dafür stehen lesbar in `.github/workflows/`. Ein **Workflow**
 ist ein Prüfablauf, ein **Job** läuft auf einem Rechner, und dessen **Steps**
 sind die einzelnen Befehle. Die Dateien beschreiben dieselben Befehle, die
-wir lokal ausführen können.
+auch lokal ausführbar sind.
 
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | HDD-Lader und C-Menü zweimal bauen, 86 Bootfälle, 75 Menüansichten und 204 Scanner-/Blätterzustände mit EDD und CHS prüfen, kompaktes Testimage bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 86 gemeinsame Bootfälle sowie je Sprache 75 Menüansichten und 204 Scanner-/Blätterzustände mit EDD und CHS prüfen; beide kompakten Images bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -38,13 +38,18 @@ kein bestandener Test.
 Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
-- `retroboot-hdd-bios`: kompaktes HDD-Testimage, Binärdateien, Manifest,
+- `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
   VGA-/RAM-Abzüge, `menu-results.json` und `scan-results.json`.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
-Fehler- und Blätternachweise unter `scan/`.
+Fehler- und Blätternachweise unter `scan/`. Die deutschen Entsprechungen
+liegen unter `hdd-de/`, `menu-de/` und `scan-de/`. Sprache, CP437-Kodierung
+und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
+Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
+Die 86 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
@@ -78,7 +83,9 @@ Referenzlayout, jeweils mit EDD und CHS. Ein weiterer Lauf prüft eine für den
 gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
-Auswahlfarben. RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
+Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
+Zusammen mit den Scannerprüfungen sind es 558 Bildschirmzustände.
+RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
 
@@ -90,13 +97,15 @@ vor seinem Lesezugriff abgewiesen. Alle diese Nachweise sind ausschließlich les
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
-Prüfung. Dein erfolgreicher Diskettentest mit `RB ABI PASS` ergänzt die CI um
+Prüfung. Der gemeldete erfolgreiche Diskettentest mit `RB ABI PASS` ergänzt die CI um
 genau diesen praktischen Startnachweis; genaue Rechner-/BIOS-Daten sind dazu
 noch nicht protokolliert.
 Auch ein erfolgreicher manueller HDD-Start in VirtualBox wurde für PR #3
 zurückgemeldet. VirtualBox ist bislang kein zusätzlicher automatischer CI-Job.
 Die vier C-HDD-Erfolgsmeldungen aus PR #5 wurden ebenfalls manuell bestätigt;
-ein manueller Nachweis für die Menübedienung steht noch aus.
+auch Menü (PR #6) und Scanner (PR #7) wurden am 10. November manuell bestätigt.
+Zusätzliche Plattformdaten liegen dafür nicht vor. Die neuen Sprachvarianten
+haben noch keinen eigenen manuellen Nachweis.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

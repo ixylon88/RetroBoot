@@ -10,10 +10,12 @@ import time
 from pathlib import Path
 
 try:
+    from .ui_text import LANGUAGES, checked_catalog, output_name
     from .build_hdd import ROOT, prepare_output, sha256
     from .test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
     from .test_menu import Qmp, check_screen, expected_partitions, wait_marker
 except ImportError:
+    from ui_text import LANGUAGES, checked_catalog, output_name
     from build_hdd import ROOT, prepare_output, sha256
     from test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
     from test_menu import Qmp, check_screen, expected_partitions, wait_marker
@@ -23,6 +25,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qemu", default="qemu-system-i386")
     parser.add_argument("--bios", type=Path)
+    parser.add_argument("--language", choices=LANGUAGES, default="en")
     args = parser.parse_args()
     executable = shutil.which(args.qemu)
     if not executable:
@@ -31,11 +34,13 @@ def main():
     bios = (args.bios or qemu.parent.parent / "share/seabios/bios-256k.bin").resolve()
     if not bios.is_file() or not bios.with_name("vgabios-stdvga.bin").is_file():
         raise ValueError("SeaBIOS and its standard VGA ROM must be present; use --bios")
-    source, output = ROOT / "build/hdd", ROOT / "build/scan"
+    source = ROOT / "build" / output_name("hdd", args.language)
+    output = ROOT / "build" / output_name("scan", args.language)
     prepare_output(output)
     result_file = output / "scan-results.json"
     result_file.unlink(missing_ok=True)
     manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    strings = checked_catalog(manifest, args.language)
     for name in ("stage2.bin", "int13-0.rom", "int13-1.rom"):
         if sha256(source / name) != manifest["artifacts"][name]["sha256"]:
             raise ValueError(f"Changed scan test component: {name}")
@@ -97,7 +102,7 @@ def main():
                         data = ram.read_bytes()
                         check_runtime_memory(data, payload, memory, mode)
                         offset = memory["symbols"]["_rb_boot"]
-                        rows = check_screen(vram.read_bytes(), view, selected, mode, mbr, data[offset:offset + 12],
+                        rows = check_screen(vram.read_bytes(), view, selected, mode, mbr, data[offset:offset + 12], strings,
                                             partitions=partitions, page=page, status=expected["status"],
                                             error_lba=expected["lba"], error_slot=expected["slot"])
                         (output / f"{name}-{serial:02d}.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
@@ -113,6 +118,8 @@ def main():
                     if process.poll() is None:
                         process.kill(); process.wait(timeout=5)
             text = log.read_text(encoding="utf-8")
+            if text.count(f"RB UI {args.language} CP437") != 1:
+                raise ValueError("Wrong menu language marker")
             check_c_status(text, mode)
             calls = check_bios_route(text, mode)
             matches = re.findall(r"^RB SCAN status=([0-9A-F]{4}) count=([0-9A-F]{4}) ebr=([0-9A-F]{4}) lba=([0-9A-F]{8}) slot=([0-9A-F]{4})$", text, re.MULTILINE)
@@ -142,7 +149,7 @@ def main():
             print(f"{name}: status {expected['status']}, {len(screens)} VGA/keyboard states; bounded reads, no writes", flush=True)
     if any(routes["EDD"] != routes["CHS"] for routes in pairs.values()):
         raise ValueError("Scanner EDD/CHS sector sequences differ")
-    report = {"qemu_version": subprocess.check_output([str(qemu), "--version"], text=True).splitlines()[0],
+    report = {"ui": manifest["ui"], "qemu_version": subprocess.check_output([str(qemu), "--version"], text=True).splitlines()[0],
               "qemu_sha256": sha256(qemu), "bios_sha256": sha256(bios),
               "vga_bios_sha256": sha256(bios.with_name("vgabios-stdvga.bin")),
               "machine": "pc-i440fx-8.2", "cpu": "486", "ram_mib": 16, "cases": results}
