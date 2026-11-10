@@ -6,6 +6,12 @@ group DGROUP _TEXT CONST CONST2 _DATA _BSS STACK
 segment _TEXT public align=16 class=CODE use16
 global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_main, _rb_c_mix, _rb_putc, _rb_boot
+%ifdef RB_MENU_MODEL_TEST
+extern _rb_menu_selftest
+%endif
+%ifndef RB_TEST
+extern _rb_menu_run
+%endif
 
     jmp short rb_entry
     db 'RBS2'
@@ -77,12 +83,24 @@ rb_entry:
     jne failed
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
     jne failed
+%ifdef RB_MENU_MODEL_TEST
+    call _rb_menu_selftest
+    test ax, ax
+    jnz failed
+    cmp sp, RB_STACK_TOP
+    jne failed
+    cmp word [RB_STACK_LOW], RB_STACK_GUARD
+    jne failed
+    mov si, menu_model_message
+    call print
+%endif
     mov si, ready_message
     call print
 %ifdef RB_TEST
     mov ax, 0x10
     jmp finish
 %else
+    call _rb_menu_run
     jmp halt
 %endif
 
@@ -145,6 +163,9 @@ print:
 
 ready_message db 'RetroBoot Stage 2 ready', 13, 10, 'RB HDD PASS', 13, 10, 0
 failed_message db 'RB C STARTUP ERROR', 13, 10, 0
+%ifdef RB_MENU_MODEL_TEST
+menu_model_message db 'RB MENU MODEL PASS', 13, 10, 0
+%endif
 
 segment CONST public align=2 class=DATA use16
 segment CONST2 public align=2 class=DATA use16

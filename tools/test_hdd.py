@@ -109,7 +109,7 @@ def save_guest_memory(process, output, size):
 
 
 def run_until_marker(command, log, marker, output, size):
-    """The hardware-facing image halts instead of accessing QEMU's exit port."""
+    """Stop the normal image externally; it never uses QEMU's exit port."""
     with subprocess.Popen(command + ["-qmp", "stdio"], stdin=subprocess.PIPE,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
         deadline = time.monotonic() + 15
@@ -235,6 +235,8 @@ def main():
             code, error = result.returncode, result.stderr
         output = log.read_text(encoding="utf-8") if log.exists() else ""
         check_result(name, code, output + error, marker, uninstrumented)
+        if case.source == "hdd-menu-model" and "RB MENU MODEL PASS" not in output:
+            raise ValueError(f"{name}: native menu model tests did not pass")
         if marker == "RB HDD PASS" or case.source == "hdd-c-stack-fault":
             check_c_status(output, case.mode)
         causes = {"hdd-c-bss-fault": "C BSS ERROR", "hdd-c-data-fault": "C data ERROR",

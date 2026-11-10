@@ -56,6 +56,7 @@ CASES = {
     "hdd-c-data-fault": "RB C STARTUP ERROR",
     "hdd-c-stack-fault": "RB C STARTUP ERROR",
     "hdd-c-context-fault": "RB C STARTUP ERROR",
+    "hdd-menu-model": "RB HDD PASS",
 }
 
 
@@ -158,7 +159,7 @@ def directory_entry(name, cluster, size):
 
 def fixture(parts, case):
     """Describe a sparse new image. No external destination or input disk."""
-    size, admin, extents = layout(case == "hdd-reference")
+    size, admin, extents = layout(case in ("hdd-reference", "retroboot-reference"))
     start, count, fat = admin["start_lba"], admin["sectors"], admin["fat"]
     spc, spf = fat["sectors_per_cluster"], fat["sectors_per_fat"]
     cluster_bytes = spc * SECTOR
@@ -168,10 +169,13 @@ def fixture(parts, case):
     if len(bootstrap) > 16 * SECTOR or len(bootstrap) % SECTOR:
         raise ValueError("Invalid contiguous bootstrap length")
     boot_clusters = list(range(2, 2 + (len(bootstrap) + cluster_bytes - 1) // cluster_bytes))
-    stage_clusters = [20, 21, 22] if case == "hdd-contiguous" else [20, 300, 40]
+    needed = (len(stage2) + cluster_bytes - 1) // cluster_bytes
+    stage_clusters = [20 + index if case == "hdd-contiguous" else
+                      20 + index * 10 if index % 2 == 0 else 200 + index * 100
+                      for index in range(needed)]
     if case == "hdd-boundaries":
-        stage_clusters = [25, 151, 40]  # LBAs 503/1007: track/cylinder edges, 16/63
-    if not 2 * cluster_bytes < len(stage2) <= 3 * cluster_bytes or len(boot_clusters) > 4:
+        stage_clusters[:2] = [25, 151]  # LBAs 503/1007: track/cylinder edges, 16/63
+    if not 2 * cluster_bytes < len(stage2) <= STAGE2_MAX or len(boot_clusters) > 4:
         raise ValueError("Fixture allocation needs updating for changed payload sizes")
     table = bytearray(spf * SECTOR)
     struct.pack_into("<HH", table, 0, 0xFFF8, 0xFFFF)
@@ -184,7 +188,7 @@ def fixture(parts, case):
     if case in faults:
         struct.pack_into("<H", table, stage_clusters[0] * 2, faults[case])
     if case == "hdd-long-chain":
-        struct.pack_into("<H", table, stage_clusters[-1] * 2, 41)
+        struct.pack_into("<H", table, stage_clusters[-1] * 2, 31000)
     table2 = bytearray(table)
     if case == "hdd-fat-copies":
         struct.pack_into("<H", table2, stage_clusters[0] * 2, 0xFFFF)
@@ -274,8 +278,11 @@ def build_stage2(destination, nasm, wcc, wlink):
         if result.returncode or "Warning!" in result.stdout or "Warning!" in result.stderr:
             raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
 
-    run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
-        "-i=include", "-fo=" + str(destination / "stage2-c.obj"), "core/stage2.c")
+    for name, source in (("stage2-c", "core/stage2.c"), ("menu", "core/menu.c"),
+                         ("menu-model", "core/menu_model.c"), ("menu-selftest", "tests/menu/model.c")):
+        run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
+            "-i=include", "-fo=" + str(destination / (name + ".obj")), source)
+    run(nasm, "-Werror", "-f", "obj", "-I", "./", "bios/ui.asm", "-o", destination / "ui.obj")
     for name in ("abi", "end"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", "-DRB_HDD_FIXTURE=1", f"runtime/{name}.asm",
             "-o", destination / (name + ".obj"))
@@ -283,13 +290,18 @@ def build_stage2(destination, nasm, wcc, wlink):
     variants = {"normal": [], "test": ["-DRB_TEST=1"],
                 "bss-fault": ["-DRB_TEST=1", "-DRB_SKIP_BSS_CLEAR=1"],
                 "stack-fault": ["-DRB_TEST=1", "-DRB_BAD_STACK_GUARD=1"],
-                "context-fault": ["-DRB_TEST=1", "-DRB_BAD_BOOT_CONTEXT=1"]}
+                "context-fault": ["-DRB_TEST=1", "-DRB_BAD_BOOT_CONTEXT=1"],
+                "menu-model": ["-DRB_TEST=1", "-DRB_MENU_MODEL_TEST=1"]}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
         obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
         run(nasm, "-Werror", "-f", "obj", "-I", "./", *defines, "core/start.asm", "-o", obj)
-        objects = ",".join(str(path) for path in
-                           (obj, destination / "stage2-c.obj", destination / "abi.obj", destination / "end.obj"))
+        linked_objects = [obj, destination / "stage2-c.obj", destination / "menu.obj",
+                          destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj"]
+        if variant == "menu-model":
+            linked_objects.append(destination / "menu-selftest.obj")
+        linked_objects.append(destination / "end.obj")
+        objects = ",".join(str(path) for path in linked_objects)
         run(wlink, "@core/stage2.wlink", "name", binary, "option", "map=" + str(mapfile), "file", objects)
         linked = binary.read_bytes()
         header = inspect_stage2(linked)
@@ -316,8 +328,8 @@ def build_stage2(destination, nasm, wcc, wlink):
             if not header["bss_begin"] <= symbols[name] <= header["bss_end"] - size:
                 raise ValueError("C variable outside cleared BSS")
         # The end object emits padding so that BSS follows the entire file.
-        if not 4096 < len(linked) <= 6144:
-            raise ValueError("C payload outgrew the three-cluster fixture; update allocation")
+        if not 4096 < len(linked) <= STAGE2_MAX:
+            raise ValueError("C payload exceeds the Stage 2 memory budget")
         payloads[variant] = seal_stage2(linked)
         binary.write_bytes(payloads[variant])
         memory[variant] = {"header": header, "fixture_padding_bytes": 4096,
@@ -371,14 +383,16 @@ def build(output):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd",)):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference")):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
+            if case == "hdd-menu-model":
+                variant = "menu-model"
             parts["stage2"] = stage2[variant]
             path = destination / (case + ".img")
             size, extents = fixture(parts, case)
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
-    manifest = {"format_version": 2, "purpose": "phase-3-edd-chs-fat16-c-runtime-fixtures",
+    manifest = {"format_version": 2, "purpose": "phase-4-read-only-menu-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
                 "memory": memory, "artifacts": artifacts}

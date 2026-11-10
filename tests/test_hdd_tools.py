@@ -136,6 +136,29 @@ class DiskFormatTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<H", fat, 4)[0], 0xFFFF)
         self.assertEqual(extents[411 * 512], parts["bootstrap"])
 
+    def test_grown_stage2_fits_fragmented_and_contiguous_allocation(self):
+        parts = samples()
+        data = bytearray(parts["stage2"] + bytes(STAGE2_MAX - 5000))
+        struct.pack_into("<I", data, 8, len(data))
+        struct.pack_into("<HH", data, 22, len(data), len(data) + 36)
+        parts["stage2"] = seal_stage2(data)
+        for case in ("hdd-fragmented", "hdd-contiguous", "hdd-boundaries"):
+            _, extents = fixture(parts, case)
+            fat, root = extents[127 * 512], extents[379 * 512]
+            cluster, size = struct.unpack_from("<HI", root, 666)
+            seen, content = [], b""
+            while cluster < 0xFFF8:
+                self.assertNotIn(cluster, seen)
+                seen.append(cluster)
+                content += extents[(411 + (cluster - 2) * 4) * 512]
+                cluster = struct.unpack_from("<H", fat, cluster * 2)[0]
+            with self.subTest(case=case):
+                self.assertEqual(size, STAGE2_MAX)
+                self.assertEqual(len(seen), 24)
+                self.assertEqual(content, parts["stage2"])
+                self.assertEqual(seen[:3], [20, 21, 22] if case == "hdd-contiguous"
+                                 else [25, 151, 40] if case == "hdd-boundaries" else [20, 300, 40])
+
     def test_vbr_pointer_and_both_sums(self):
         _, extents = fixture(samples(), "hdd-fragmented")
         vbr, boot = extents[126 * 512], extents[411 * 512]

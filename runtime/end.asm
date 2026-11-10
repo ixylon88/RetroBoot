@@ -4,7 +4,7 @@ cpu 386
 segment _DATA public align=2 class=DATA use16
 global rb_file_end
 %ifdef RB_HDD_FIXTURE
-    ; Force a third FAT cluster while keeping BSS after the actual loaded file.
+    ; Exercise multiple FAT clusters while keeping BSS after the loaded file.
     times 4096 db 0xA5
 %endif
 rb_file_end:
