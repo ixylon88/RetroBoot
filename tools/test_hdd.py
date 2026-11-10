@@ -243,6 +243,8 @@ def main():
             raise ValueError(f"{name}: native menu model tests did not pass")
         if case.source == "hdd-scan-model" and "RB SCAN MODEL PASS" not in output:
             raise ValueError(f"{name}: native partition parser tests did not pass")
+        if case.source == "hdd-volume-model" and "RB VOLUME MODEL PASS" not in output:
+            raise ValueError(f"{name}: native volume parser tests did not pass")
         if marker == "RB HDD PASS" or case.source == "hdd-c-stack-fault":
             check_c_status(output, case.mode)
         causes = {"hdd-c-bss-fault": "C BSS ERROR", "hdd-c-data-fault": "C data ERROR",

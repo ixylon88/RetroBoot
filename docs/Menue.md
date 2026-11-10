@@ -18,11 +18,13 @@ Die [Sprachanleitung](Languages.md) beschreibt Kodierung und Ausgabepfade.
 | Enter | Ausgewählte Informationsseite öffnen |
 | Esc | Zum Hauptmenü zurückkehren; Auswahl bleibt erhalten |
 | F2 | MBR und EBR-Kette erneut lesen und prüfen; Partitionen ab Seite 1 anzeigen |
+| F3 | Tabellen erneut prüfen und einen FAT-Volume-Header untersuchen; auf der Volume-Seite den aktuellen Eintrag aktualisieren |
+| Pfeil links / rechts | Auf der Volume-Seite zum vorherigen/nächsten Dateneintrag wechseln; leere Slots und Container überspringen |
 | Bild hoch / herunter | Auf der Partitionsseite blättern; maximal acht Einträge pro Seite |
 | F8 | Von jeder Seite zu den Recovery-Hinweisen wechseln |
 
 Andere Tasten starten keine Aktion. Auf einer Informationsseite verändern
-Pfeile und Enter die Auswahl nicht. Die Hinweise nennen die derzeit
+Pfeile hoch/herunter und Enter die Hauptmenüauswahl nicht. Die Hinweise nennen die derzeit
 verfügbare Funktion; F8 bietet noch keine Wiederherstellung an.
 
 | Seite | Angezeigte Daten |
@@ -30,6 +32,7 @@ verfügbare Funktion; F8 bietet noch keine Wiederherstellung an.
 | Systeminformationen | BIOS-Laufwerk, tatsächlich gewählter Leseweg EDD/CHS, erreichbare Sektorzahl, Disk-ID und gegebenenfalls BIOS-CHS-Geometrie |
 | Partitionen | Vier primäre Slots und bis zu 16 logische Einträge mit Flag, Typ, Start-LBA, Sektorzahl und Tabellen-LBA; Werte außer den Eintragsnummern sind hexadezimal |
 | Recovery-Hinweise | Hinweis auf die noch fehlende Wiederherstellung und die verfügbaren Informationsseiten |
+| Volume-Bootsektor (F3) | Partition, Typ, VBR-LBA und Prüfergebnis; nur bei Erfolg FAT-Typ, Clustergröße, Sektoren, Clusterzahl und Datenanfang |
 
 Die Systeminformationen stammen weiterhin aus dem Bootvorgang. Die
 Partitionsseite liest dagegen die Tabellensektoren frisch ein und prüft
@@ -38,6 +41,10 @@ Leere primäre Slots werden mit ihren Nullwerten angezeigt. Ein Fehler zeigt
 Ursache und betroffene LBA; Esc und F8 bleiben bedienbar. Aus einem Typbyte
 wird kein Betriebssystemname oder gültiges Dateisystem abgeleitet. Der
 [Scanner-Nachweis und seine Grenzen](Partitionen.md) sind getrennt beschrieben.
+Die zusätzliche [F3-Ansicht](VolumeHeaders.md) liest nach erfolgreicher
+Tabellenprüfung einen Volume-Header. Links/Rechts verwendet die zuletzt
+geprüfte Belegung; F3 liest auch die Tabellen erneut. Fehler lassen abgeleitete
+Werte leer. Ein plausibler BPB gibt keinen OS-Start frei; NTFS bleibt ungeprüft.
 
 Bei CHS ist die Sektorzahl die vom BIOS adressierbare Reichweite, keine
 unabhängig gemessene Mediengröße. Bei EDD wird keine CHS-Geometrie erfunden;
@@ -59,12 +66,16 @@ eine früher konvertierte VDI enthält weiterhin den alten Programmstand.
    beziehungsweise „Struktur geprüft; kein OS-Start freigegeben.“
 5. F8 zeigt, dass Wiederherstellung noch nicht verfügbar ist.
 6. Unter Systeminformationen stehen Laufwerk `80` und der verwendete Leseweg.
+7. F3 zeigt L1, Typ `16`, VBR-LBA `0000007E`, FAT16 und 2.048 Byte pro
+   Cluster. Die vollständigen Sollwerte stehen in der Volume-Anleitung.
+   Links/Rechts bleibt bei diesem einzigen Volume; F3, F2, Esc und F8 bleiben bedienbar.
 
 Ein Testprotokoll enthält nach Möglichkeit VM-/BIOS-Version oder Rechnermodell
 und die beobachtete Leseart. Menü (PR #6) und Scanner (PR #7) wurden am
 10. November manuell als erfolgreich bestätigt; zusätzliche Plattformdaten
-wurden nicht angegeben. Die neuen Sprachvarianten sind davon getrennt zu
-prüfen, einschließlich der Darstellung von Umlauten und `ß`.
+wurden nicht angegeben. Auch die Sprachvarianten aus PR #8 wurden inzwischen
+manuell bestätigt, ohne neue Plattformdaten. Die neue F3-Seite hat noch keinen
+eigenen manuellen Nachweis.
 
 ## Implementierung und Grenzen
 
@@ -76,7 +87,8 @@ Schreibzugriffe auf 2.000 Textzellen. Zwischen Eingaben wartet die CPU mit
 überschreiben deshalb keine Menütexte.
 
 Menüzustand, die 520-Byte-Kopie von Geometrie und MBR sowie das 480-Byte-
-Scannergebnis liegen auf dem eigenen C-Stack. Der bestehende Stage-2-Speichervertrag, das Schutzwort und die
+Scannergebnis sowie das neue 24-Byte-Volume-Ergebnis liegen auf dem eigenen
+C-Stack. Der bestehende Stage-2-Speichervertrag, das Schutzwort und die
 BSS-Prüfungen bleiben erhalten. Das Image enthält weder einen Disk-Schreibpfad
 noch eine OS-Übergabe. Die Spezifikation v0.2 bleibt unverändert.
 
@@ -106,8 +118,8 @@ make hdd-test
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-`make hdd-test` baut zweimal, prüft 86 positive/negative HDD-Startfälle und
-führt anschließend Menü- und Scannerprüfungen aus. `make menu-test` baut einmal und
+`make hdd-test` baut zweimal, prüft 88 positive/negative HDD-Startfälle und
+führt anschließend Menü-, Scanner- und Volume-Prüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
 ```sh
@@ -136,10 +148,13 @@ ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
 Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
-Katalogprüfungen sind es 93 Hosttests. Beide Sprachen durchlaufen
+Katalogprüfungen und vier Volume-Fixture-Tests sind es 97 Hosttests. Beide Sprachen durchlaufen
 dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
 deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
 Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen
 stehen in der [Partitionsprüfung](Partitionen.md).
+Weitere 43 Volume-Kampagnen je Sprache prüfen je 318 Zustände, insgesamt
+also 1.194 UI-Zustände. Ihre Nachweise liegen unter `build/volume/` und
+`build/volume-de/`; Details stehen in der [Volume-Anleitung](VolumeHeaders.md).
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).

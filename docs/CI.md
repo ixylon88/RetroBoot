@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 86 gemeinsame Bootfälle sowie je Sprache 75 Menüansichten und 204 Scanner-/Blätterzustände mit EDD und CHS prüfen; beide kompakten Images bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 88 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner- und 318 Volume-Zustände mit EDD und CHS prüfen; beide kompakten Images bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -40,15 +40,16 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
-  VGA-/RAM-Abzüge, `menu-results.json` und `scan-results.json`.
+  VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json` und `volume-results.json`.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
-Fehler- und Blätternachweise unter `scan/`. Die deutschen Entsprechungen
-liegen unter `hdd-de/`, `menu-de/` und `scan-de/`. Sprache, CP437-Kodierung
+Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
+`volume/`. Die deutschen Entsprechungen liegen unter `hdd-de/`, `menu-de/`,
+`scan-de/` und `volume-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 86 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 88 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -56,8 +57,9 @@ Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
 Lauf. Maßgeblich sind der Jobstatus und die Ergebnisse. `manifest.json`
 enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
-Entsprechend entstehen `menu-results.json` und `scan-results.json` erst nach
-allen fünf beziehungsweise 32 erfolgreichen Kampagnen. Ein erwarteter,
+Entsprechend entstehen `menu-results.json`, `scan-results.json` und
+`volume-results.json` erst nach allen fünf, 32 beziehungsweise 43 erfolgreichen
+Kampagnen. Ein erwarteter,
 korrekt behandelter Scanfehler gilt dabei als bestandener Test.
 Screenshots allein ersetzen diese Prüfungen nicht.
 
@@ -84,7 +86,7 @@ gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
-Zusammen mit den Scannerprüfungen sind es 558 Bildschirmzustände.
+Zusammen mit den Scanner- und Volume-Prüfungen sind es 1.194 Bildschirmzustände.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
@@ -94,6 +96,9 @@ mehrseitige Tabellen. Die 51 nativen C/16-Parserbedingungen prüfen unter
 anderem andere Disk-ID, Überläufe und nicht aufsteigende EBR-Ketten.
 Die Menütests müssen auch nach Fehlern bedienbar bleiben; ein 17. EBR wird
 vor seinem Lesezugriff abgewiesen. Alle diese Nachweise sind ausschließlich lesend.
+Die Volume-Prüfung ergänzt F3, Links/Rechts und Fehlerpfade für FAT-Header;
+114 native C16-Bedingungen prüfen zusätzlich BPB-Grenzen und die verwendeten
+32-Bit-Rechenhelfer. Ein plausibler Header bleibt ohne Startfreigabe.
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
@@ -104,8 +109,9 @@ Auch ein erfolgreicher manueller HDD-Start in VirtualBox wurde für PR #3
 zurückgemeldet. VirtualBox ist bislang kein zusätzlicher automatischer CI-Job.
 Die vier C-HDD-Erfolgsmeldungen aus PR #5 wurden ebenfalls manuell bestätigt;
 auch Menü (PR #6) und Scanner (PR #7) wurden am 10. November manuell bestätigt.
-Zusätzliche Plattformdaten liegen dafür nicht vor. Die neuen Sprachvarianten
-haben noch keinen eigenen manuellen Nachweis.
+Auch die Sprachvarianten aus PR #8 wurden manuell bestätigt; zusätzliche
+Plattformdaten liegen dafür nicht vor. Die neue F3-Ansicht hat noch keinen
+eigenen manuellen Nachweis.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

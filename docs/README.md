@@ -11,6 +11,7 @@
 | [English/German builds](Languages.md) | Sprachwahl, CP437, Umlaute und Eszett; englische Anleitung |
 | [Textmenü](Menue.md) | Bedienung, Informationsseiten und Tastatur-/Bildschirmnachweise |
 | [Partitionsprüfung](Partitionen.md) | MBR-/EBR-Scanner, Grenzen, Fehlerseiten und Blättertests |
+| [FAT volume headers](VolumeHeaders.md) | F3-BPB-Prüfung, unterstützte Formate, Grenzen und Nachweise; englische Anleitung |
 | [Arbeitsstand](Arbeitsstand.md) | Gesicherter Stand, offene Schritte und Wiederaufnahme nach einer Pause |
 | [CI erklärt](CI.md) | Bedeutung der Windows-/Linux-Jobs, Ergebnisse und Artefakte |
 | [Projektauftrag](Projektauftrag_RetroBoot.md) | Ursprüngliche Ziele; technische Korrekturen stehen in v0.2 |

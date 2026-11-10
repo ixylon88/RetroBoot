@@ -13,11 +13,11 @@ import time
 from pathlib import Path
 
 try:
-    from .ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS
+    from .ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS, VOLUME_KEYS
     from .build_hdd import ROOT, prepare_output, sha256
     from .test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
 except ImportError:
-    from ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS
+    from ui_text import LANGUAGES, checked_catalog, output_name, ERROR_KEYS, VOLUME_KEYS
     from build_hdd import ROOT, prepare_output, sha256
     from test_hdd import check_bios_route, check_c_status, check_runtime_memory, check_trace, read_lbas
 
@@ -113,7 +113,7 @@ def expected_partitions(image):
 
 
 def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None, page=0,
-                 status=0, error_lba=0, error_slot=0):
+                 status=0, error_lba=0, error_slot=0, volume=None):
     rows = screen_rows(data)
 
     def at(row, column, key):
@@ -195,6 +195,36 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
         for row, key in ((5, "RECOVERY"), (8, "RECOVERY_MISSING"),
                          (10, "RECOVERY_PAGES"), (13, "RECOVERY_READ_ONLY")):
             at(row, 4, key)
+    elif view == 4:
+        at(5, 4, "VOLUME_TITLE")
+        at(6, 4, "VOLUME_SCOPE")
+        at(19, 4, "VOLUME_HELP")
+        if volume is None:
+            at(8, 4, "VOLUME_NONE")
+            if any(row[4:78].strip() for row in rows[9:18]):
+                raise ValueError("Empty volume list contains stale details")
+        else:
+            at(8, 4, "VOLUME_ENTRY")
+            at(8, 45, "VOLUME_PTYPE")
+            at(9, 4, "VOLUME_LBA")
+            at(11, 4, VOLUME_KEYS[volume["status"]])
+            label = ("L" if volume["logical"] else "P") + str(volume["slot"])
+            if (rows[8][29:29 + len(label)] != label or rows[8][54:56] != f'{volume["type"]:02X}'
+                    or rows[9][29:37] != f'{volume["start"]:08X}'):
+                raise ValueError("Wrong selected volume identity")
+            if volume["status"]:
+                if any(row[4:78].strip() for row in rows[13:18]):
+                    raise ValueError("Failed volume check displays stale successful metadata")
+            else:
+                for row, key in ((13, "VOLUME_KIND"), (14, "VOLUME_BYTES"), (15, "VOLUME_TOTAL_LABEL"),
+                                 (16, "VOLUME_CLUSTERS"), (17, "VOLUME_DATA")):
+                    at(row, 4, key)
+                if (rows[13][29:34] != f'FAT{volume["bits"]}'
+                        or rows[14][29:34].strip() != str(volume["cluster_bytes"])
+                        or rows[15][29:37] != f'{volume["total"]:08X}'
+                        or rows[16][29:37] != f'{volume["clusters"]:08X}'
+                        or rows[17][29:37] != f'{volume["data_lba"]:08X}'):
+                    raise ValueError("Wrong FAT header arithmetic displayed")
     else:
         raise ValueError("Unknown menu view")
     return rows

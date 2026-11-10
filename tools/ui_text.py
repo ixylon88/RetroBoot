@@ -9,6 +9,10 @@ LANGUAGES = ("en", "de")
 ERROR_KEYS = tuple("ERROR_" + name for name in (
     "OK", "IO", "SIGNATURE", "IDENTITY", "FLAGS", "TYPE", "EMPTY",
     "OVERFLOW", "RANGE", "OVERLAP", "EXTENDED", "SLOTS", "LOOP", "LIMIT"))
+VOLUME_KEYS = tuple("VOLUME_" + name for name in (
+    "OK", "IO", "SIGNATURE", "JUMP", "SECTOR", "CLUSTER", "RESERVED", "FATS",
+    "ROOT", "TOTAL", "HIDDEN", "LAYOUT", "TYPE", "FAT_SIZE", "FAT32", "RANGE",
+    "UNSUPPORTED", "MEDIA"))
 KEYS = (
     "SYSTEM_INFO", "PARTITIONS", "RECOVERY", "READ_ONLY", "BOOT_MENU",
     "NO_PROFILES", "AUTO_OFF", "DRIVE", "DRIVE_HEX", "ROUTE", "ROUTE_EDD",
@@ -17,17 +21,22 @@ KEYS = (
     "TABLE_HEADER", "LBA_HEX", "ENTRY", "WHOLE_SECTOR", "NO_CHANGES",
     "SCAN_HELP", "PAGE", "PAGING", "RECOVERY_MISSING", "RECOVERY_PAGES",
     "RECOVERY_READ_ONLY", "KEY_HELP", "FUNCTION_HELP",
-) + ERROR_KEYS
+    "VOLUME_TITLE", "VOLUME_SCOPE", "VOLUME_NONE", "VOLUME_ENTRY", "VOLUME_PTYPE",
+    "VOLUME_LBA", "VOLUME_KIND", "VOLUME_BYTES", "VOLUME_TOTAL_LABEL",
+    "VOLUME_CLUSTERS", "VOLUME_DATA", "VOLUME_HELP",
+) + ERROR_KEYS + VOLUME_KEYS
 # Most text begins at column 4 and must end before the frame at column 78.
 WIDTHS = dict.fromkeys(KEYS, 74)
 WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               DRIVE=15, DRIVE_HEX=25, ROUTE=25, DISK_ID=25, CHS_HEADS=13,
               CHS_SECTORS=16, LBA_HEX=19, ENTRY=19, WHOLE_SECTOR=55,
-              PAGE=6, PAGING=58)
+              PAGE=6, PAGING=58, VOLUME_ENTRY=25, VOLUME_PTYPE=9, VOLUME_LBA=25,
+              VOLUME_KIND=25, VOLUME_BYTES=25, VOLUME_TOTAL_LABEL=25,
+              VOLUME_CLUSTERS=25, VOLUME_DATA=25)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 
