@@ -4,65 +4,74 @@ Updated: 10 November 2026.
 
 ## Saved baseline
 
-PR #9 (read-only FAT volume headers) is merged into `historical` at
-`c9fbc512f068d4f2f954a9dcb41391067c081f2b`. All its CI passed. Manual success
-for the F3 view was subsequently reported, without new platform details.
-Earlier reports cover the ABI floppy, HDD/C startup, menu (PR #6), partition
-scanner (PR #7) and English/German builds (PR #8). No machine or BIOS version
-is inferred from those reports.
+PR #10 (T07 test-VBR handoff) is merged into `historical` at
+`ea677bfdae4977644a856f43292f849473780dfe`. Its host, ABI and HDD CI passed.
+Manual success for the test-VBR handoff was subsequently reported. No new
+machine, BIOS, read-route or language-coverage details were supplied.
+Earlier manual reports cover the ABI floppy, HDD/C startup, menu, partition
+scanner, English/German builds and F3 volume-header view. Those reports do
+not establish coverage beyond their stated environments and increments.
 
-## Current increment: T07 test-VBR handoff
+## Current increment: read-only configuration records
 
-Branch `codex/test-vbr-handoff` adds an explicit, separate 128 MiB test image.
-F4 on its main menu freshly validates the tables, exact primary entry and
-FAT BPB, then compares the same captured VBR against the compiled test sector.
-Only that owned sector can run. Failures clear staged data and remain operable.
-The normal 64 MiB diagnostic images ignore F4 and retain their existing logic.
+Branch `codex/profile-records` adds F5 and preallocated `RBCFG.A/B` files to
+the generated management volume. Each request freshly scans the tables,
+checks the management pointer/BPB, derives the root and FAT locations, validates
+both file allocations and selects the newest completely valid configuration.
+A rejected copy remains visible as a warning; conflicting equal generations
+or a wholly invalid configuration expose no profile data.
 
-The transition copies all 512 bytes to `0000:7C00` and the raw entry to
-`0000:0800`, restores the agreed register/stack state and transfers execution.
-The independent VBR captures/checks its entry state and displays
-`RB HANDOFF PASS` or `RB HANDOFF FAIL`. It does not return to the menu; a
-reboot is required. The [handoff guide](Handoff.md) records the exact contract,
-fixture limits, failure codes and manual instructions. There are no disk
-writes, OS profiles or original-OS startup claims in this increment.
+The versioned 512-byte records bind disk signature, structural layout and
+management extent. Up to eight profiles carry stable Entry IDs, names, exact
+primary extents/types, profile kind, intended visibility and declared status.
+The [configuration guide](Configuration.md) specifies every byte, status,
+selection rule, read boundary and manual check. Configured status/approval is
+not independent installation evidence. No configuration value enables a
+countdown, OS jump or write. The existing T07 main-menu F4 gate is unchanged.
 
-Local evidence:
+The normal 64 MiB image has two identical generation-1 records and no entries.
+The 128 MiB handoff image has one unapproved `Test VBR` profile. Dedicated
+negative and eight-entry fixtures are used only by automated tests.
 
-- 102 host tests and the reference layout report pass.
-- Two byte-identical builds per language.
-- 90 boot cases, including 40 identical EDD/CHS sector-sequence pairs.
+Verification scope:
+
+- 108 host checks plus the reference layout report.
+- Two byte-identical builds per language; unchanged 48 KiB Stage 2 and
+  8 KiB stack budgets; both normal Stage 2 variants remain below 21 KiB.
+- 92 boot cases, including 41 identical EDD/CHS sector-sequence pairs.
 - Native C16 assertions: 26 menu/timer, 51 partition parser, 114 volume/
-  arithmetic and 29 handoff-preparation checks, each through EDD and CHS.
-- Per language: 75 menu, 204 scanner, 318 volume and 185 handoff states,
-  totaling 1,564 states across both languages. Handoff tests inspect exact
-  loaded bytes, stable entry, captured registers/stack and unchanged INT 13h.
-  Real read errors, nine injected transition faults, negative authorization,
-  VGA/RAM/BSS/stack, exact reads, unchanged images and no writes are checked.
+  arithmetic, 29 handoff and 76 configuration checks through both BIOS routes.
+- Per language: 75 menu, 204 scanner, 318 volume, 185 handoff and 678
+  configuration states; 2,920 states across both languages. The configuration
+  suite has 63 campaigns, including a run without an instrumentation ROM.
+- Real read failures/retries, copy fallback/conflict, directory/FAT faults,
+  full-root bounds, all eight entries, CP437 names, inactive declared approval/
+  countdown, VGA/RAM/BSS/stack, exact reads, unchanged images and no writes.
 
-The large reference layout and its positive/negative CHS geometry tests are
-unchanged. English remains the default; `RB_LANGUAGE=de` selects CP437 German,
-including umlauts and `ß`, with separate outputs. Neutral repository prose
-and exclusion of private personal details remain required by `AGENTS.md`.
-The frozen specification v0.2 is unchanged. CI results and downloadable
-artifacts belong to this branch's PR; only a reviewed merge updates `historical`.
+English remains the default; `RB_LANGUAGE=de` selects CP437 German including
+umlauts and `ß`, with separate outputs. Repository prose remains impersonal
+and contains no private personal details. Specification v0.2 is unchanged.
+CI results and downloadable artifacts belong to this branch's PR; only the
+project's reviewed merge updates `historical`.
 
 ## Open work
 
-1. Manually check `retroboot-handoff.img` in both languages. F4 from the main
-   menu should reach `RB HANDOFF PASS`. Record platform and read-route details
-   when available. The PR #9 report does not cover this new test image.
-2. Define persistent installation/media identity and valid start profiles,
-   including intended partition visibility. The exact compiled T07 fixture
-   binding is not a general OS authorization or installation record.
-3. Integrate selection and fresh target validation with that profile model;
-   then test a suitably prepared original system under phase 5. Automatic
-   start, DOS/Win9x isolation and optional NT groups still need their own
-   evidence. Writes remain deferred to the later recovery-backed phase.
+1. Manually check F5 on current normal and handoff images. Both copies should
+   have status `0000`, generation `00000001`, selected copy A. The normal image
+   has no entries; the handoff image has the unapproved `Test VBR` entry.
+   Esc returns; F4 remains limited to the handoff image's main menu.
+2. Add independent installation/media-state records (`RBSTATE.A/B`) and the
+   cross-check with profile declarations. Structural CRC plus disk signature
+   alone cannot identify an installation or distinguish identical clones.
+3. Integrate profile selection, current/intended visibility and fresh target
+   validation before a suitably prepared original-OS test. DOS/Win9x isolation,
+   optional NT groups and automatic start need their own evidence. Runtime
+   writes remain deferred to the later recovery-backed phase; this file reader
+   is not a complete allocation audit for a future writer.
 
 ## Resuming after a pause
 
-Begin with current GitHub branches/PRs, repository code and the open items
-above. Restart interrupted builds/tests; transient emulator state is not a
-saved checkpoint. Completed increments are committed and proposed as PRs,
+Start with current GitHub branches/PRs, repository code and the open items
+above. Interrupted builds/tests must restart; transient emulator state is not
+a saved checkpoint. Completed increments are committed and proposed as PRs,
 which remain open for project review and merge.

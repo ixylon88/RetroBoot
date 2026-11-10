@@ -114,13 +114,13 @@ Mit bereits gebauten Images ist auch ein direkter Aufruf möglich:
 python3 tools/test_scan.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin
 ```
 
-- 102 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures
+- 108 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures
   und die Kodierungs-/Feldbreitenprüfungen für beide Menükataloge.
 - 51 Bedingungen im tatsächlichen C/16-Parser, jeweils nach einem EDD- und
   CHS-Start. Darunter sind andere Disk-ID, fehlende Signaturen, falsche Typen,
   Aktivflags, Überlappungen, Überläufe, leere Einträge und rückwärts laufende
   EBR-Ketten. Der letzte zulässige LBA `FFFFFFFFh` wird ohne Überlauf geprüft.
-- Insgesamt 90 HDD-Bootfälle mit 40 EDD-/CHS-Paaren und bytegleichen
+- Insgesamt 92 HDD-Bootfälle mit 41 EDD-/CHS-Paaren und bytegleichen
   Wiederholungsbuilds; die vorhandenen 26 Auswahl-/Timerbedingungen bleiben erhalten.
 - Fünf normale Menükampagnen mit insgesamt 75 Bildschirmzuständen,
   einschließlich der absichtlich zu kleinen automatischen Referenz-CHS-Geometrie.

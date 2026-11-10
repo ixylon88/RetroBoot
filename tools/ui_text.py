@@ -26,6 +26,28 @@ KEYS = (
     "VOLUME_CLUSTERS", "VOLUME_DATA", "VOLUME_HELP",
     "HANDOFF_HELP", "HANDOFF_FAILED", "HANDOFF_REASON",
     "HANDOFF_TARGET", "HANDOFF_CODE", "HANDOFF_RETRY",
+    "CONFIG_TITLE",
+    "CONFIG_DEGRADED",
+    "CONFIG_SCOPE",
+    "CONFIG_COPIES",
+    "CONFIG_OK",
+    "CONFIG_MISSING",
+    "CONFIG_FORMAT",
+    "CONFIG_CRC",
+    "CONFIG_IDENTITY",
+    "CONFIG_PROFILE",
+    "CONFIG_CONFLICT",
+    "CONFIG_ADMIN",
+    "CONFIG_DIRECTORY",
+    "CONFIG_FAT",
+    "CONFIG_DETAIL",
+    "CONFIG_GENERATION",
+    "CONFIG_IDENTITY_LABEL",
+    "CONFIG_EMPTY",
+    "CONFIG_ENTRY",
+    "CONFIG_EXTENT",
+    "CONFIG_FLAGS",
+    "CONFIG_HELP",
 ) + ERROR_KEYS + VOLUME_KEYS
 # Most text begins at column 4 and must end before the frame at column 78.
 WIDTHS = dict.fromkeys(KEYS, 74)
@@ -34,11 +56,13 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               CHS_SECTORS=16, LBA_HEX=19, ENTRY=19, WHOLE_SECTOR=55,
               PAGE=6, PAGING=58, VOLUME_ENTRY=25, VOLUME_PTYPE=9, VOLUME_LBA=25,
               VOLUME_KIND=25, VOLUME_BYTES=25, VOLUME_TOTAL_LABEL=25,
-              VOLUME_CLUSTERS=25, VOLUME_DATA=25)
+              VOLUME_CLUSTERS=25, VOLUME_DATA=25, CONFIG_COPIES=25, CONFIG_DETAIL=25,
+              CONFIG_GENERATION=25, CONFIG_IDENTITY_LABEL=25, CONFIG_ENTRY=25,
+              CONFIG_EXTENT=25, CONFIG_FLAGS=27)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

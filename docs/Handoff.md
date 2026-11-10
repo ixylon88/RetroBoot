@@ -11,7 +11,7 @@ The **retroboot-hdd-bios** artifact contains two image kinds per language:
 
 | Image | Purpose |
 | --- | --- |
-| `hdd/retroboot-hdd.img`, `hdd-de/retroboot-hdd.img` | Existing 64 MiB diagnostic menu, including F2/F3 |
+| `hdd/retroboot-hdd.img`, `hdd-de/retroboot-hdd.img` | Existing 64 MiB diagnostic menu, including F2/F3/F5 |
 | `hdd/retroboot-handoff.img`, `hdd-de/retroboot-handoff.img` | New 128 MiB T07 image, with a primary test target and the existing hidden management volume |
 
 The [HDD guide](HDD_Boot.md) describes BIOS-mode QEMU/VirtualBox startup.
@@ -44,7 +44,9 @@ for `0002`/`0003` is the existing scanner/volume status; the corresponding
 reason is also displayed as text.
 
 Manual success for PR #9's F3 view was reported after its merge, without new
-VM, machine or BIOS details. That evidence does not cover this new T07 image.
+VM, machine or BIOS details. T07 from PR #10 was subsequently manually
+confirmed too, without further platform details. The later [F5 configuration
+increment](Configuration.md) has its own manual check.
 
 ## Authorization and exact reads
 
@@ -127,9 +129,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 102 host tests include fixture preservation, literal primary-entry values,
+- 108 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 90 boot cases include 40 identical EDD/CHS read-sequence pairs. The new
+- 92 boot cases include 41 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS
@@ -142,8 +144,9 @@ A direct run on already built images is also available:
   bytes, BSS and stack guard are checked. Exact post-menu reads, EDD/CHS pairs,
   unchanged image hashes and absence of disk writes are required.
 
-Together with the unchanged menu/scanner/volume suites, there are 782 states
-per language and 1,564 across both languages. Both languages build twice with
+The handoff/menu/scanner/volume suites total 782 states per language.
+The [configuration suite](Configuration.md) adds 678, giving 1,460 per language
+and 2,920 across both languages. Both languages build twice with
 byte-identical results. `handoff-results.json` is written only when all its
 campaigns pass. Reports, text pages, screenshots, low-memory/Stage-2/VGA dumps
 and disk traces accompany the two normal and two handoff images in CI.
