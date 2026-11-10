@@ -76,5 +76,11 @@
   "VOLUME_TOTAL_LABEL": "Volume sectors (hex):",
   "VOLUME_CLUSTERS": "Data clusters (hex):",
   "VOLUME_DATA": "Data start LBA (hex):",
-  "VOLUME_HELP": "Left/Right: volume  F3: read tables and header again"
+  "VOLUME_HELP": "Left/Right: volume  F3: read tables and header again",
+  "HANDOFF_HELP": "F4: Run test VBR (reboot to return)",
+  "HANDOFF_FAILED": "Test handoff rejected",
+  "HANDOFF_REASON": "Status / detail (hex); the test target was not started.",
+  "HANDOFF_TARGET": "Test partition differs from the built-in fixture.",
+  "HANDOFF_CODE": "Boot sector differs from the built-in test VBR.",
+  "HANDOFF_RETRY": "F4: Repeat test  Esc: Menu  F2: Partitions"
 }

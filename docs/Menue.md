@@ -74,8 +74,8 @@ Ein Testprotokoll enthält nach Möglichkeit VM-/BIOS-Version oder Rechnermodell
 und die beobachtete Leseart. Menü (PR #6) und Scanner (PR #7) wurden am
 10. November manuell als erfolgreich bestätigt; zusätzliche Plattformdaten
 wurden nicht angegeben. Auch die Sprachvarianten aus PR #8 wurden inzwischen
-manuell bestätigt, ohne neue Plattformdaten. Die neue F3-Seite hat noch keinen
-eigenen manuellen Nachweis.
+manuell bestätigt, ohne neue Plattformdaten. F3 aus PR #9 wurde ebenfalls bestätigt. Das separate
+[T07-Testimage](Handoff.md) hat noch keinen eigenen manuellen Nachweis.
 
 ## Implementierung und Grenzen
 
@@ -90,7 +90,8 @@ Menüzustand, die 520-Byte-Kopie von Geometrie und MBR sowie das 480-Byte-
 Scannergebnis sowie das neue 24-Byte-Volume-Ergebnis liegen auf dem eigenen
 C-Stack. Der bestehende Stage-2-Speichervertrag, das Schutzwort und die
 BSS-Prüfungen bleiben erhalten. Das Image enthält weder einen Disk-Schreibpfad
-noch eine OS-Übergabe. Die Spezifikation v0.2 bleibt unverändert.
+noch eine OS-Übergabe. Nur das separate T07-Testimage ergänzt F4 im
+Hauptmenü und einen nicht zurückkehrenden Sprung zum eigenen Test-VBR. Die Spezifikation v0.2 bleibt unverändert.
 
 `core/menu_model.c` trennt Auswahl und Zeitrechnung von BIOS und Anzeige.
 Das Modell kann bis zu acht freigegebene Einträge verwalten und gibt nur
@@ -118,8 +119,8 @@ make hdd-test
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-`make hdd-test` baut zweimal, prüft 88 positive/negative HDD-Startfälle und
-führt anschließend Menü-, Scanner- und Volume-Prüfungen aus. `make menu-test` baut einmal und
+`make hdd-test` baut zweimal, prüft 90 positive/negative HDD-Startfälle und
+führt anschließend Menü-, Scanner-, Volume- und Übergabeprüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
 ```sh
@@ -148,13 +149,15 @@ ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
 Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
-Katalogprüfungen und vier Volume-Fixture-Tests sind es 97 Hosttests. Beide Sprachen durchlaufen
+Katalogprüfungen, vier Volume-Fixture- und fünf Übergabetests sind es 102 Hosttests. Beide Sprachen durchlaufen
 dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
 deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
 Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen
 stehen in der [Partitionsprüfung](Partitionen.md).
 Weitere 43 Volume-Kampagnen je Sprache prüfen je 318 Zustände, insgesamt
-also 1.194 UI-Zustände. Ihre Nachweise liegen unter `build/volume/` und
+mit Menü/Scanner also 1.194 UI-Zustände. Ihre Nachweise liegen unter `build/volume/` und
 `build/volume-de/`; Details stehen in der [Volume-Anleitung](VolumeHeaders.md).
+43 T07-Kampagnen ergänzen je Sprache 185 Zustände und ergeben insgesamt
+1.564 UI-Zustände. F4 bleibt im normalen Image ohne Wirkung.
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).

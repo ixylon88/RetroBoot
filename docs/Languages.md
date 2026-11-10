@@ -23,12 +23,15 @@ The language cannot currently be changed inside the running menu.
 | Purpose | English | German |
 | --- | --- | --- |
 | Compact image | `build/hdd/retroboot-hdd.img` | `build/hdd-de/retroboot-hdd.img` |
+| T07 handoff-test image | `build/hdd/retroboot-handoff.img` | `build/hdd-de/retroboot-handoff.img` |
 | Independent repeat build | `build/hdd-repeat/` | `build/hdd-repeat-de/` |
 | General menu evidence | `build/menu/` | `build/menu-de/` |
 | Scanner and paging evidence | `build/scan/` | `build/scan-de/` |
 | Volume header evidence | `build/volume/` | `build/volume-de/` |
+| Handoff evidence | `build/handoff/` | `build/handoff-de/` |
 
-The **retroboot-hdd-bios** CI artifact contains both compact images. Inside
+The **retroboot-hdd-bios** CI artifact contains both compact diagnostic images
+and both separate 128 MiB handoff-test images. Inside
 the archive the paths start with `hdd/` and `hdd-de/`; the outer `build/`
 directory is omitted. A new image needs a fresh raw-to-VDI conversion for
 VirtualBox; an older VDI still contains the older program.
@@ -71,16 +74,16 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 97 host tests include seven catalog tests, with independent byte values
+The 102 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 88-case boot suite runs once in CI with English, covering the shared
-loader, C startup, native menu-model, parser and arithmetic tests. Both languages
-run all five general menu campaigns, 32 scanner campaigns and 43 volume-header
-campaigns: 597 VGA/keyboard states per language, 1,194 total. Every visible
+The full 90-case boot suite runs once in CI with English, covering the shared
+loader, C startup, native menu-model, parser, arithmetic and handoff preparation tests. Both languages
+run all five general menu campaigns, 32 scanner, 43 volume-header and 43
+handoff campaigns: 782 VGA/keyboard states per language, 1,564 total. Every visible
 translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
@@ -94,5 +97,6 @@ boot logic is unchanged.
 
 Manual success for both language variants from PR #8 was reported on
 10 November 2026. No new platform details were supplied; a particular
-historical VGA/BIOS configuration is therefore not established. The new
-[F3 volume-header view](VolumeHeaders.md) still needs its own manual check.
+historical VGA/BIOS configuration is therefore not established. F3 from PR #9
+was subsequently confirmed too. The new [T07 handoff image](Handoff.md) still
+needs its own manual check. Its target-side PASS/FAIL marker remains English ASCII.

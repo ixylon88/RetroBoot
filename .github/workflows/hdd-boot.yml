@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Reproduce HDD images and verify loader, menu, tables and FAT headers
+      - name: Reproduce HDD images and verify loader, menu, headers and VBR handoff
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
@@ -41,6 +41,7 @@ jobs:
           compression-level: 9
           path: |
             build/hdd/retroboot-hdd.img
+            build/hdd/retroboot-handoff.img
             build/hdd/*.bin
             build/hdd/*.rom
             build/hdd/*.map
@@ -70,6 +71,7 @@ jobs:
             build/volume/*.png
             build/volume/*.conf
             build/hdd-de/retroboot-hdd.img
+            build/hdd-de/retroboot-handoff.img
             build/hdd-de/*.bin
             build/hdd-de/*.rom
             build/hdd-de/*.map
@@ -94,3 +96,17 @@ jobs:
             build/volume-de/*.bin
             build/volume-de/*.png
             build/volume-de/*.conf
+            build/handoff/*.json
+            build/handoff/*.log
+            build/handoff/*.trace
+            build/handoff/*.txt
+            build/handoff/*.bin
+            build/handoff/*.png
+            build/handoff/*.conf
+            build/handoff-de/*.json
+            build/handoff-de/*.log
+            build/handoff-de/*.trace
+            build/handoff-de/*.txt
+            build/handoff-de/*.bin
+            build/handoff-de/*.png
+            build/handoff-de/*.conf
