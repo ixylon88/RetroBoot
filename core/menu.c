@@ -5,6 +5,7 @@
 #include "ui_text.h"
 #include "volume.h"
 #include "config.h"
+#include "state.h"
 #ifdef RB_HANDOFF_TEST
 #include "handoff.h"
 #endif
@@ -37,6 +38,12 @@ static const char * const config_messages[] = {
     RB_UI_CONFIG_CRC, RB_UI_CONFIG_IDENTITY, RB_UI_CONFIG_PROFILE,
     RB_UI_CONFIG_CONFLICT, RB_UI_SCAN_FAILED, RB_UI_CONFIG_ADMIN,
     RB_UI_CONFIG_DIRECTORY, RB_UI_CONFIG_FAT
+};
+static const char * const proof_messages[] = {
+    RB_UI_STATE_MATCH, RB_UI_STATE_CONFIG, RB_UI_STATE_RECORD, RB_UI_STATE_DEGRADED,
+    RB_UI_STATE_LEGACY, RB_UI_STATE_IDENTITY, RB_UI_STATE_EMPTY, RB_UI_STATE_PENDING,
+    RB_UI_STATE_INSTALLATION, RB_UI_STATE_TARGET, RB_UI_STATE_NOT_READY, RB_UI_STATE_APPROVAL,
+    RB_UI_STATE_SCAN, RB_UI_STATE_LAYOUT, RB_UI_STATE_VOLUME, RB_UI_STATE_VBR
 };
 
 static void text(rb_u16 row, rb_u16 column, const char *value, rb_u16 color)
@@ -94,7 +101,8 @@ static void geometry(const rb_loader_snapshot *snapshot, rb_u16 row)
 static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot,
                  const rb_partition_scan *scan, rb_u16 page,
                  const rb_volume_probe *volume, rb_u16 volume_index,
-                 const rb_config_result *config, rb_u16 config_index
+                 const rb_config_result *config, rb_u16 config_index,
+                 const rb_state_result *installation, const rb_state_proof *proof
 #ifdef RB_HANDOFF_TEST
                  , rb_u16 handoff_status, rb_u16 handoff_detail
 #endif
@@ -227,6 +235,35 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             }
         }
         text(19, 4, RB_UI_CONFIG_HELP, NORMAL);
+    } else if (view == 7) {
+        text(5, 4, RB_UI_STATE_TITLE, TITLE); text(6, 4, RB_UI_STATE_SCOPE, NORMAL);
+        text(7, 4, RB_UI_STATE_CONFIG_COPIES, NORMAL);
+        hex(7, 29, config->copies[0], 4); text(7, 34, "/", NORMAL); hex(7, 36, config->copies[1], 4);
+        text(8, 4, RB_UI_STATE_COPIES, NORMAL);
+        hex(8, 29, installation->copies[0], 4); text(8, 34, "/", NORMAL); hex(8, 36, installation->copies[1], 4);
+        if (!installation->status) {
+            text(9, 4, RB_UI_CONFIG_GENERATION, NORMAL); hex(9, 29, installation->state.generation, 8);
+            text(9, 39, installation->source ? "B" : "A", NORMAL);
+            text(10, 4, RB_UI_STATE_MEDIA, NORMAL);
+            for (index = 0; index < 16; ++index) { hex(10, 29 + index * 2, installation->state.media_id[index], 2); }
+        }
+        text(12, 4, proof_messages[proof->status], proof->status ? 0x1E : 0x1A);
+        text(13, 4, RB_UI_STATE_REASON, NORMAL);
+        hex(13, 29, proof->status, 4); text(13, 34, "/", NORMAL); hex(13, 36, proof->detail, 4);
+        if (!config->status && config_index < config->config.count) {
+            profile = &config->config.entries[config_index];
+            text(14, 4, profile->name, TITLE);
+            text(15, 4, RB_UI_STATE_INSTALL_ID, NORMAL);
+            hex(15, 29, profile->install_high, 8); hex(15, 37, profile->install_low, 8);
+            text(18, 4, RB_UI_PAGE, NORMAL); decimal(18, 10, config_index + 1);
+            text(18, 12, "/", NORMAL); decimal(18, 14, config->config.count);
+        }
+        if (!proof->status) {
+            text(17, 4, RB_UI_STATE_CRC, NORMAL); hex(17, 29, proof->observed_crc, 8);
+        } else {
+            text(17, 4, RB_UI_LBA_HEX, NORMAL); hex(17, 23, proof->error_lba, 8);
+        }
+        text(19, 4, RB_UI_STATE_HELP, NORMAL);
 #ifdef RB_HANDOFF_TEST
     } else if (view == 5) {
         text(5, 4, RB_UI_HANDOFF_FAILED, TITLE);
@@ -298,8 +335,10 @@ void __cdecl rb_menu_run(void)
     rb_partition_scan scan;
     rb_volume_probe volume;
     rb_config_result config;
+    rb_state_result installation;
+    rb_state_proof proof;
     rb_menu_state state;
-    rb_u16 key, action, rescan, view = 0, serial = 0, page = 0;
+    rb_u16 key, action, rescan, verify_state, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
     rb_u16 config_index = 0;
 #ifdef RB_HANDOFF_TEST
@@ -310,7 +349,7 @@ void __cdecl rb_menu_run(void)
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail
 #endif
@@ -326,7 +365,7 @@ void __cdecl rb_menu_run(void)
             rb_idle();
             continue;
         }
-        rescan = 0; probe = 0;
+        rescan = 0; probe = 0; verify_state = 0;
         if (view == 0) {
             action = rb_menu_step(&state, key, now);
             if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
@@ -358,13 +397,26 @@ void __cdecl rb_menu_run(void)
             debug_text(" copies="); debug_hex(config.copies[0]); debug_hex(config.copies[1]);
             debug_text(" source="); debug_hex(config.source);
             debug_text(" count="); debug_hex(config.config.count); debug_text("\r\n");
+        } else if ((key >> 8) == 0x40U) {
+            view = 7; config_index = 0; verify_state = 1;
+            debug_text("RB STATE BEGIN\r\n");
+            rb_config_load(&config, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+            rb_state_load(&installation, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+            debug_text("RB STATE records="); debug_hex(installation.status);
+            debug_text(" copies="); debug_hex(installation.copies[0]); debug_hex(installation.copies[1]);
+            debug_text(" source="); debug_hex(installation.source); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
-        } else if (view == 6 && config.status == 0 && config.config.count
+        } else if ((view == 6 || view == 7) && config.status == 0 && config.config.count
                 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             config_index = (key >> 8) == 0x4BU
                 ? (config_index == 0 ? config.config.count - 1 : config_index - 1)
                 : (config_index + 1 == config.config.count ? 0 : config_index + 1);
+            verify_state = view == 7;
         } else if (view == 4 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             volume_index = next_volume(&scan, volume_index, (key >> 8) == 0x4BU);
             probe = 1;
@@ -403,7 +455,15 @@ void __cdecl rb_menu_run(void)
         } else if (probe) {
             debug_text("RB VOLUME EMPTY\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index
+        if (verify_state) {
+            rb_state_check(&proof, &config, &installation, config_index, rb_disk_read, (void *)0,
+                           rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high);
+            debug_text("RB STATE proof="); debug_hex(proof.status);
+            debug_text(" detail="); debug_hex(proof.detail); debug_text(" index="); debug_hex(config_index);
+            debug_text(" crc="); debug_hex((rb_u16)(proof.observed_crc >> 16)); debug_hex((rb_u16)proof.observed_crc);
+            debug_text("\r\n");
+        }
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail
 #endif

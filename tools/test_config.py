@@ -27,7 +27,7 @@ STATUS_KEYS = ('CONFIG_OK', 'CONFIG_MISSING', 'ERROR_IO', 'CONFIG_FORMAT', 'CONF
 
 
 def expected_location(fixture, spec):
-    locations = {'config-duplicate': (380, 0), 'config-alias': (379, 2),
+    locations = {'config-duplicate': (380, 0), 'config-alias': (379, 4),
                  'config-size': (380, 0), 'config-directory': (380, 0),
                  'config-cluster-range': (380, 0), 'config-fat-mismatch': (263, 0),
                  'config-fat-long': (137, 0), 'config-fat-io': (137, 0),
@@ -67,7 +67,8 @@ def check_config_screen(data, strings, spec, record, index):
             if any(rows[r][4:78].strip() for r in (13, 15, 16, 17, 18)):
                 raise ValueError('Empty configuration displays stale profiles')
         else:
-            p = record[64 + index * 48:112 + index * 48]
+            stride = 52 if struct.unpack_from('<H', record, 8)[0] == 2 else 48
+            p = record[64 + index * stride:64 + (index + 1) * stride]
             entry_id, start, sectors = struct.unpack_from('<III', p)
             at(13, 4, p[20:20 + p[18]].decode('cp437'))
             for row, key in ((14, 'CONFIG_ENTRY'), (15, 'CONFIG_EXTENT'), (18, 'PAGE')): at(row, 4, strings[key])

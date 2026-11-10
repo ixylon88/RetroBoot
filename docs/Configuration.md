@@ -7,8 +7,9 @@ when the other copy succeeds. Conflicting valid copies of the same generation
 leave the configuration unavailable. Every F5 request starts a fresh read.
 
 This is the configuration foundation from specification v0.2 section 10.
-The independent `RBSTATE.A/B` installation records, transaction journal,
-visibility changes and OS-start authorization remain separate future work.
+The independent [RBSTATE.A/B installation records](InstallationState.md) now
+provide an F6 cross-check. Transaction journals, visibility changes and
+OS-start authorization remain future work.
 An `installed` or `approved` field in this diagnostic format is a declaration,
 not proof of an installation. Enter, countdown values and F4 on the F5 page
 cannot execute a target. The existing main-menu F4 test still uses its exact
@@ -20,10 +21,11 @@ compiled T07 binding; it never accepts a configuration record as authorization.
    converted VDI does not contain the new files or F5 code.
 2. F5 opens the configuration diagnosis. The normal 64 MiB `retroboot-hdd.img` displays two valid copies,
    generation `00000001`, copy `A`, and no stored entries.
-3. The separate 128 MiB `retroboot-handoff.img` displays the draft `Test VBR`
+3. The separate 128 MiB `retroboot-handoff.img` displays the synthetic `Test VBR`
    profile: Entry ID `00000001`, P1, type `06`, start `00020000`, length
-   `000013D1`, `dos9x_isolated`, state/approval `0 / 0`, visible mask `01`.
-   This is a description of the owned test target, not an OS installation.
+   `000013D1`, `dos9x_isolated`, state/approval `2 / 1`, visible mask `01`.
+   This declared ready/approved state describes only the owned test target;
+   it is not an OS installation. F6 compares the independent state and VBR.
 4. Left/Right cycles through entries; F5 rereads both files. Enter and F4
    stay on the diagnostic page. Esc returns to the main menu; F8 remains
    available. F4 from the handoff image's main menu still reaches
@@ -34,7 +36,7 @@ compiled T07 binding; it never accepts a configuration record as authorization.
 The main-menu timer stays disabled. The format stores a language preference,
 but the current executable's language remains selected at build time.
 
-## Version 1 binary format
+## Legacy version 1 binary format
 
 Every file has exactly 512 bytes and occupies one allocated FAT16 cluster.
 Integers are unsigned little-endian, decoded explicitly rather than by casting
@@ -92,6 +94,28 @@ establish that current visibility is safe for a DOS/Win9x start, validate an
 NT loader, inspect OS files, or authorize changes. Profile names are not
 identities, and a slot does not imply an operating-system version.
 
+## Version 2 installation binding
+
+New generated images use version `2`. The common fields and validation rules
+above remain, with these explicit changes:
+
+| Offset | Version 2 field |
+| ---: | --- |
+| 8 | 16-bit version `2` |
+| 45–47 | Three reserved zero bytes |
+| 48–63 | Nonzero 128-bit opaque media ID |
+| 64–479 | Eight profile slots, each **52** bytes |
+| 480–507 | Reserved zero |
+| 508 | CRC32, unchanged |
+
+Within each 52-byte profile, offsets 0–43 retain the version-1 meaning.
+Offsets 44–51 contain a little-endian 64-bit installation ID. An approved
+profile requires a nonzero ID; a draft may use zero. Several profiles may
+reference the same installation. Entry IDs remain distinct menu identities.
+Version 1 retains its exact old layout and remains diagnostic-only; version 2
+is not decoded by reinterpreting a version-1 slot stride. Unknown versions
+are rejected. No runtime migration or write occurs.
+
 ## Layout binding and copy selection
 
 The fingerprint is CRC32 over the following concatenated byte sequence:
@@ -122,7 +146,7 @@ identity. No compatibility with unknown record versions is guessed.
 
 ## File-reading boundary
 
-`core/config_io.c` first rescans the entire MBR/EBR layout against the startup
+`core/record_io.c`, shared by the configuration and state adapters, first rescans the entire MBR/EBR layout against the startup
 disk signature. It checks the current `RBM1` management pointer against the
 startup pointer and requires the corresponding hidden logical FAT16 volume.
 The captured, validated BPB must have one reserved sector, two FATs, 512 root
@@ -132,7 +156,8 @@ The root directory is read from its freshly derived address, stopping at the
 first end marker or the fixed 512-entry bound. Deleted and LFN entries are
 skipped. Exact uppercase 8.3 file names are required. Duplicate names, invalid
 attributes, high cluster words, wrong file sizes, out-of-range/reserved
-clusters and an A/B cluster alias reject the entire load. Every present file
+clusters and any starting-cluster alias among the four known record files
+reject the entire load. Every present file in the requested pair
 must have equal EOC values in both FAT copies (`FFF8` through `FFFF`). No
 configuration chain is followed beyond its one allocated cluster. Each file's
 first sector is then read; a data-read failure can leave the other copy usable.
@@ -163,7 +188,7 @@ available. No stale profile rows survive a failed load.
 | `0007` | Conflicting valid records of equal generation |
 | `0008` | Full partition scan failed; detail is the scanner status |
 | `0009` | Management pointer/partition/BPB mismatch; BPB detail where available |
-| `000A` | Directory/allocation ambiguity; detail 0/1 = A/B, 2 = alias |
+| `000A` | Directory/allocation ambiguity; detail 0/1 = CFG A/B, 2/3 = STATE A/B, 4 = alias |
 | `000B` | Configuration FAT entry/copy mismatch; detail 0/1 = A/B |
 
 ## Verification
@@ -173,7 +198,7 @@ available. No stale profile rows survive a failed load.
 `python3 tools/test_config.py --language en`, with optional `--qemu` and
 `--bios`. Evidence is saved under `build/config/` and `build/config-de/`.
 
-The 76 native C16 assertions check CRC vectors, exact binary fields, CP437 including
+The 84 native C16 assertions check CRC vectors, exact binary fields, CP437 including
 `ß`, identity, bounds, names, profile semantics, generation ordering, conflicts,
 fallback and clearing of stale results. The 63 emulator campaigns per language cover 678 states and add real FAT and
 directory reads, 8-entry navigation, damaged files, allocation ambiguity,

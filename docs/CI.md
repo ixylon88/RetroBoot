@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 92 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe- sowie 678 Konfigurationszustände mit EDD und CHS prüfen; beide Diagnose- und beide Übergabetestimages bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 94 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe- sowie 678 Konfigurations- und 650 Installationszustände mit EDD und CHS prüfen; beide Diagnose- und beide Übergabetestimages bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -50,7 +50,7 @@ Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
 liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/` und `config-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 92 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 94 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -87,7 +87,7 @@ gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
-Zusammen mit den Scanner-, Volume-, Übergabe- und Konfigurationsprüfungen sind es 2.920 Bildschirmzustände.
+Zusammen mit den Scanner-, Volume-, Übergabe-, Konfigurations- und Installationsprüfungen sind es 4.220 Bildschirmzustände.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
@@ -105,9 +105,15 @@ an den eigenen Test-VBR. Register, Stack, unveränderte Zielbytes und
 Partitionszeiger werden im Ziel und im Gast-RAM geprüft; neun Fehlerzustände
 werden absichtlich injiziert. Die normalen Images starten weiterhin kein Ziel.
 
-F5 ergänzt 76 native C16-Prüfungen und 63 Kampagnen je Sprache mit 678
+F5 ergänzt 84 native C16-Prüfungen und 63 Kampagnen je Sprache mit 678
 Zuständen für Records, FAT-Zuordnung, Identität, Ersatzkopie und Konflikte.
 Details stehen in der [Konfigurationsanleitung](Configuration.md).
+
+F6 adds 86 native C16 assertions and 65 campaigns with 650 states per language.
+Evidence is uploaded from `build/state/` and `build/state-de/`; only the four
+normal/handoff images are published. The HDD job timeout is 20 minutes to
+accommodate the additional builds and emulator checks; it is a ceiling, not
+reserved runner time. Details are in the [state guide](InstallationState.md).
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
@@ -121,7 +127,8 @@ auch Menü (PR #6) und Scanner (PR #7) wurden am 10. November manuell bestätigt
 Auch die Sprachvarianten aus PR #8 wurden manuell bestätigt; zusätzliche
 Plattformdaten liegen dafür nicht vor. Auch F3 aus PR #9 wurde manuell bestätigt.
 Auch T07 aus PR #10 wurde manuell bestätigt, ohne zusätzliche Plattformdaten.
-Die neue F5-Konfigurationsdiagnose bleibt manuell zu prüfen.
+The F5 test from merged PR #11 was reported complete, without added coverage details.
+The new [F6 state check](InstallationState.md) remains open for manual verification.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

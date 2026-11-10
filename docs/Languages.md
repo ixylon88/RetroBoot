@@ -75,16 +75,16 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 108 host tests include seven catalog tests, with independent byte values
+The 113 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 92-case boot suite runs once in CI with English, covering the shared
+The full 94-case boot suite runs once in CI with English, covering the shared
 loader, C startup, native menu-model, parser, arithmetic, configuration and handoff preparation tests. Both languages
 run all five general menu campaigns, 32 scanner, 43 volume-header and 43
-handoff plus 63 configuration campaigns: 1,460 VGA/keyboard states per language, 2,920 total. Every visible
+handoff, 63 configuration and 65 installation-state campaigns: 2,110 VGA/keyboard states per language, 4,220 total. Every visible
 translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
@@ -100,5 +100,5 @@ Manual success for both language variants from PR #8 was reported on
 10 November 2026. No new platform details were supplied; a particular
 historical VGA/BIOS configuration is therefore not established. F3 from PR #9
 and the [T07 handoff image](Handoff.md) from PR #10 were subsequently confirmed
-too, without further platform details. F5 from the new configuration increment
-still needs its own manual check. T07 target-side PASS/FAIL remains English ASCII.
+too, without further platform details. The F5 test from merged PR #11 was reported complete without added coverage details.
+F6 now needs its own manual check. T07 target-side PASS/FAIL remains English ASCII.

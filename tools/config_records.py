@@ -4,6 +4,10 @@ import zlib
 
 MAGIC = b'RBCFG\0\0\0'
 CLUSTERS = (2800, 2900)
+STATE_CLUSTERS = (3000, 3100)
+# Reproducible synthetic media only; a future installer must allocate IDs.
+FIXTURE_MEDIA_ID = bytes.fromhex('a6216f345cd2467790abc0137d8452e9')
+TEST_INSTALL_ID = 0x0000000100000001
 
 
 def visible(ptype):
@@ -42,20 +46,25 @@ def seal(record):
 
 
 def encode(*, disk_id, layout, admin_start, admin_sectors, generation=1,
-           profiles=(), default_id=0, countdown=0, language='en'):
+           profiles=(), default_id=0, countdown=0, language='en', media_id=None):
+    version, stride = (1, 48) if media_id is None else (2, 52)
+    if media_id is not None and (not isinstance(media_id, bytes) or len(media_id) != 16 or not any(media_id)):
+        raise ValueError('Invalid media identity')
     if (not 1 <= generation <= 0xFFFFFFFF or not 1 <= disk_id <= 0xFFFFFFFF
             or not 0 <= layout <= 0xFFFFFFFF or not 0 < admin_start < admin_start + admin_sectors <= 0x100000000
             or not 0 <= countdown <= 60 or language not in ('en', 'de') or len(profiles) > 8):
         raise ValueError('Invalid configuration header')
     result = bytearray(512)
-    struct.pack_into('<8sHHIIIIIIHHIB', result, 0, MAGIC, 1, 64, 512, generation,
+    struct.pack_into('<8sHHIIIIIIHHIB', result, 0, MAGIC, version, 64, 512, generation,
                      disk_id, layout, admin_start, admin_sectors, len(profiles), countdown,
                      default_id, int(language == 'de'))
+    if version == 2: result[48:64] = media_id
     identifiers = set()
     for index, p in enumerate(profiles):
         name = p['name'].encode('cp437')
         slot, ptype, kind = p['slot'], p['type'], p.get('kind', 1)
         installed, approved = p.get('installed', 0), p.get('approved', 0)
+        install_id = p.get('install_id', 0)
         mask = p.get('visible_mask', 1 << (slot - 1)) if 1 <= slot <= 4 else 0
         if (not 1 <= p['id'] <= 0xFFFFFFFF or p['id'] in identifiers
                 or not 1 <= slot <= 4 or ptype not in (6, 14, 11, 12, 7) or kind not in (1, 2)
@@ -63,31 +72,37 @@ def encode(*, disk_id, layout, admin_start, admin_sectors, generation=1,
                 or mask & ~15 or not mask & (1 << (slot - 1))
                 or (kind == 1 and (mask != 1 << (slot - 1) or ptype == 7))
                 or not 0 < p['start'] < p['start'] + p['sectors'] <= 0x100000000
-                or not 1 <= len(name) <= 24 or any(c < 32 or c == 127 for c in name)):
+                or not 1 <= len(name) <= 24 or any(c < 32 or c == 127 for c in name)
+                or not 0 <= install_id <= 0xFFFFFFFFFFFFFFFF
+                or (version == 2 and approved and install_id == 0)):
             raise ValueError('Invalid profile')
         identifiers.add(p['id'])
-        struct.pack_into('<IIIBBBBBBBB24s', result, 64 + index * 48, p['id'], p['start'], p['sectors'],
+        struct.pack_into('<IIIBBBBBBBB24s', result, 64 + index * stride, p['id'], p['start'], p['sectors'],
                          slot, ptype, kind, installed, approved, mask, len(name), 0, name)
+        if version == 2: struct.pack_into('<Q', result, 108 + index * stride, install_id)
     if default_id != 0 and default_id not in identifiers: raise ValueError('Unknown default entry ID')
     return seal(result)
 
 
-def install_records(extents, admin, *, language='en', profiles=()):
-    """Append two single-cluster files to the known, newly generated fixture root."""
+def install_records(extents, admin, *, language='en', profiles=(), state_records=None):
+    """Allocate owned configuration/state files in the generated fixture root."""
     extents = dict(extents)
     start = admin['start_lba']
     fat = admin['fat']
     spf, spc = fat['sectors_per_fat'], fat['sectors_per_cluster']
     root_lba, data_lba = start + 1 + 2 * spf, start + 1 + 2 * spf + 32
     record = encode(disk_id=struct.unpack_from('<I', extents[0], 440)[0], layout=layout_crc(extents),
-                    admin_start=start, admin_sectors=admin['sectors'], language=language, profiles=profiles)
+                    admin_start=start, admin_sectors=admin['sectors'], language=language, profiles=profiles,
+                    media_id=FIXTURE_MEDIA_ID)
+    records = (record, record) + (() if state_records is None else tuple(state_records))
+    if len(records) not in (2, 4) or any(len(r) != 512 for r in records): raise ValueError('Invalid record set')
     root = bytearray(extents[root_lba * 512])
     tables = [bytearray(extents[(start + 1 + i * spf) * 512]) for i in range(2)]
-    for index, cluster in enumerate(CLUSTERS):
+    for index, (cluster, record) in enumerate(zip(CLUSTERS + STATE_CLUSTERS, records)):
         if cluster >= fat['data_clusters'] + 2: raise ValueError('Configuration cluster outside admin volume')
         entry = 672 + index * 32
         if any(root[entry:entry + 32]): raise ValueError('Configuration directory slot is occupied')
-        root[entry:entry + 11] = b'RBCFG   ' + bytes([ord('A') + index]) + b'  '
+        root[entry:entry + 11] = (b'RBCFG   ' if index < 2 else b'RBSTATE ') + bytes([ord('A') + index % 2]) + b'  '
         root[entry + 11] = 0x20
         struct.pack_into('<HI', root, entry + 26, cluster, 512)
         for table in tables:
