@@ -13,7 +13,7 @@ permissions:
 jobs:
   hdd-boot:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Reproduce HDD images and verify loader, menu, headers, profiles and VBR handoff
+      - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state and VBR handoff
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
@@ -124,3 +124,17 @@ jobs:
             build/config-de/*.bin
             build/config-de/*.png
             build/config-de/*.conf
+            build/state/*.json
+            build/state/*.log
+            build/state/*.trace
+            build/state/*.txt
+            build/state/*.bin
+            build/state/*.png
+            build/state/*.conf
+            build/state-de/*.json
+            build/state-de/*.log
+            build/state-de/*.trace
+            build/state-de/*.txt
+            build/state-de/*.bin
+            build/state-de/*.png
+            build/state-de/*.conf

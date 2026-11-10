@@ -78,14 +78,16 @@ rb_u16 rb_config_decode(rb_config *r, const rb_u8 *data, rb_u16 length,
     const rb_u8 *p;
     const rb_partition *target;
     rb_profile *entry;
-    rb_u16 i, j, count, mask = 0, default_found;
+    rb_u16 i, j, count, version, stride, mask = 0, default_found;
     clear(r, sizeof(*r));
     if (length != 512) { return RB_CONFIG_FORMAT; }
     for (i = 0; i < 8; ++i) { if (data[i] != magic[i]) { return RB_CONFIG_FORMAT; } }
-    if (word(data + 8) != 1 || word(data + 10) != 64 || dword(data + 12) != 512
+    version = word(data + 8); stride = version == 2 ? 52 : 48;
+    if ((version != 1 && version != 2) || word(data + 10) != 64 || dword(data + 12) != 512
             || dword(data + 16) == 0 || word(data + 36) > RB_CONFIG_MAX
-            || word(data + 38) > 60 || data[44] > 1 || !zeros(data + 45, 19)
-            || !zeros(data + 448, 60)) { return RB_CONFIG_FORMAT; }
+            || word(data + 38) > 60 || data[44] > 1 || !zeros(data + 45, version == 2 ? 3 : 19)
+            || (version == 2 && zeros(data + 48, 16))
+            || !zeros(data + 64 + 8 * stride, 508 - (64 + 8 * stride))) { return RB_CONFIG_FORMAT; }
     if (rb_crc32(data, 508) != dword(data + 508)) { return RB_CONFIG_CRC; }
     if (scan->status != RB_SCAN_OK || scan->count < 4 || scan->count > RB_SCAN_PARTITIONS
             || scan->ebr_count > RB_SCAN_EBRS || !admin->logical
@@ -102,16 +104,18 @@ rb_u16 rb_config_decode(rb_config *r, const rb_u8 *data, rb_u16 length,
     count = word(data + 36);
     default_found = dword(data + 40) == 0;
     for (i = 0; i < RB_CONFIG_MAX; ++i) {
-        p = data + 64 + i * 48;
+        p = data + 64 + i * stride;
         if (i >= count) {
-            if (!zeros(p, 48)) { return RB_CONFIG_FORMAT; }
+            if (!zeros(p, stride)) { return RB_CONFIG_FORMAT; }
             continue;
         }
         if (dword(p) == 0 || p[12] < 1 || p[12] > 4 || p[14] < 1 || p[14] > 2
                 || p[15] > 2 || p[16] > 1 || (p[16] && p[15] != 2)
                 || (p[17] & ~mask) || !(p[17] & (1U << (p[12] - 1)))
                 || (p[14] == 1 && (p[17] != (1U << (p[12] - 1)) || p[13] == 7))
-                || p[18] < 1 || p[18] > 24 || p[19] != 0 || !zeros(p + 44, 4)) {
+                || p[18] < 1 || p[18] > 24 || p[19] != 0
+                || (version == 1 && !zeros(p + 44, 4))
+                || (version == 2 && p[16] && zeros(p + 44, 8))) {
             return RB_CONFIG_PROFILE;
         }
         target = &scan->entries[p[12] - 1];
@@ -123,7 +127,7 @@ rb_u16 rb_config_decode(rb_config *r, const rb_u8 *data, rb_u16 length,
             }
         }
         for (j = 0; j < i; ++j) {
-            if (dword(p) == dword(data + 64 + j * 48)) { return RB_CONFIG_PROFILE; }
+            if (dword(p) == dword(data + 64 + j * stride)) { return RB_CONFIG_PROFILE; }
         }
         if (dword(p) == dword(data + 40)) { default_found = 1; }
     }
@@ -131,11 +135,14 @@ rb_u16 rb_config_decode(rb_config *r, const rb_u8 *data, rb_u16 length,
     r->generation = dword(data + 16); r->disk_id = dword(data + 20);
     r->layout_crc = dword(data + 24); r->default_id = dword(data + 40);
     r->count = count; r->countdown = word(data + 38); r->language = data[44];
+    r->version = version;
+    if (version == 2) { for (i = 0; i < 16; ++i) { r->media_id[i] = data[48 + i]; } }
     for (i = 0; i < count; ++i) {
-        p = data + 64 + i * 48; entry = &r->entries[i];
+        p = data + 64 + i * stride; entry = &r->entries[i];
         entry->id = dword(p); entry->start = dword(p + 4); entry->sectors = dword(p + 8);
         entry->slot = p[12]; entry->type = p[13]; entry->kind = p[14];
         entry->installed = p[15]; entry->approved = p[16]; entry->visible_mask = p[17];
+        if (version == 2) { entry->install_low = dword(p + 44); entry->install_high = dword(p + 48); }
         for (j = 0; j < p[18]; ++j) { entry->name[j] = p[20 + j]; }
     }
     return RB_CONFIG_OK;

@@ -48,6 +48,31 @@ KEYS = (
     "CONFIG_EXTENT",
     "CONFIG_FLAGS",
     "CONFIG_HELP",
+    "STATE_TITLE",
+    "STATE_SCOPE",
+    "STATE_CONFIG_COPIES",
+    "STATE_COPIES",
+    "STATE_MEDIA",
+    "STATE_REASON",
+    "STATE_INSTALL_ID",
+    "STATE_CRC",
+    "STATE_HELP",
+    "STATE_MATCH",
+    "STATE_CONFIG",
+    "STATE_RECORD",
+    "STATE_DEGRADED",
+    "STATE_LEGACY",
+    "STATE_IDENTITY",
+    "STATE_EMPTY",
+    "STATE_PENDING",
+    "STATE_INSTALLATION",
+    "STATE_TARGET",
+    "STATE_NOT_READY",
+    "STATE_APPROVAL",
+    "STATE_SCAN",
+    "STATE_LAYOUT",
+    "STATE_VOLUME",
+    "STATE_VBR",
 ) + ERROR_KEYS + VOLUME_KEYS
 # Most text begins at column 4 and must end before the frame at column 78.
 WIDTHS = dict.fromkeys(KEYS, 74)
@@ -58,11 +83,12 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               VOLUME_KIND=25, VOLUME_BYTES=25, VOLUME_TOTAL_LABEL=25,
               VOLUME_CLUSTERS=25, VOLUME_DATA=25, CONFIG_COPIES=25, CONFIG_DETAIL=25,
               CONFIG_GENERATION=25, CONFIG_IDENTITY_LABEL=25, CONFIG_ENTRY=25,
-              CONFIG_EXTENT=25, CONFIG_FLAGS=27)
+              CONFIG_EXTENT=25, CONFIG_FLAGS=27, STATE_CONFIG_COPIES=25, STATE_COPIES=25,
+              STATE_MEDIA=25, STATE_REASON=25, STATE_INSTALL_ID=25, STATE_CRC=25)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

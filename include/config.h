@@ -15,13 +15,15 @@ enum {
 
 typedef struct {
     rb_u32 id, start, sectors;
+    rb_u32 install_low, install_high;
     rb_u16 slot, type, kind, installed, approved, visible_mask;
     char name[25];
 } rb_profile;
 
 typedef struct {
     rb_u32 generation, disk_id, layout_crc, default_id;
-    rb_u16 count, countdown, language;
+    rb_u16 count, countdown, language, version;
+    rb_u8 media_id[16];
     rb_profile entries[RB_CONFIG_MAX];
 } rb_config;
 

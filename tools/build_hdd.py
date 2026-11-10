@@ -10,8 +10,10 @@ import sys
 import zlib
 
 try:
+    from .state_records import encode as encode_state, model_header as state_model_header
     from .config_fixtures import CONFIG_CASES, mutate_config_fixture
-    from .config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS
+    from .state_fixtures import STATE_CASES, mutate_state_fixture
+    from .config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS, STATE_CLUSTERS, FIXTURE_MEDIA_ID, TEST_INSTALL_ID
     from .build_abi_probe import inspect_map, prepare_output
     from .retroboot_layout import chs, load_plan, validate_plan
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
@@ -20,8 +22,10 @@ try:
     from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
     from .ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
 except ImportError:
+    from state_records import encode as encode_state, model_header as state_model_header
     from config_fixtures import CONFIG_CASES, mutate_config_fixture
-    from config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS
+    from state_fixtures import STATE_CASES, mutate_state_fixture
+    from config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS, STATE_CLUSTERS, FIXTURE_MEDIA_ID, TEST_INSTALL_ID
     from build_abi_probe import inspect_map, prepare_output
     from retroboot_layout import chs, load_plan, validate_plan
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
@@ -73,6 +77,7 @@ CASES = {
     "hdd-volume-model": "RB HDD PASS",
     "hdd-handoff-model": "RB HDD PASS",
     "hdd-config-model": "RB HDD PASS",
+    "hdd-state-model": "RB HDD PASS",
 }
 
 
@@ -266,7 +271,9 @@ def fixture(parts, case, language="en"):
     for index, cluster in enumerate(stage_clusters):
         chunk = stage2[index * cluster_bytes:(index + 1) * cluster_bytes]
         extents[(data_lba + (cluster - 2) * spc) * SECTOR] = bytes(chunk)
-    return size, install_records(extents, admin, language=language)
+    state = encode_state(disk_id=struct.unpack_from("<I", extents[0], 440)[0], layout=layout_crc(extents),
+                         admin_start=start, admin_sectors=count)
+    return size, install_records(extents, admin, language=language, state_records=(state, state))
 
 
 def write_fixture(path, size, extents):
@@ -300,6 +307,7 @@ def build_stage2(destination, nasm, wcc, wlink):
     run(nasm, "-Werror", "-f", "bin", "-I", "./", "-I", str(destination) + "/",
         "tests/handoff/vbr.asm", "-o", test_vbr)
     (destination / "handoff_fixture.h").write_text(c_header(test_vbr.read_bytes()), encoding="ascii")
+    (destination / "state_fixture.h").write_text(state_model_header(test_vbr.read_bytes()), encoding="ascii")
     run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
         "-dRB_HANDOFF_TEST=1", "-i=include", "-i=" + str(destination),
         "-fo=" + str(destination / "menu-handoff.obj"), "core/menu.c")
@@ -314,7 +322,8 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("handoff", "core/handoff.c"), ("handoff-test", "core/handoff_test.c"),
                          ("handoff-selftest", "tests/handoff/model.c"),
                          ("config", "core/config.c"), ("config-io", "core/config_io.c"),
-                         ("config-selftest", "tests/config/model.c")):
+                         ("record-io", "core/record_io.c"), ("state", "core/state.c"), ("state-check", "core/state_check.c"),
+                         ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
@@ -333,6 +342,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "volume-model": ["-DRB_TEST=1", "-DRB_VOLUME_MODEL_TEST=1"],
                 "handoff-model": ["-DRB_TEST=1", "-DRB_HANDOFF_MODEL_TEST=1"],
                 "config-model": ["-DRB_TEST=1", "-DRB_CONFIG_MODEL_TEST=1"],
+                "state-model": ["-DRB_TEST=1", "-DRB_STATE_MODEL_TEST=1"],
                 "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
@@ -342,7 +352,8 @@ def build_stage2(destination, nasm, wcc, wlink):
         linked_objects = [obj, destination / "stage2-c.obj", destination / ("menu-handoff.obj" if handoff else "menu.obj"),
                           destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj",
                           destination / "partitions.obj", destination / "disk.obj", destination / "volume.obj", destination / "arith.obj",
-                          destination / "config.obj", destination / "config-io.obj"]
+                          destination / "config.obj", destination / "config-io.obj", destination / "record-io.obj",
+                          destination / "state.obj", destination / "state-check.obj"]
         if variant == "menu-model":
             linked_objects.append(destination / "menu-selftest.obj")
         if variant == "scan-model":
@@ -351,6 +362,8 @@ def build_stage2(destination, nasm, wcc, wlink):
             linked_objects.append(destination / "volume-selftest.obj")
         if variant == "config-model":
             linked_objects.append(destination / "config-selftest.obj")
+        if variant == "state-model":
+            linked_objects.append(destination / "state-selftest.obj")
         if handoff or variant == "handoff-model":
             linked_objects.append(destination / "handoff.obj")
         if variant == "handoff-model":
@@ -444,7 +457,7 @@ def build(output, language="en"):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES)):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES, *STATE_CASES)):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
             if case == "hdd-menu-model":
                 variant = "menu-model"
@@ -456,6 +469,8 @@ def build(output, language="en"):
                 variant = "handoff-model"
             if case == "hdd-config-model":
                 variant = "config-model"
+            if case == "hdd-state-model":
+                variant = "state-model"
             if case in HANDOFF_CASES:
                 fault = HANDOFF_CASES[case].get("register_fault")
                 variant = "handoff" + ("-" + fault if fault else "")
@@ -470,18 +485,24 @@ def build(output, language="en"):
                 size, extents = mutate_handoff_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes())
             if case in CONFIG_CASES:
                 size, extents = mutate_config_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
+            if case in STATE_CASES:
+                size, extents = mutate_state_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
             if case == "retroboot-handoff":
                 record = encode_config(disk_id=0x52425431, layout=layout_crc(extents), admin_start=126,
-                    admin_sectors=128457, language=language, profiles=[dict(id=1, name="Test VBR",
-                    slot=1, type=6, start=131072, sectors=5073)])
+                    admin_sectors=128457, language=language, media_id=FIXTURE_MEDIA_ID, profiles=[dict(id=1, name="Test VBR",
+                    slot=1, type=6, start=131072, sectors=5073, installed=2, approved=1, install_id=TEST_INSTALL_ID)])
                 for cluster in CLUSTERS: extents[(411 + (cluster - 2) * 4) * 512] = record
+                state = encode_state(disk_id=0x52425431, layout=layout_crc(extents), admin_start=126,
+                    admin_sectors=128457, installations=[dict(install_id=TEST_INSTALL_ID, slot=1, type=6,
+                    start=131072, sectors=5073, phase=6, vbr_crc=zlib.crc32((destination / "handoff-vbr.bin").read_bytes()))])
+                for cluster in STATE_CLUSTERS: extents[(411 + (cluster - 2) * 4) * 512] = state
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
     manifest = {"format_version": 2, "purpose": "phase-5-read-only-partition-scan-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
                 "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES,
-                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES}
+                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES, "state_cases": STATE_CASES}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Built {destination.name} ({language}, CP437): MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest

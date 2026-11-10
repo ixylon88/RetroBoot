@@ -21,6 +21,9 @@ extern _rb_handoff_selftest
 %ifdef RB_CONFIG_MODEL_TEST
 extern _rb_config_selftest
 %endif
+%ifdef RB_STATE_MODEL_TEST
+extern _rb_state_selftest
+%endif
 %ifndef RB_TEST
 extern _rb_menu_run
 %endif
@@ -150,6 +153,17 @@ rb_entry:
     mov si, config_model_message
     call print
 %endif
+%ifdef RB_STATE_MODEL_TEST
+    call _rb_state_selftest
+    test ax, ax
+    jnz failed
+    cmp sp, RB_STACK_TOP
+    jne failed
+    cmp word [RB_STACK_LOW], RB_STACK_GUARD
+    jne failed
+    mov si, state_model_message
+    call print
+%endif
     mov si, ready_message
     call print
 %ifdef RB_TEST
@@ -234,6 +248,10 @@ handoff_model_message db 'RB HANDOFF MODEL PASS', 13, 10, 0
 
 %ifdef RB_CONFIG_MODEL_TEST
 config_model_message db 'RB CONFIG MODEL PASS', 13, 10, 0
+%endif
+
+%ifdef RB_STATE_MODEL_TEST
+state_model_message db 'RB STATE MODEL PASS', 13, 10, 0
 %endif
 
 segment CONST public align=2 class=DATA use16

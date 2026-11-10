@@ -122,5 +122,24 @@ rb_u16 __cdecl rb_config_selftest(void)
     RESET(); SELECT(1); CHECK(r.status == 0 && r.source == 0 && r.copies[1] == RB_CONFIG_MISSING);
     SELECT(2); CHECK(r.status == 0 && r.source == 1 && r.copies[0] == RB_CONFIG_MISSING);
     SELECT(0); CHECK(r.status == RB_CONFIG_MISSING && r.source == RB_CONFIG_NONE && cleared(&r.config));
+    /* Explicit v2 binding; legacy v1 remains diagnostic input only. */
+    RESET(); a[8] = 2; put32(a + 108, 1); put32(a + 112, 0xFFFFFFFFUL);
+    for (i = 0; i < 16; ++i) { a[48 + i] = i + 1; }
+    seal(a); CHECK(DECODE() == 0 && r.config.version == 2 && r.config.media_id[15] == 16
+          && r.config.entries[0].install_low == 1 && r.config.entries[0].install_high == 0xFFFFFFFFUL);
+    for (i = 0; i < 16; ++i) { a[48 + i] = 0; } REJECT(RB_CONFIG_FORMAT);
+    a[48] = 1; put32(a + 108, 0); put32(a + 112, 0); REJECT(RB_CONFIG_PROFILE);
+    a[80] = 0; seal(a); CHECK(DECODE() == 0 && r.config.entries[0].install_low == 0);
+    a[80] = 1; put32(a + 108, 1); put32(a + 112, 2);
+    for (i = 1; i < 8; ++i) {
+        rb_u16 j;
+        for (j = 0; j < 52; ++j) { a[64 + i * 52 + j] = a[64 + j]; }
+        put32(a + 64 + i * 52, i);
+    }
+    a[36] = 8; seal(a); CHECK(DECODE() == 0 && r.config.count == 8 && r.config.entries[7].install_high == 2
+                           && r.config.entries[7].id == 7);
+    a[480] = 1; REJECT(RB_CONFIG_FORMAT);
+    a[480] = 0; a[47] = 1; REJECT(RB_CONFIG_FORMAT);
+    a[47] = 0; a[8] = 3; REJECT(RB_CONFIG_FORMAT);
     report(n); return 0;
 }
