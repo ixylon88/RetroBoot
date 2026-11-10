@@ -55,9 +55,9 @@ class MenuCatalogTests(unittest.TestCase):
             checked_catalog(manifest, "en")
 
     def test_output_directories_are_separate_and_cannot_escape_build(self):
-        names = {output_name(kind, language) for kind in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff")
+        names = {output_name(kind, language) for kind in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config")
                  for language in LANGUAGES}
-        self.assertEqual(len(names), 12)
+        self.assertEqual(len(names), 14)
         self.assertEqual(output_name("hdd", "en"), "hdd")
         self.assertEqual(output_name("hdd", "de"), "hdd-de")
         for language in ("fr", "../de", "", "EN"):

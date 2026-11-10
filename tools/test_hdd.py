@@ -249,6 +249,8 @@ def main():
             raise ValueError(f"{name}: native handoff preparation tests did not pass")
         if marker == "RB HDD PASS" or case.source == "hdd-c-stack-fault":
             check_c_status(output, case.mode)
+        if case.source == "hdd-config-model" and "RB CONFIG MODEL PASS" not in output:
+            raise ValueError(f"{name}: native configuration model tests did not pass")
         causes = {"hdd-c-bss-fault": "C BSS ERROR", "hdd-c-data-fault": "C data ERROR",
                   "hdd-c-context-fault": "C context ERROR"}
         if case.source in causes and causes[case.source] not in output:

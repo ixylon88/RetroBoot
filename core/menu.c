@@ -4,6 +4,7 @@
 #include "stage2.h"
 #include "ui_text.h"
 #include "volume.h"
+#include "config.h"
 #ifdef RB_HANDOFF_TEST
 #include "handoff.h"
 #endif
@@ -30,6 +31,12 @@ static const char * const volume_messages[] = {
     RB_UI_VOLUME_ROOT, RB_UI_VOLUME_TOTAL, RB_UI_VOLUME_HIDDEN, RB_UI_VOLUME_LAYOUT,
     RB_UI_VOLUME_TYPE, RB_UI_VOLUME_FAT_SIZE, RB_UI_VOLUME_FAT32, RB_UI_VOLUME_RANGE,
     RB_UI_VOLUME_UNSUPPORTED, RB_UI_VOLUME_MEDIA
+};
+static const char * const config_messages[] = {
+    RB_UI_CONFIG_OK, RB_UI_CONFIG_MISSING, RB_UI_ERROR_IO, RB_UI_CONFIG_FORMAT,
+    RB_UI_CONFIG_CRC, RB_UI_CONFIG_IDENTITY, RB_UI_CONFIG_PROFILE,
+    RB_UI_CONFIG_CONFLICT, RB_UI_SCAN_FAILED, RB_UI_CONFIG_ADMIN,
+    RB_UI_CONFIG_DIRECTORY, RB_UI_CONFIG_FAT
 };
 
 static void text(rb_u16 row, rb_u16 column, const char *value, rb_u16 color)
@@ -86,7 +93,8 @@ static void geometry(const rb_loader_snapshot *snapshot, rb_u16 row)
 
 static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot,
                  const rb_partition_scan *scan, rb_u16 page,
-                 const rb_volume_probe *volume, rb_u16 volume_index
+                 const rb_volume_probe *volume, rb_u16 volume_index,
+                 const rb_config_result *config, rb_u16 config_index
 #ifdef RB_HANDOFF_TEST
                  , rb_u16 handoff_status, rb_u16 handoff_detail
 #endif
@@ -94,6 +102,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
 {
     rb_u16 row, index;
     const rb_partition *p;
+    const rb_profile *profile;
     rb_video_fill(0, 2000, 0x1720);
     for (row = 2; row < 23; ++row) {
         cell(row, 1, 0xB3); cell(row, 78, 0xB3);
@@ -186,6 +195,38 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             }
         }
         text(19, 4, RB_UI_VOLUME_HELP, NORMAL);
+    } else if (view == 6) {
+        text(5, 4, RB_UI_CONFIG_TITLE, TITLE);
+        text(6, 4, RB_UI_CONFIG_SCOPE, NORMAL);
+        if (!config->status && (config->copies[0] || config->copies[1])) {
+            text(7, 4, RB_UI_CONFIG_DEGRADED, 0x1E);
+        }
+        text(8, 4, RB_UI_CONFIG_COPIES, NORMAL);
+        hex(8, 29, config->copies[0], 4); text(8, 34, "/", NORMAL); hex(8, 36, config->copies[1], 4);
+        text(9, 4, config_messages[config->status], config->status ? 0x1E : NORMAL);
+        if (config->status) {
+            text(11, 4, RB_UI_LBA_HEX, NORMAL); hex(11, 23, config->error_lba, 8);
+            text(12, 4, RB_UI_CONFIG_DETAIL, NORMAL); hex(12, 29, config->detail, 4);
+        } else {
+            text(10, 4, RB_UI_CONFIG_GENERATION, NORMAL); hex(10, 29, config->config.generation, 8);
+            text(10, 39, config->source ? "B" : "A", NORMAL);
+            text(11, 4, RB_UI_CONFIG_IDENTITY_LABEL, NORMAL);
+            hex(11, 29, config->config.disk_id, 8); hex(11, 40, config->config.layout_crc, 8);
+            if (!config->config.count) { text(14, 4, RB_UI_CONFIG_EMPTY, NORMAL); }
+            else {
+                profile = &config->config.entries[config_index];
+                text(13, 4, profile->name, TITLE);
+                text(14, 4, RB_UI_CONFIG_ENTRY, NORMAL); hex(14, 29, profile->id, 8);
+                text(14, 40, "P", NORMAL); decimal(14, 41, profile->slot); hex(14, 46, profile->type, 2);
+                text(15, 4, RB_UI_CONFIG_EXTENT, NORMAL); hex(15, 29, profile->start, 8); hex(15, 40, profile->sectors, 8);
+                text(16, 4, profile->kind == 1 ? "dos9x_isolated" : "nt_chain", NORMAL);
+                text(16, 29, RB_UI_CONFIG_FLAGS, NORMAL);
+                decimal(16, 57, profile->installed); decimal(16, 61, profile->approved); hex(16, 65, profile->visible_mask, 2);
+                text(18, 4, RB_UI_PAGE, NORMAL); decimal(18, 10, config_index + 1);
+                text(18, 12, "/", NORMAL); decimal(18, 14, config->config.count);
+            }
+        }
+        text(19, 4, RB_UI_CONFIG_HELP, NORMAL);
 #ifdef RB_HANDOFF_TEST
     } else if (view == 5) {
         text(5, 4, RB_UI_HANDOFF_FAILED, TITLE);
@@ -256,9 +297,11 @@ void __cdecl rb_menu_run(void)
     rb_loader_snapshot snapshot;
     rb_partition_scan scan;
     rb_volume_probe volume;
+    rb_config_result config;
     rb_menu_state state;
     rb_u16 key, action, rescan, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
+    rb_u16 config_index = 0;
 #ifdef RB_HANDOFF_TEST
     rb_u16 handoff_status = 0, handoff_detail = 0;
 #endif
@@ -267,7 +310,7 @@ void __cdecl rb_menu_run(void)
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail
 #endif
@@ -305,8 +348,23 @@ void __cdecl rb_menu_run(void)
             debug_text(" detail="); debug_hex(handoff_detail); debug_text("\r\n");
             view = 5;
 #endif
+        } else if ((key >> 8) == 0x3FU) {
+            view = 6; config_index = 0;
+            debug_text("RB CONFIG BEGIN\r\n");
+            rb_config_load(&config, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+            debug_text("RB CONFIG status="); debug_hex(config.status);
+            debug_text(" copies="); debug_hex(config.copies[0]); debug_hex(config.copies[1]);
+            debug_text(" source="); debug_hex(config.source);
+            debug_text(" count="); debug_hex(config.config.count); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
+        } else if (view == 6 && config.status == 0 && config.config.count
+                && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
+            config_index = (key >> 8) == 0x4BU
+                ? (config_index == 0 ? config.config.count - 1 : config_index - 1)
+                : (config_index + 1 == config.config.count ? 0 : config_index + 1);
         } else if (view == 4 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             volume_index = next_volume(&scan, volume_index, (key >> 8) == 0x4BU);
             probe = 1;
@@ -345,7 +403,7 @@ void __cdecl rb_menu_run(void)
         } else if (probe) {
             debug_text("RB VOLUME EMPTY\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail
 #endif

@@ -126,9 +126,9 @@ make volume-test RB_LANGUAGE=en
 images can be checked with `python3 tools/test_volume.py --language en`, with
 optional `--qemu` and `--bios` paths as in the other emulator tests.
 
-- 102 host tests include four fixture checks for preserved loader data, fixed
+- 108 host tests include four fixture checks for preserved loader data, fixed
   header values, disjoint ranges and rejected inputs.
-- The 90-case boot suite includes the native `hdd-volume-model` with both
+- The 92-case boot suite includes the native `hdd-volume-model` with both
   EDD and CHS: 114 assertions (`V=072`, hexadecimal), comprising 30 arithmetic
   and 84 parser/read-bound assertions, followed by `RB VOLUME MODEL PASS`.
 - Each language runs 43 volume campaigns with 318 VGA/keyboard states.

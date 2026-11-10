@@ -15,6 +15,9 @@ Beim Fallback steht in der zweiten Zeile `CHS`. Die letzten beiden Zeilen
 erscheinen erst nach erfolgreicher C-Rückkehr und den Assembly-Nachprüfungen.
 Das normale Image öffnet anschließend das [Textmenü](Menue.md). Die Meldungen
 werden dabei vom Menübild abgelöst und bleiben im QEMU-Debugprotokoll erhalten.
+Die [F5-Konfigurationsdiagnose](Configuration.md) liest zwei neu zugewiesene
+RBCFG-Dateien; sie erteilt keine OS-Startfreigabe.
+
 Das separate [T07-Testimage](Handoff.md) ergänzt eine ausdrückliche F4-Übergabe
 an einen eigenen Test-VBR. Diese Funktion ist im normalen Image nicht enthalten.
 
@@ -40,12 +43,13 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Englische Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett unter `build/hdd-de/` |
-| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 782 UI-Zustände einschließlich T07 |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 1.460 UI-Zustände einschließlich T07 |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild, 90 Bootfälle und alle 782 UI-Zustände in QEMU |
+| `make hdd-test` | Wiederholungsbuild, 92 Bootfälle und alle 1.460 UI-Zustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler und Blättern prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Headerprüfung und Bedienung prüfen |
+| `make config-test` | Einmal bauen und F5, A/B-Auswahl, FAT-Dateizuordnung und Fehlerpfade prüfen |
 | `make handoff-test` | Einmal bauen und gezielt T07 einschließlich Abweisungen und fehlerhafter Übergaben prüfen |
 | `python3 tools/test_hdd.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin` | Bereits gebaute Images mit ausdrücklich gewähltem Emulator/BIOS prüfen |
 
@@ -82,8 +86,9 @@ PR #3 zurückgemeldet. VirtualBox-Version und genaue VM-Einstellungen wurden
 dabei nicht protokolliert. Inzwischen wurden auch die vier C-Erfolgsmeldungen
 aus PR #5 sowie Menü (PR #6) und Scanner (PR #7) manuell bestätigt, ohne
 erneute genaue Plattformangabe. Auch die Sprachvarianten aus PR #8 wurden
-manuell bestätigt, ebenso F3 aus PR #9. Das neue T07-Testimage und ein
-ausdrücklich erzwungener CHS-Fallback sind noch manuell zu prüfen.
+manuell bestätigt, ebenso F3 aus PR #9 und T07 aus PR #10, ohne neue
+Plattformdaten. F5 aus dem neuen Konfigurationsschritt und ein ausdrücklich
+erzwungener manueller CHS-Fallback sind noch zu prüfen.
 
 Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
 `retroboot-hdd.img` lässt sie sich unter Windows/PowerShell so umwandeln:
@@ -98,7 +103,7 @@ deaktivieren und die VDI als erste IDE-Festplatte (Primary Master) einhängen.
 Von dieser Platte starten; ein Installations-ISO ist nicht erforderlich.
 Nach den Bootmeldungen erscheint jetzt das Menü. Pfeile wählen eine
 Informationsseite, Enter öffnet sie, Esc führt zurück; F2 prüft MBR und EBR-Kette,
-F3 prüft einen FAT-Volume-Header und F8 zeigt die Recovery-Hinweise.
+F3 prüft einen FAT-Volume-Header, F5 die Konfigurationsdateien und F8 zeigt die Recovery-Hinweise.
 Im kompakten Image erscheinen vier primäre
 Slots und das logische Verwaltungsvolume. Der Auswahlbalken ersetzt den Cursor.
 Eine alte VDI muss aus dem neuen Image erneut erzeugt werden.
@@ -122,6 +127,8 @@ und die [BIOS-/UEFI-Auswahl](https://docs.oracle.com/en/virtualization/virtualbo
 | `hdd-menu-model.img` | Native C/16-Auswahl- und Timerprüfungen mit QEMU-Testausstieg |
 | `hdd-scan-model.img` | 51 native C/16-Parserbedingungen mit QEMU-Testausstieg |
 | `hdd-volume-model.img` | 114 native C/16-Bedingungen für Headerparser und 32-Bit-Arithmetik |
+| `hdd-config-model.img` | 76 native C16-Bedingungen für Recordformat, CRC, Identität, Profile und A/B-Auswahl |
+| `config-*.img` | Gezielte Konfigurations-/Dateizuordnungsfehler; nur lokale/CI-Tests, kein Image-Upload |
 | `hdd-handoff-model.img` | 29 native C/16-Bedingungen für frische Zielprüfung, exakte Bindung und verworfene Fehlerpuffer |
 | `retroboot-handoff.img` | 128 MiB; aktive Testpartition P1 ab LBA 131.072, normales verborgenes Verwaltungsvolume; F4 übergibt nur an den eingebauten Test-VBR |
 | `handoff-*.img` | Gezielte Ziel-/Lesefehler und neun absichtlich fehlerhafte Übergabevarianten; kein CI-Upload |
@@ -296,11 +303,11 @@ beziehungsweise Ursache an und halten den Rechner an.
 
 Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
 
-- 102 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+- 108 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
   unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 90 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 92 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -338,7 +345,8 @@ Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
   laufen in beiden Sprachen: insgesamt 1.194 Bildschirmzustände.
 - Weitere 43 T07-Kampagnen mit 185 Zuständen je Sprache prüfen die echte
   Übergabe, Registerfehler, frische Ablehnung und unveränderte Zielbytes.
-  Einschließlich dieser Kampagnen sind es 1.564 Bildschirmzustände.
+  Zusätzlich prüfen 63 Konfigurationskampagnen je Sprache 678 F5-Zustände.
+  Einschließlich dieser Kampagnen sind es 2.920 Bildschirmzustände.
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
 und kann EDD als nicht vorhanden melden. Der MBR selbst bleibt in diesen
@@ -350,7 +358,7 @@ Sie reservieren 1 KiB am oberen Ende des konventionellen Speichers über den
 BDA-Speicherzähler und hängen sich in den INT-13h-Vektor ein. Diese Eingriffe
 gehören zum Testaufbau, nicht zum ausgelieferten Festplattenimage.
 
-40 Boot-Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
+41 Boot-Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
 dieselbe geordnete Sektorfolge einschließlich Wiederholungen enthalten.
 Die BIOS-Traces beweisen dabei die Benutzung von AH=42h beziehungsweise
 AH=02h nach der Auswahl. Spur-/Zylinderwechsel werden bei 16/63 geprüft;
