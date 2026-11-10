@@ -13,6 +13,8 @@ F2 liest erneut und beginnt wieder auf Seite 1. Esc führt ins Hauptmenü,
 F8 zu den Recovery-Hinweisen. Auch nach einem Scanfehler bleiben diese
 Tasten verfügbar. Auf dem kompakten Testimage sind P1–P3 leer, P4 ist der
 erweiterte Container und L1 das verborgene FAT16-Verwaltungsvolume.
+Die separate [F3-Ansicht](VolumeHeaders.md) ergänzt inzwischen die lesende
+FAT-BPB-Prüfung. F2 selbst untersucht weiterhin nur die Partitionstabellen.
 
 ## Was geprüft wird
 
@@ -68,8 +70,9 @@ Layout-Fingerabdruck und keinen Schutz vor identischen oder kopierten IDs.
 Ein erfolgreicher Scan ist eine Momentaufnahme der gelesenen Metadaten.
 
 Ein Typbyte belegt weder ein gültiges FAT-/NTFS-Dateisystem noch eine
-startfähige OS-Installation. BPB-/VBR-Prüfung, Profilzuordnung und der
-Übergabevertrag T07 folgen getrennt. Auch ein lesbar erfasster `0Fh`-Container
+startfähige OS-Installation. Die F3-Prüfung ergänzt begrenzte FAT-BPB-
+Plausibilität; Profilzuordnung und Übergabevertrag T07 fehlen weiterhin.
+Auch ein lesbar erfasster `0Fh`-Container
 ist dadurch nicht für DOS 6.22 oder ältere NT-Versionen freigegeben.
 Die eingefrorene Spezifikation v0.2 wird nicht geändert.
 
@@ -110,13 +113,13 @@ Mit bereits gebauten Images ist auch ein direkter Aufruf möglich:
 python3 tools/test_scan.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin
 ```
 
-- 93 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures
+- 97 Hosttests, darunter der Erhalt aller Loaderdaten in den Scanner-Fixtures
   und die Kodierungs-/Feldbreitenprüfungen für beide Menükataloge.
 - 51 Bedingungen im tatsächlichen C/16-Parser, jeweils nach einem EDD- und
   CHS-Start. Darunter sind andere Disk-ID, fehlende Signaturen, falsche Typen,
   Aktivflags, Überlappungen, Überläufe, leere Einträge und rückwärts laufende
   EBR-Ketten. Der letzte zulässige LBA `FFFFFFFFh` wird ohne Überlauf geprüft.
-- Insgesamt 86 HDD-Bootfälle mit 38 EDD-/CHS-Paaren und bytegleichen
+- Insgesamt 88 HDD-Bootfälle mit 39 EDD-/CHS-Paaren und bytegleichen
   Wiederholungsbuilds; die vorhandenen 26 Auswahl-/Timerbedingungen bleiben erhalten.
 - Fünf normale Menükampagnen mit insgesamt 75 Bildschirmzuständen,
   einschließlich der absichtlich zu kleinen automatischen Referenz-CHS-Geometrie.
@@ -132,6 +135,7 @@ im Gast-RAM geprüft. Vollständige Image-Hashes bleiben gleich.
 Die allgemeinen Menü- und Scanner-Kampagnen laufen für Englisch und Deutsch,
 zusammen 558 Bildschirmzustände. Alle sichtbaren übersetzten Texte werden
 geprüft, einschließlich der konkreten Fehlermeldung mit Umlauten und `ß`.
+Mit den zusätzlichen 318 F3-Zuständen je Sprache sind es insgesamt 1.194.
 Die [Sprachanleitung](Languages.md) beschreibt die Build-Auswahl.
 
 `build/scan/scan-results.json` entsteht erst nach dem vollständigen Erfolg.

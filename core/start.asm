@@ -12,6 +12,9 @@ extern _rb_menu_selftest
 %ifdef RB_SCAN_MODEL_TEST
 extern _rb_scan_selftest
 %endif
+%ifdef RB_VOLUME_MODEL_TEST
+extern _rb_volume_selftest
+%endif
 %ifndef RB_TEST
 extern _rb_menu_run
 %endif
@@ -108,6 +111,17 @@ rb_entry:
     mov si, scan_model_message
     call print
 %endif
+%ifdef RB_VOLUME_MODEL_TEST
+    call _rb_volume_selftest
+    test ax, ax
+    jnz failed
+    cmp sp, RB_STACK_TOP
+    jne failed
+    cmp word [RB_STACK_LOW], RB_STACK_GUARD
+    jne failed
+    mov si, volume_model_message
+    call print
+%endif
     mov si, ready_message
     call print
 %ifdef RB_TEST
@@ -182,6 +196,9 @@ menu_model_message db 'RB MENU MODEL PASS', 13, 10, 0
 %endif
 %ifdef RB_SCAN_MODEL_TEST
 scan_model_message db 'RB SCAN MODEL PASS', 13, 10, 0
+%endif
+%ifdef RB_VOLUME_MODEL_TEST
+volume_model_message db 'RB VOLUME MODEL PASS', 13, 10, 0
 %endif
 
 segment CONST public align=2 class=DATA use16

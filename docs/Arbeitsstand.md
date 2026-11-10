@@ -1,67 +1,70 @@
-# Arbeitsstand und Wiederaufnahme
+# Project state and resumption
 
-Stand: 10. November 2026.
+Updated: 10 November 2026.
 
-## Gesicherte Grundlage
+## Saved baseline
 
-PR #7 (lesende MBR-/EBR-Prüfung) ist in `historical` übernommen, Merge-Commit
-`cc750633d8abd7427b6da7838317f5eb0cbbc90b`. Seine CI war vollständig grün.
-Die manuellen Prüfungen des Menüs aus PR #6 und des Scanners aus PR #7 wurden
-am 10. November als erfolgreich zurückgemeldet. Die Rückmeldung enthält keine
-zusätzlichen Angaben zu VM, Rechner oder BIOS; solche Angaben werden nicht
-aus älteren Tests übernommen. C-Einstieg und Testdiskette wurden zuvor
-ebenfalls manuell bestätigt.
+PR #8 (English/German builds) is merged into `historical` at
+`70a3bc62edf1ec44fdf261a227c19c551527adc9`. Its CI passed. Manual success for
+both language variants was subsequently reported, without new VM, machine or
+BIOS details. Earlier manual reports cover the ABI floppy, HDD/C startup,
+menu from PR #6 and partition scanner from PR #7. These reports remain
+separate from evidence for a specific hardware configuration.
 
-## Aktueller Schritt: englische und deutsche Menü-Builds
+## Current increment: read-only FAT volume headers
 
-Branch `codex/english-german-builds`: Englisch ist die Standardsprache;
-`RB_LANGUAGE=de` wählt Deutsch. Beide Varianten verwenden dieselbe
-Programmlogik. UTF-8-Kataloge werden beim Build in CP437 umgewandelt, mit
-echten Umlauten und `ß`. Getrennte Ausgabeordner erlauben abwechselnde Builds
-ohne Bereinigung. Details stehen in [Languages](Languages.md).
+Branch `codex/read-only-volume-probe` adds F3 to revalidate the partition
+tables and inspect FAT16/FAT32 BPBs. Left/Right cycles through data entries;
+empty slots and extended containers are skipped. Errors preserve menu access
+and clear derived values. Types `07/17` remain unchecked, without claiming
+NTFS validation. There is no write path or OS handoff.
 
-Bootfehlercodes und Testmarker bleiben englisches ASCII. Katalogschlüssel,
-Zeichen und Feldbreiten werden vor dem Build geprüft; Sprache und Kataloghash
-stehen im Manifest. Repo-Texte verwenden neutrale Formulierungen ohne
-persönliche Anrede oder private Personendaten; `AGENTS.md` hält dies fest.
-Der Projektauftrag und die Gesprächsnotizen sind redaktionell neutralisiert,
-ihre überholten technischen Aussagen bleiben als solche gekennzeichnet.
-Die eingefrorene Spezifikation v0.2 bleibt unverändert.
+The [volume guide](VolumeHeaders.md) records the exact supported profile,
+manual expectations and limits. The probe reads only the first volume sector;
+plausible arithmetic does not prove filesystem integrity or bootability.
+`runtime/arith.asm` supplies the C16 unsigned 32-bit helpers without a DOS/CRT
+dependency. The independent implementation is tested in the native C16 image.
 
-Prüfumfang dieses Schritts:
+English remains the default; `RB_LANGUAGE=de` selects the same logic with
+German CP437 text, including umlauts and `ß`. Output paths remain separate.
+Repository documentation uses neutral prose without personal address or
+private personal data, as recorded in `AGENTS.md`. The frozen specification
+v0.2 and archived material are unchanged in this increment.
 
-- 93 Hosttests und der Referenzlayout-Bericht.
-- Je Sprache zwei bytegleiche HDD-Builds; getrennte Ausgabepfade und Manifeste.
-- 86 Bootfälle mit 38 EDD-/CHS-Paaren im englischen Build; darin 26 native
-  C/16-Bedingungen für Auswahl/Timer und 51 für den Partitionsparser.
-- Je Sprache fünf allgemeine Menükampagnen mit 75 VGA-/Tastaturzuständen.
-- Je Sprache 32 Scanner-Kampagnen mit 204 Zuständen, einschließlich echter
-  Lesefehler, Blättern, exakter Sektorfolgen sowie RAM-, BSS-, Stack- und
-  Schreibüberwachung. Zusammen ergeben beide Sprachen 558 Bildschirmzustände.
+Local evidence:
 
-Die automatische CHS-Geometrie des großen QEMU-Images deckt weiterhin nur
-einen Teil des Containers ab. Der negative Geometriefall bleibt geprüft;
-positive Referenztests verwenden die dokumentierte logische BIOS-Geometrie.
-Belegung, Leseweg und Grenzen des Scanners bleiben unverändert.
+- 97 host tests and the reference layout report pass.
+- Two byte-identical HDD builds per language.
+- 88 boot cases, including 39 identical EDD/CHS sector-sequence pairs.
+- Native C16 assertions: 26 menu/timer, 51 partition parser and 114 volume/
+  arithmetic assertions, each exercised through both BIOS read paths.
+- Per language: 75 general menu states, 204 scanner states and 318 volume
+  states, for 1,194 total. Exact reads/retries, VGA, loaded bytes, BSS, stack
+  protection, unchanged source hashes and absence of writes are checked.
 
-CI-Ergebnisse und Artefakte stehen am Pull Request dieses Branches.
-`historical` wird erst durch einen geprüften Merge aktualisiert. Die lokale
-Arbeitskopie allein ist kein dauerhafter Sicherungspunkt.
+The large reference image still exceeds the automatic CHS geometry in QEMU.
+This remains a negative test; positive reference campaigns explicitly supply
+the documented logical BIOS geometry. The reference layout is unchanged.
+CI results and downloadable evidence belong to the PR for this branch.
+Only a reviewed merge updates `historical`; a local checkout is not a durable
+checkpoint by itself.
 
-## Noch offen
+## Open work
 
-1. Neue Sprachvarianten manuell prüfen, einschließlich Umlauten und `ß`;
-   VM-/BIOS-Version, Rechnermodell und Leseweg im Testprotokoll festhalten.
-2. BPB-/VBR-Plausibilität und Startziele lesend prüfen, danach den
-   Übergabevertrag mit einem eigenen Test-VBR nachweisen (T07).
-3. Erst anschließend gültige Startprofile und die vollständige Startauswahl
-   anbinden. Persistente Medienidentität und Installationsstatus ergänzen;
-   die bisherige Disk-ID-Prüfung allein ist noch kein solcher Nachweis.
+1. Manually check the new F3 view in both languages, as described in the volume
+   guide. Record VM/BIOS or machine details and the displayed read route when
+   available. The PR #8 report does not cover this new view.
+2. Implement and prove T07 with a purpose-built test VBR: a fresh target read,
+   unmodified sector at `0000:7C00`, agreed register/stack state and a stable
+   partition-entry pointer. No OS handoff is implemented yet.
+3. Add valid profiles and integrate the complete start selection only after
+   the handoff is proven. Persistent installation/media identity and target
+   authorization are still missing; the current Disk-ID comparison is not
+   sufficient for either.
 
-## Nach einer Unterbrechung
+## Resuming after a pause
 
-Am Anfang stehen der aktuelle Branch-/PR-Stand auf GitHub, der Code und die
-offenen Punkte dieses Dokuments. Ein abgebrochener Build oder Test wird erneut
-gestartet; temporärer Emulatorzustand ist kein gesicherter Projektstand.
-Abgeschlossene Schritte werden als Commits gesichert. PRs bleiben bis zur
-Prüfung und zum Merge durch die Projektbetreuung offen.
+Begin with the current GitHub branches/PRs, repository code and open items in
+this file. Restart interrupted builds/tests; transient emulator state is not
+saved project state. Completed increments are committed and proposed as PRs,
+which remain open for project review and merge.

@@ -26,6 +26,7 @@ The language cannot currently be changed inside the running menu.
 | Independent repeat build | `build/hdd-repeat/` | `build/hdd-repeat-de/` |
 | General menu evidence | `build/menu/` | `build/menu-de/` |
 | Scanner and paging evidence | `build/scan/` | `build/scan-de/` |
+| Volume header evidence | `build/volume/` | `build/volume-de/` |
 
 The **retroboot-hdd-bios** CI artifact contains both compact images. Inside
 the archive the paths start with `hdd/` and `hdd-de/`; the outer `build/`
@@ -70,17 +71,17 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 93 host tests include seven catalog tests, with independent byte values
+The 97 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 86-case boot suite runs once in CI with English, covering the shared
-loader, C startup, native menu-model and native parser tests. Both languages
-run all five general menu campaigns and all 32 scanner campaigns: 279
-VGA/keyboard states per language, 558 total. Every visible translated label,
-including specific scanner error messages, is checked against the selected
+The full 88-case boot suite runs once in CI with English, covering the shared
+loader, C startup, native menu-model, parser and arithmetic tests. Both languages
+run all five general menu campaigns, 32 scanner campaigns and 43 volume-header
+campaigns: 597 VGA/keyboard states per language, 1,194 total. Every visible
+translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
 
@@ -91,6 +92,7 @@ include the same metadata. A full German boot suite is also available with
 `make hdd-test RB_LANGUAGE=de`; it is not duplicated in CI because the shared
 boot logic is unchanged.
 
-Manual success for PR #6 and PR #7 was reported before this language change.
-It covers those earlier menu/scanner builds. Manual rendering checks of the
-new language variants, especially on historical VGA/BIOS hardware, remain open.
+Manual success for both language variants from PR #8 was reported on
+10 November 2026. No new platform details were supplied; a particular
+historical VGA/BIOS configuration is therefore not established. The new
+[F3 volume-header view](VolumeHeaders.md) still needs its own manual check.

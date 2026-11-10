@@ -10,6 +10,8 @@ bis zum C-Einstieg mit eigenem Startcode.
 Darauf baut jetzt das [lesende Textmenü](Menue.md) auf.
 Die [MBR-/EBR-Prüfung](Partitionen.md) ergänzt die Untersuchung tatsächlich
 gelesener Partitionstabellen im Menü; der Host-Layoutprüfer bleibt davon getrennt.
+Die neue [F3-Ansicht](VolumeHeaders.md) prüft anschließend FAT16-/FAT32-
+Volume-Header lesend, ohne damit Dateisystemintegrität oder Startfähigkeit zu bestätigen.
 Die [Sprachanleitung](Languages.md) beschreibt englische und deutsche Builds
 mit gemeinsamen Programmquellen und CP437-Zeichen einschließlich `ß`.
 Die [CI-Erklärung](CI.md) beschreibt die automatischen Windows-/Linux-Prüfungen.
@@ -61,11 +63,12 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 | `make hdd` | Englische HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett; Ausgabe unter `build/hdd-de/` |
-| `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 279 UI-Zustände prüfen |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 597 UI-Zustände prüfen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild, 86 HDD-Bootfälle, 75 Menüansichten und 204 Scanner-/Blätterzustände prüfen |
+| `make hdd-test` | Wiederholungsbuild, 88 HDD-Bootfälle, 75 Menü-, 204 Scanner- und 318 Volume-Zustände prüfen |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler, Wiederholungen und mehrseitige Tabellen prüfen |
+| `make volume-test` | Einmal bauen und gezielt FAT-Header, Lesefehler und F3-Bedienung prüfen |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -124,7 +127,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **93 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **97 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -137,6 +140,8 @@ Die Scanner-Fixtures erhalten den Ladeweg und die MBR-Identität; ihre
 zusätzlichen Test-EBRs liegen im freien Bereich hinter dem Verwaltungsvolume.
 Sieben Katalogtests prüfen außerdem CP437-Zeichen einschließlich `ß`,
 C-Escapes, Feldbreiten, Schlüsselmengen und die Trennung der Sprach-Builds.
+Vier weitere Tests prüfen die Volume-Fixtures: Loadererhalt, feste BPB-Werte,
+überschneidungsfreie Bereiche und abgewiesene Eingaben.
 
 Die native Probe startet unter QEMU 8.2.2/SeaBIOS erfolgreich. Zwei
 Fehlervarianten (BSS nicht gelöscht, initialisierte Daten beschädigt) werden
@@ -150,14 +155,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-86 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
+88 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 38 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 39 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -175,7 +180,8 @@ Umstellung bytegleich zum vorherigen Stand. Die vier C-HDD-Erfolgsmeldungen
 aus PR #5 wurden inzwischen manuell bestätigt. Die genaue Plattform dieses
 Tests wurde nicht erneut angegeben. Am 10. November wurden auch Menü (PR #6)
 und Scanner (PR #7) manuell bestätigt, ohne zusätzliche Plattformdaten.
-Die neuen Sprachvarianten haben noch keinen eigenen manuellen Nachweis.
+Auch die Sprachvarianten aus PR #8 wurden inzwischen manuell bestätigt,
+ohne neue Plattformdaten. Die neue F3-Ansicht ist noch manuell zu prüfen.
 
 Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
 Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in fünf
@@ -193,9 +199,13 @@ Bedingungen prüfen die Strukturlogik, darunter Disk-ID-Vergleich, Überläufe,
 204 Bildschirmzustände mit echten Scannerfehlern, I/O-Wiederholungen und
 Blättern über drei Seiten. Bei Fehlern bleiben Menü und Recovery-Hinweise
 erreichbar; unvollständige Belegungen werden nicht als Erfolg angezeigt.
-Die 75 allgemeinen und 204 Scannerzustände laufen für Englisch und Deutsch,
-zusammen 558 Bildschirmzustände. Jede Sprache wird zweimal bytegleich gebaut;
-die 86 gemeinsamen Bootfälle laufen in CI einmal mit Englisch.
+F3 ergänzt die begrenzte FAT16-/FAT32-Headerprüfung. 114 native C16-Bedingungen
+prüfen BPB-Grenzen, Lesegrenzen und die neuen 32-Bit-Rechenhelfer. Weitere
+43 Kampagnen je Sprache prüfen 318 Volume-Zustände einschließlich tatsächlicher
+Lesefehler. Die 75 allgemeinen, 204 Scanner- und 318 Volume-Zustände laufen
+für Englisch und Deutsch, zusammen 1.194 Bildschirmzustände. Jede Sprache
+wird zweimal bytegleich gebaut; die 88 gemeinsamen Bootfälle laufen in CI
+einmal mit Englisch.
 
 Die automatische CHS-Geometrie des großen QEMU-Images reicht für den
 Verwaltungsbereich, aber nicht für den gesamten erweiterten Container.
@@ -208,17 +218,19 @@ abgegrenzter T05-Nachweis für den beschriebenen QEMU-Testaufbau vor.
 Für T08 sind Bedienung und Zeitrechnung abgegrenzt geprüft; die Integration
 mit gültigen Startprofilen und einem echten Startziel steht noch aus.
 T06 ist für die beschriebenen MBR-/EBR-Strukturfehler abgegrenzt geprüft.
-Persistente Medienidentität, Dateisystem-/VBR-Plausibilität und eine Freigabe
-anhand echter Startprofile fehlen noch; eine passende Typkennung reicht dafür nicht.
+Die FAT-BPB-Plausibilität ist nun zusätzlich im beschriebenen Umfang geprüft.
+Persistente Medienidentität, Dateisysteminhalte und eine Freigabe anhand echter
+Startprofile fehlen noch; eine passende Typkennung oder ein plausibler Header
+reichen dafür nicht.
 Die alten Zielmaschinen und weitere reale BIOS-Implementierungen bleiben
 zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. BPB-/VBR-Plausibilität und Startziele lesend prüfen; dann den Übergabevertrag
-   mit eigenem Test-VBR nachweisen (T07). Erst mit gültigen Profilen die
-   vollständige Startauswahl ergänzen. Parallel bleiben manuelle Tests der
-   Darstellung in den neuen Sprachvarianten offen.
+1. Den Übergabevertrag mit eigenem Test-VBR nachweisen (T07), einschließlich
+   frischer Zielprüfung. Erst mit gültigen Profilen die vollständige
+   Startauswahl ergänzen. Parallel bleibt der manuelle Test der neuen
+   F3-Ansicht in beiden Sprachen offen.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 
