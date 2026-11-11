@@ -6,6 +6,7 @@
 #include "volume.h"
 #include "config.h"
 #include "state.h"
+#include "visibility.h"
 #ifdef RB_HANDOFF_TEST
 #include "handoff.h"
 #endif
@@ -44,6 +45,10 @@ static const char * const proof_messages[] = {
     RB_UI_STATE_LEGACY, RB_UI_STATE_IDENTITY, RB_UI_STATE_EMPTY, RB_UI_STATE_PENDING,
     RB_UI_STATE_INSTALLATION, RB_UI_STATE_TARGET, RB_UI_STATE_NOT_READY, RB_UI_STATE_APPROVAL,
     RB_UI_STATE_SCAN, RB_UI_STATE_LAYOUT, RB_UI_STATE_VOLUME, RB_UI_STATE_VBR
+};
+
+static const char * const visibility_messages[] = {
+    RB_UI_VIS_MATCH, RB_UI_VIS_CHANGE, RB_UI_VIS_BLOCKED, RB_UI_VIS_ADMIN
 };
 
 static void text(rb_u16 row, rb_u16 column, const char *value, rb_u16 color)
@@ -102,7 +107,8 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                  const rb_partition_scan *scan, rb_u16 page,
                  const rb_volume_probe *volume, rb_u16 volume_index,
                  const rb_config_result *config, rb_u16 config_index,
-                 const rb_state_result *installation, const rb_state_proof *proof
+                 const rb_state_result *installation, const rb_state_proof *proof,
+                 const rb_visibility_result *visibility
 #ifdef RB_HANDOFF_TEST
                  , rb_u16 handoff_status, rb_u16 handoff_detail
 #endif
@@ -264,6 +270,50 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             text(17, 4, RB_UI_LBA_HEX, NORMAL); hex(17, 23, proof->error_lba, 8);
         }
         text(19, 4, RB_UI_STATE_HELP, NORMAL);
+    } else if (view == 8) {
+        text(5, 4, RB_UI_VIS_TITLE, TITLE);
+        text(6, 4, RB_UI_VIS_SCOPE, NORMAL);
+        text(8, 4, visibility_messages[visibility->status], visibility->status ? 0x1E : 0x1A);
+
+        text(9, 4, RB_UI_VIS_CODES, NORMAL);
+        hex(9, 30, visibility->status, 4); text(9, 35, "/", NORMAL);
+        hex(9, 37, visibility->proof.status, 4); text(9, 42, "/", NORMAL);
+        hex(9, 44, visibility->proof.detail, 4);
+
+        if (!config->status && config_index < config->config.count) {
+            text(7, 4, config->config.entries[config_index].name, TITLE);
+            text(18, 4, RB_UI_PAGE, NORMAL);
+            decimal(18, 10, config_index + 1); text(18, 12, "/", NORMAL);
+            decimal(18, 14, config->config.count);
+        }
+
+        if (visibility->status <= RB_VISIBILITY_CHANGE) {
+            text(10, 4, RB_UI_VIS_COLUMNS, NORMAL);
+            for (index = 0; index < 4; ++index) {
+                text(11 + index, 4, "P", NORMAL); decimal(11 + index, 5, index + 1);
+                hex(11 + index, 17, visibility->before[450 + index * 16], 2);
+                text(11 + index, 20, "/", NORMAL);
+                hex(11 + index, 23, visibility->before[446 + index * 16], 2);
+                hex(11 + index, 45, visibility->after[450 + index * 16], 2);
+                text(11 + index, 48, "/", NORMAL);
+                hex(11 + index, 51, visibility->after[446 + index * 16], 2);
+            }
+
+            text(15, 4, RB_UI_VIS_VISIBLE, NORMAL);
+            hex(15, 30, visibility->current_visible, 2); text(15, 33, "/", NORMAL);
+            hex(15, 36, visibility->wanted_visible, 2);
+            text(16, 4, RB_UI_VIS_ACTIVE, NORMAL);
+            hex(16, 30, visibility->current_active, 2); text(16, 33, "/", NORMAL);
+            hex(16, 36, visibility->wanted_active, 2);
+            text(17, 4, RB_UI_VIS_CHANGED, NORMAL); hex(17, 30, visibility->changed, 2);
+        } else {
+            if (visibility->status == RB_VISIBILITY_PROOF) {
+                text(11, 4, proof_messages[visibility->proof.status], 0x1E);
+            }
+            text(13, 4, RB_UI_LBA_HEX, NORMAL); hex(13, 23, visibility->error_lba, 8);
+        }
+
+        text(19, 4, RB_UI_VIS_HELP, NORMAL);
 #ifdef RB_HANDOFF_TEST
     } else if (view == 5) {
         text(5, 4, RB_UI_HANDOFF_FAILED, TITLE);
@@ -337,6 +387,7 @@ void __cdecl rb_menu_run(void)
     rb_config_result config;
     rb_state_result installation;
     rb_state_proof proof;
+    rb_visibility_result visibility;
     rb_menu_state state;
     rb_u16 key, action, rescan, verify_state, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
@@ -349,7 +400,7 @@ void __cdecl rb_menu_run(void)
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail
 #endif
@@ -397,26 +448,27 @@ void __cdecl rb_menu_run(void)
             debug_text(" copies="); debug_hex(config.copies[0]); debug_hex(config.copies[1]);
             debug_text(" source="); debug_hex(config.source);
             debug_text(" count="); debug_hex(config.config.count); debug_text("\r\n");
-        } else if ((key >> 8) == 0x40U) {
-            view = 7; config_index = 0; verify_state = 1;
-            debug_text("RB STATE BEGIN\r\n");
+        } else if ((key >> 8) == 0x40U || (key >> 8) == 0x41U) {
+            view = (key >> 8) == 0x40U ? 7 : 8;
+            config_index = 0; verify_state = view - 6;
+            debug_text(view == 7 ? "RB STATE BEGIN\r\n" : "RB VISIBILITY BEGIN\r\n");
             rb_config_load(&config, rb_disk_read, (void *)0,
                 rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
                 read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
             rb_state_load(&installation, rb_disk_read, (void *)0,
                 rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
                 read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
-            debug_text("RB STATE records="); debug_hex(installation.status);
+            debug_text(view == 7 ? "RB STATE records=" : "RB VISIBILITY records="); debug_hex(installation.status);
             debug_text(" copies="); debug_hex(installation.copies[0]); debug_hex(installation.copies[1]);
             debug_text(" source="); debug_hex(installation.source); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
-        } else if ((view == 6 || view == 7) && config.status == 0 && config.config.count
+        } else if ((view == 6 || view == 7 || view == 8) && config.status == 0 && config.config.count
                 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             config_index = (key >> 8) == 0x4BU
                 ? (config_index == 0 ? config.config.count - 1 : config_index - 1)
                 : (config_index + 1 == config.config.count ? 0 : config_index + 1);
-            verify_state = view == 7;
+            verify_state = view >= 7 ? view - 6 : 0;
         } else if (view == 4 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             volume_index = next_volume(&scan, volume_index, (key >> 8) == 0x4BU);
             probe = 1;
@@ -455,7 +507,7 @@ void __cdecl rb_menu_run(void)
         } else if (probe) {
             debug_text("RB VOLUME EMPTY\r\n");
         }
-        if (verify_state) {
+        if (verify_state == 1) {
             rb_state_check(&proof, &config, &installation, config_index, rb_disk_read, (void *)0,
                            rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high);
             debug_text("RB STATE proof="); debug_hex(proof.status);
@@ -463,7 +515,18 @@ void __cdecl rb_menu_run(void)
             debug_text(" crc="); debug_hex((rb_u16)(proof.observed_crc >> 16)); debug_hex((rb_u16)proof.observed_crc);
             debug_text("\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof
+        if (verify_state == 2) {
+            rb_visibility_check(&visibility, &config, &installation, config_index,
+                rb_disk_read, (void *)0, rb_boot.reachable_sectors_low,
+                rb_boot.reachable_sectors_high, read32(snapshot.mbr + 436));
+
+            debug_text("RB VISIBILITY status="); debug_hex(visibility.status);
+            debug_text(" proof="); debug_hex(visibility.proof.status);
+            debug_text(" detail="); debug_hex(visibility.proof.detail);
+            debug_text(" index="); debug_hex(config_index);
+            debug_text(" changed="); debug_hex(visibility.changed); debug_text("\r\n");
+        }
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail
 #endif

@@ -16,11 +16,10 @@ static void failed(rb_state_proof *r, rb_u16 status, rb_u16 detail, rb_u32 lba)
     r->observed_crc = 0; r->matched_index = RB_CONFIG_NONE;
 }
 
-void rb_state_check(rb_state_proof *r, const rb_config_result *config,
+static void check_layout(rb_state_proof *r, rb_partition_scan *scan, const rb_config_result *config,
                     const rb_state_result *state, rb_u16 index, rb_sector_reader read,
                     void *opaque, rb_u32 low, rb_u32 high)
 {
-    rb_partition_scan scan;
     rb_volume_probe volume;
     captured_crc c;
     const rb_profile *profile;
@@ -57,12 +56,12 @@ void rb_state_check(rb_state_proof *r, const rb_config_result *config,
             || entry->type != profile->type || entry->kind != profile->kind) { failed(r, RB_PROOF_TARGET, 0, 0); return; }
     if (entry->phase != RB_INSTALL_READY) { failed(r, RB_PROOF_NOT_READY, entry->phase, 0); return; }
     if (profile->installed != 2 || !profile->approved) { failed(r, RB_PROOF_APPROVAL, 0, 0); return; }
-    rb_scan_partitions(&scan, read, opaque, low, high, state->state.disk_id);
-    if (scan.status) { failed(r, RB_PROOF_SCAN, scan.status, scan.error_lba); return; }
-    if (rb_layout_crc(&scan) != state->state.layout_crc || profile->slot < 1 || profile->slot > 4) {
+    rb_scan_partitions(scan, read, opaque, low, high, state->state.disk_id);
+    if (scan->status) { failed(r, RB_PROOF_SCAN, scan->status, scan->error_lba); return; }
+    if (rb_layout_crc(scan) != state->state.layout_crc || profile->slot < 1 || profile->slot > 4) {
         failed(r, RB_PROOF_LAYOUT, 0, 0); return;
     }
-    target = &scan.entries[profile->slot - 1];
+    target = &scan->entries[profile->slot - 1];
     if (target->start != profile->start || target->sectors != profile->sectors
             || (target->type != profile->type && target->type != profile->type + 0x10)) {
         failed(r, RB_PROOF_LAYOUT, 0, 0); return;
@@ -72,4 +71,30 @@ void rb_state_check(rb_state_proof *r, const rb_config_result *config,
     if (volume.status) { failed(r, RB_PROOF_VOLUME, volume.status, profile->start); return; }
     if (c.crc != entry->vbr_crc) { failed(r, RB_PROOF_VBR, 0, profile->start); return; }
     r->observed_crc = c.crc; r->matched_index = found;
+}
+
+/* A failed observation never exposes a partially populated partition scan. */
+void rb_state_check_layout(rb_state_proof *r, rb_partition_scan *scan,
+                           const rb_config_result *config, const rb_state_result *state,
+                           rb_u16 index, rb_sector_reader read, void *opaque,
+                           rb_u32 low, rb_u32 high)
+{
+    rb_u16 i;
+    rb_u8 *bytes = (rb_u8 *)scan;
+
+    for (i = 0; i < sizeof(*scan); ++i) { bytes[i] = 0; }
+    check_layout(r, scan, config, state, index, read, opaque, low, high);
+
+    if (r->status) {
+        for (i = 0; i < sizeof(*scan); ++i) { bytes[i] = 0; }
+    }
+}
+
+void rb_state_check(rb_state_proof *r, const rb_config_result *config,
+                    const rb_state_result *state, rb_u16 index, rb_sector_reader read,
+                    void *opaque, rb_u32 low, rb_u32 high)
+{
+    rb_partition_scan scan;
+
+    rb_state_check_layout(r, &scan, config, state, index, read, opaque, low, high);
 }

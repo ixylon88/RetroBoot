@@ -1,6 +1,6 @@
 # Entwicklung – Hostprüfungen und erste Bootlader
 
-Stand: 10. November 2026.
+Updated: 11 November 2026.
 
 Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
 Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
@@ -65,13 +65,14 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make boot-test` | Reproduzierbarkeit sowie erfolgreichen und zwei fehlerhafte BIOS-Starts prüfen |
 | `make hdd` | Englische HDD-Testimages mit MBR, Verwaltungs-VBR, Bootstrap und Stage 2 bauen |
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett; Ausgabe unter `build/hdd-de/` |
-| `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 2.110 UI-Zustände prüfen |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 2.480 UI-Zustände prüfen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild, 94 HDD-Bootfälle, 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe-, 678 Konfigurations- und 650 Installationszustände prüfen |
+| `make hdd-test` | Wiederholungsbuild, 96 HDD-Bootfälle, 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe-, 678 Konfigurations-, 650 Installations- und 370 Sichtbarkeitszustände prüfen |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler, Wiederholungen und mehrseitige Tabellen prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Header, Lesefehler und F3-Bedienung prüfen |
 | `make config-test` | Einmal bauen und F5-Konfigurationsdiagnose samt A/B-Auswahl prüfen |
+| `make visibility-test` | Build once and verify F7 current/intended primary-partition previews |
 | `make state-test` | Build once and verify F6 record bindings, phases and the current VBR |
 | `make handoff-test` | Einmal bauen und die Übergabe an den Test-VBR einschließlich Abweisungen prüfen |
 
@@ -132,7 +133,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **113 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **117 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -162,14 +163,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-94 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
+96 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 42 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 43 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -190,7 +191,7 @@ und Scanner (PR #7) manuell bestätigt, ohne zusätzliche Plattformdaten.
 Auch die Sprachvarianten aus PR #8 wurden inzwischen manuell bestätigt,
 ohne neue Plattformdaten. Auch F3 aus PR #9 wurde manuell bestätigt.
 Auch T07 aus PR #10 wurde manuell bestätigt, ohne neue Plattformdaten.
-The F5 test was reported complete; F6 is the new manual check.
+F5 and F6 were reported complete; [F7](Visibility.md) is the new manual check.
 
 Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
 Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in fünf
@@ -214,8 +215,8 @@ prüfen BPB-Grenzen, Lesegrenzen und die neuen 32-Bit-Rechenhelfer. Weitere
 Lesefehler. Die 75 allgemeinen, 204 Scanner- und 318 Volume-Zustände laufen
 für Englisch und Deutsch. Die neuen T07-Tests ergänzen je Sprache 43 Kampagnen
 und 185 Zustände. F5 ergänzt 63 Kampagnen mit 678 Zuständen je Sprache;
-F6 adds 65 campaigns and 650 states per language, giving 4,220 states in total. Jede Sprache
-wird zweimal bytegleich gebaut; die 94 gemeinsamen Bootfälle laufen in CI
+F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and 370 states, giving 4,960 states in total. Jede Sprache
+wird zweimal bytegleich gebaut; die 96 gemeinsamen Bootfälle laufen in CI
 einmal mit Englisch.
 
 Die automatische CHS-Geometrie des großen QEMU-Images reicht für den
@@ -235,19 +236,26 @@ T07 ist mit einem eigenen VBR für den beschriebenen QEMU-Aufbau nachgewiesen:
 Die FAT-BPB-Plausibilität ist nun zusätzlich im beschriebenen Umfang geprüft.
 F5 liest nun persistente Konfigurationskopien mit Disk-ID-/Layoutbindung und
 prüft Profilbeschreibungen. F6 adds independent installation identities and a
-current-VBR cross-check. Allgemeine Dateisystemintegrität und eine Freigabe echter OS-Ziele fehlen weiterhin; eine passende Typkennung oder ein plausibler Header
+current-VBR cross-check. F7 adds a read-only current/intended primary-table
+preview with DOS/Win9x and NT-group rules. Allgemeine Dateisystemintegrität und eine Freigabe echter OS-Ziele fehlen weiterhin; eine passende Typkennung oder ein plausibler Header
 reichen dafür nicht.
 Die alten Zielmaschinen und weitere reale BIOS-Implementierungen bleiben
 zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Manually verify the new [F6 installation-state check](InstallationState.md),
-   then integrate profile selection and visibility/OS-start authorization. Weder ein deklarierter Profilstatus noch die
-   feste T07-Testbindung ersetzt diese OS-Freigabe.
+1. Manually verify the [F7 primary-table preview](Visibility.md), then prepare
+   controlled original-OS validation and recovery-backed writes. A matching
+   preview, declared profile status or fixed T07 binding does not authorize
+   an OS start.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 
 Derzeit gibt es Disketten- und Festplattenprobestarts, aber keinen Installations- oder
 Betriebssystemnachweis und kein zur Installation bestimmtes Image. Die
 Spezifikation v0.2 bleibt als Stand der Phase 1 inhaltlich unverändert.
+
+The F7 increment is checked locally with QEMU 10.0.13/SeaBIOS on
+`pc-i440fx-8.2`, CPU `486`, 16 MiB RAM. CI records its own emulator and ROM
+versions. Four additional host tests verify fixture preservation, independent
+target bindings, isolated target faults and rejection of stale F7 screen data.

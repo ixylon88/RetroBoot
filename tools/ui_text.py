@@ -73,6 +73,18 @@ KEYS = (
     "STATE_LAYOUT",
     "STATE_VOLUME",
     "STATE_VBR",
+    "VIS_TITLE",
+    "VIS_SCOPE",
+    "VIS_CODES",
+    "VIS_COLUMNS",
+    "VIS_VISIBLE",
+    "VIS_ACTIVE",
+    "VIS_CHANGED",
+    "VIS_HELP",
+    "VIS_MATCH",
+    "VIS_CHANGE",
+    "VIS_BLOCKED",
+    "VIS_ADMIN",
 ) + ERROR_KEYS + VOLUME_KEYS
 # Most text begins at column 4 and must end before the frame at column 78.
 WIDTHS = dict.fromkeys(KEYS, 74)
@@ -84,11 +96,12 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               VOLUME_CLUSTERS=25, VOLUME_DATA=25, CONFIG_COPIES=25, CONFIG_DETAIL=25,
               CONFIG_GENERATION=25, CONFIG_IDENTITY_LABEL=25, CONFIG_ENTRY=25,
               CONFIG_EXTENT=25, CONFIG_FLAGS=27, STATE_CONFIG_COPIES=25, STATE_COPIES=25,
-              STATE_MEDIA=25, STATE_REASON=25, STATE_INSTALL_ID=25, STATE_CRC=25)
+              STATE_MEDIA=25, STATE_REASON=25, STATE_INSTALL_ID=25, STATE_CRC=25,
+              VIS_CODES=26, VIS_VISIBLE=26, VIS_ACTIVE=26, VIS_CHANGED=26)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

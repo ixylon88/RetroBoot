@@ -32,7 +32,7 @@
   "RECOVERY_PAGES": "Die Informationsseiten stehen mit F2 und Esc bereit.",
   "RECOVERY_READ_ONLY": "Es werden keine Datenträgerdaten verändert.",
   "KEY_HELP": "Pfeile: Auswahl  Enter: Anzeigen  Esc: Menü",
-  "FUNCTION_HELP": "F2: Tabellen  F3: Volume  F5: Profile  F6: Status  F8: Recovery",
+  "FUNCTION_HELP": "F2: Tabellen  F3: Volume  F5: Profile  F6: Status  F7: Sicht  F8: Recovery",
   "ERROR_OK": "OK",
   "ERROR_IO": "Sektor konnte nicht gelesen werden",
   "ERROR_SIGNATURE": "Ungültige Sektorsignatur",
@@ -129,5 +129,17 @@
   "STATE_SCAN": "Erneute Partitionsprüfung fehlgeschlagen.",
   "STATE_LAYOUT": "Das Layout wurde seit dem Laden der Records geändert.",
   "STATE_VOLUME": "Aktueller Ziel-Header ist ungültig oder nicht unterstützt.",
-  "STATE_VBR": "Aktueller VBR weicht vom gespeicherten Fingerabdruck ab."
+  "STATE_VBR": "Aktueller VBR weicht vom gespeicherten Fingerabdruck ab.",
+  "VIS_TITLE": "Aktuelle und geplante primäre Partitionen",
+  "VIS_SCOPE": "Nur Vorschau. Keine Schreibzugriffe oder OS-Starts.",
+  "VIS_CODES": "Plan / Prüfung / Detail:",
+  "VIS_COLUMNS": "Platz        Typ/aktiv aktuell           Typ/aktiv geplant",
+  "VIS_VISIBLE": "Sichtbar aktuell/geplant:",
+  "VIS_ACTIVE": "Aktiv aktuell/geplant:",
+  "VIS_CHANGED": "Geänderte Plätze (Maske):",
+  "VIS_HELP": "Links/Rechts: Eintrag | F7: neu lesen | Esc: Menü",
+  "VIS_MATCH": "Die aktuelle MBR-Sicht passt zum Profil.",
+  "VIS_CHANGE": "Sichtänderungen sind nötig; es wurde nichts geschrieben.",
+  "VIS_BLOCKED": "Keine Vorschau: Record- oder Zielprüfung fehlgeschlagen.",
+  "VIS_ADMIN": "Bindung oder verborgener Zustand der Verwaltung geändert."
 }

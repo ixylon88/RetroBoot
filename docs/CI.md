@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 94 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe- sowie 678 Konfigurations- und 650 Installationszustände mit EDD und CHS prüfen; beide Diagnose- und beide Übergabetestimages bereitstellen |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Englisch und Deutsch jeweils zweimal bauen; 96 gemeinsame Bootfälle sowie je Sprache 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe- sowie 678 Konfigurations-, 650 Installations- und 370 Sichtbarkeitszustände mit EDD und CHS prüfen; beide Diagnose- und beide Übergabetestimages bereitstellen |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -41,16 +41,18 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
   VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json`, `volume-results.json`,
-  `handoff-results.json` und `config-results.json`; zusätzlich die separaten 128-MiB-Übergabetestimages.
+  `handoff-results.json`, `config-results.json`, `state-results.json`
+  and `visibility-results.json`; zusätzlich die separaten 128-MiB-Übergabetestimages.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
 Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
-`volume/`. Übergabenachweise liegen unter `handoff/`, Konfigurationsnachweise unter `config/`. Die deutschen Entsprechungen
-liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/` und `config-de/`. Sprache, CP437-Kodierung
+`volume/`. Übergabenachweise liegen unter `handoff/`, Konfigurationsnachweise unter `config/`. F6/F7 evidence is under `state/`
+and `visibility/`. Die deutschen Entsprechungen
+liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/`, `config-de/`, `state-de/` and `visibility-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 94 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 96 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -59,8 +61,9 @@ Lauf. Maßgeblich sind der Jobstatus und die Ergebnisse. `manifest.json`
 enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
 Entsprechend entstehen `menu-results.json`, `scan-results.json`,
-`volume-results.json`, `handoff-results.json` und `config-results.json` erst nach
-allen fünf, 32, 43, 43 beziehungsweise 63 erfolgreichen Kampagnen. Ein erwarteter,
+`volume-results.json`, `handoff-results.json`, `config-results.json`,
+`state-results.json` and `visibility-results.json` are written only after all
+five, 32, 43, 43, 63, 65 and 37 respective campaigns succeed. Ein erwarteter,
 korrekt behandelter Scanfehler gilt dabei als bestandener Test.
 Screenshots allein ersetzen diese Prüfungen nicht.
 
@@ -87,7 +90,7 @@ gesamten Container zu kleine CHS-Geometrie. Sie sendet Pfeile, Enter, Esc, F2,
 F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
-Zusammen mit den Scanner-, Volume-, Übergabe-, Konfigurations- und Installationsprüfungen sind es 4.220 Bildschirmzustände.
+Zusammen mit den Scanner-, Volume-, Übergabe-, Konfigurations-, Installations- und Sichtbarkeitsprüfungen sind es 4.960 Bildschirmzustände.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
@@ -111,9 +114,13 @@ Details stehen in der [Konfigurationsanleitung](Configuration.md).
 
 F6 adds 86 native C16 assertions and 65 campaigns with 650 states per language.
 Evidence is uploaded from `build/state/` and `build/state-de/`; only the four
-normal/handoff images are published. The HDD job timeout is 20 minutes to
+normal/handoff images are published. The HDD job timeout is 25 minutes to
 accommodate the additional builds and emulator checks; it is a ceiling, not
 reserved runner time. Details are in the [state guide](InstallationState.md).
+
+F7 adds 52 native C16 assertions and 37 campaigns with 370 states per language.
+Evidence is uploaded from `build/visibility/` and `build/visibility-de/`.
+The [visibility guide](Visibility.md) describes the exact read-only boundary.
 
 Ein grüner Lauf besagt: **Dieser Commit besteht die beschriebenen Prüfungen
 in diesen Umgebungen.** Der Test auf echter Hardware bleibt eine zusätzliche
@@ -128,7 +135,8 @@ Auch die Sprachvarianten aus PR #8 wurden manuell bestätigt; zusätzliche
 Plattformdaten liegen dafür nicht vor. Auch F3 aus PR #9 wurde manuell bestätigt.
 Auch T07 aus PR #10 wurde manuell bestätigt, ohne zusätzliche Plattformdaten.
 The F5 test from merged PR #11 was reported complete, without added coverage details.
-The new [F6 state check](InstallationState.md) remains open for manual verification.
+F6 was subsequently confirmed. The new [F7 visibility preview](Visibility.md)
+remains open for manual verification.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen
