@@ -37,7 +37,7 @@ Verification scope:
 
 - 117 host checks plus the reference layout report.
 - Two byte-identical builds per language; unchanged 48 KiB Stage 2 and
-  8 KiB stack budgets; normal variants remain below 28 KiB.
+  8 KiB stack budgets; normal Stage 2 is 28,244 bytes (EN) and 28,696 bytes (DE).
 - 96 boot cases, including 43 identical EDD/CHS sector-sequence pairs.
 - Native C16 assertions: 26 menu/timer, 51 partition parser, 114 volume/
   arithmetic, 29 handoff, 84 configuration, 86 installation-state and
