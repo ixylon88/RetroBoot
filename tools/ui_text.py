@@ -82,6 +82,27 @@ KEYS = (
     "PROFILE_TEST_CODE",
     "PROFILE_TEST_REASON",
     "PROFILE_TEST_REVIEW",
+    "AUDIT_HELP",
+    "AUDIT_TITLE",
+    "AUDIT_SCOPE",
+    "AUDIT_OK",
+    "AUDIT_SCAN",
+    "AUDIT_ADMIN",
+    "AUDIT_IO",
+    "AUDIT_ROOT",
+    "AUDIT_CHAIN",
+    "AUDIT_SHARED",
+    "AUDIT_COPIES",
+    "AUDIT_HEADER",
+    "AUDIT_ORPHAN",
+    "AUDIT_CHANGED",
+    "AUDIT_BOOTSTRAP",
+    "AUDIT_CODES",
+    "AUDIT_COLUMNS",
+    "AUDIT_CLUSTERS",
+    "AUDIT_ERROR_FILE",
+    "AUDIT_REVIEW",
+    "AUDIT_LIMIT",
     "VIS_TITLE",
     "VIS_SCOPE",
     "VIS_CODES",
@@ -106,11 +127,12 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               CONFIG_GENERATION=25, CONFIG_IDENTITY_LABEL=25, CONFIG_ENTRY=25,
               CONFIG_EXTENT=25, CONFIG_FLAGS=27, STATE_CONFIG_COPIES=25, STATE_COPIES=25,
               STATE_MEDIA=25, STATE_REASON=25, STATE_INSTALL_ID=25, STATE_CRC=25,
-              VIS_CODES=26, VIS_VISIBLE=26, VIS_ACTIVE=26, VIS_CHANGED=26)
+              VIS_CODES=26, VIS_VISIBLE=26, VIS_ACTIVE=26, VIS_CHANGED=26,
+              AUDIT_CODES=28, AUDIT_ERROR_FILE=28, AUDIT_CLUSTERS=34)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile", "audit"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

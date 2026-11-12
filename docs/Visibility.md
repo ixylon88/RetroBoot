@@ -32,9 +32,10 @@ works from recovery. These checks are observations at the time of the keypress,
 not continuing monitoring or persistent authorization.
 
 German screenshots from PR #13 were manually confirmed under VirtualBox on
-12 November 2026, showing both expected results above. No English F7 manual
-coverage or BIOS version was established by that report. The next manual
-check covers [F9 in the English build](ProfileTest.md).
+12 November 2026, showing both expected results above. English F7 and its
+[F9 test handoff](ProfileTest.md) were confirmed there on 13 November 2026:
+matching preview, unchanged masks and `RB HANDOFF PASS`. No BIOS version
+or original-OS compatibility was established.
 
 ## Rules and limits
 

@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 98 shared boot cases and 2,816 UI states per language; publish both normal and both handoff images with evidence |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 100 shared boot cases and 3,186 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -42,16 +42,16 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
   VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json`, `volume-results.json`,
   `handoff-results.json`, `config-results.json`, `state-results.json`,
-   `visibility-results.json` and `profile-results.json`; zusätzlich die separaten 128-MiB-Übergabetestimages.
+   `visibility-results.json`, `profile-results.json` and `audit-results.json`; zusätzlich die separaten 128-MiB-Übergabetestimages.
 
 Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
 Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
-`volume/`. Übergabenachweise liegen unter `handoff/`, Konfigurationsnachweise unter `config/`. F6/F7/F9 evidence is under `state/`, `visibility/` and `profile/`. Die deutschen Entsprechungen
-liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/`, `config-de/`, `state-de/`, `visibility-de/` and `profile-de/`. Sprache, CP437-Kodierung
+`volume/`. Übergabenachweise liegen unter `handoff/`, Konfigurationsnachweise unter `config/`. F6/F7/F9/F10 evidence is under `state/`, `visibility/`, `profile/` and `audit/`. Die deutschen Entsprechungen
+liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/`, `config-de/`, `state-de/`, `visibility-de/`, `profile-de/` and `audit-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 98 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 100 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
@@ -61,8 +61,8 @@ enthält Größen und SHA-256-Werte; `boot-results.json` wird nur nach einem
 vollständig erfolgreichen Boot-Testlauf neu geschrieben.
 The reports `menu-results.json`, `scan-results.json`,
 `volume-results.json`, `handoff-results.json`, `config-results.json`,
-`state-results.json`, `visibility-results.json` and `profile-results.json`
-are written only after all five, 32, 43, 43, 63, 65, 37 and 37 respective
+`state-results.json`, `visibility-results.json`, `profile-results.json` and `audit-results.json`
+are written only after all five, 32, 43, 43, 63, 65, 37, 37 and 37 respective
 campaigns succeed. Ein erwarteter,
 korrekt behandelter Scanfehler gilt dabei als bestandener Test.
 Screenshots allein ersetzen diese Prüfungen nicht.
@@ -91,7 +91,7 @@ F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
 The menu, scanner, volume, handoff, configuration, installation-state,
-visibility and checked-profile campaigns total 5,632 screen states.
+visibility, checked-profile and allocation-audit campaigns total 6,372 screen states.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.
