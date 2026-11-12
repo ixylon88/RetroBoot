@@ -29,6 +29,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [F5 configuration copies, profile format and manual check](docs/Configuration.md)
 - [F6 installation state, identity binding and manual check](docs/InstallationState.md)
 - [F7 current/intended partition preview and manual check](docs/Visibility.md)
+- [F9 checked-profile test handoff and manual check](docs/ProfileTest.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
@@ -89,12 +90,13 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 96 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 98 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
-and 370 visibility states through emulated keyboard input, with VGA, memory
-and disk-write checks: 4,960 states across both languages. There are 117 host tests.
+and 370 visibility states, plus 336 checked-profile test states, through
+emulated keyboard input with VGA, memory and disk-write checks: 5,632 states
+across both languages. There are 121 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -115,9 +117,16 @@ and partition scanner (PR #7), followed by the English/German builds (PR #8) and
 T07 from PR #10 was also manually confirmed, without further platform details.
 The F5 test from merged PR #11 was also reported complete, without additional
 platform or language-coverage details. F6 from merged PR #12 was subsequently
-confirmed; F7 is the new manual check.
+confirmed. German F7 screenshots from PR #13 confirmed both expected views
+under VirtualBox. The new [F9 manual check](docs/ProfileTest.md) is planned
+with the English build; its result remains pending.
 
-For T07, boot `retroboot-handoff.img` and press **F4 from the main menu**.
+For the new checked-profile test, boot `hdd/retroboot-handoff.img`, press
+**F7**, then **F9**. A fresh record and visibility check must pass before
+the exact T07 sector can run. The expected result is `RB HANDOFF PASS`.
+The normal diagnostic image has no F9 action.
+
+For the earlier isolated T07 test, boot `retroboot-handoff.img` and press **F4 from the main menu**.
 The expected result is `RB HANDOFF PASS`; rebooting returns to RetroBoot.
 F4 is absent from the normal diagnostic image. The [handoff guide](docs/Handoff.md)
 describes the contract and why this result does not yet authorize an OS start.

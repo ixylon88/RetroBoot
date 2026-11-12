@@ -5,7 +5,9 @@ the selected profile's intended values. It implements the display-only
 foundation of specification v0.2 sections 8 and 11. The preview never writes a sector,
 stages a target VBR, starts an OS, or enables the countdown. Enter and F4 are
 inert on this page; the handoff image's main-menu F4 remains the compiled T07
-test only.
+test only. The handoff build also offers **F9** from this view for the
+separate [checked-profile test](ProfileTest.md); only that explicit action
+can perform the controlled T07 transition.
 
 ## Manual check
 
@@ -28,6 +30,11 @@ check. F7 reloads both record families and resets selection to the first
 profile. Esc returns to the menu; F8 opens recovery information. F7 also
 works from recovery. These checks are observations at the time of the keypress,
 not continuing monitoring or persistent authorization.
+
+German screenshots from PR #13 were manually confirmed under VirtualBox on
+12 November 2026, showing both expected results above. No English F7 manual
+coverage or BIOS version was established by that report. The next manual
+check covers [F9 in the English build](ProfileTest.md).
 
 ## Rules and limits
 

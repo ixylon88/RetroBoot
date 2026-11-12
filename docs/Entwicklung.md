@@ -67,7 +67,7 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett; Ausgabe unter `build/hdd-de/` |
 | `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 2.480 UI-Zustände prüfen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Wiederholungsbuild, 96 HDD-Bootfälle, 75 Menü-, 204 Scanner-, 318 Volume-, 185 Übergabe-, 678 Konfigurations-, 650 Installations- und 370 Sichtbarkeitszustände prüfen |
+| `make hdd-test` | Repeat build, 98 boot cases and 2,816 keyboard/VGA states for the selected language |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler, Wiederholungen und mehrseitige Tabellen prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Header, Lesefehler und F3-Bedienung prüfen |
@@ -133,7 +133,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **117 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **121 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -163,14 +163,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-96 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
+98 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 43 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 44 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -191,7 +191,8 @@ und Scanner (PR #7) manuell bestätigt, ohne zusätzliche Plattformdaten.
 Auch die Sprachvarianten aus PR #8 wurden inzwischen manuell bestätigt,
 ohne neue Plattformdaten. Auch F3 aus PR #9 wurde manuell bestätigt.
 Auch T07 aus PR #10 wurde manuell bestätigt, ohne neue Plattformdaten.
-F5 and F6 were reported complete; [F7](Visibility.md) is the new manual check.
+F5 and F6 were reported complete. German [F7](Visibility.md) screenshots
+were confirmed under VirtualBox; the English [F9 test](ProfileTest.md) is pending.
 
 Das normale Image zeigt ein 80×25-Menü mit Auswahlbalken und drei
 Informationsseiten. Pfeile, Enter, Esc, F2 und F8 funktionieren in fünf
@@ -215,8 +216,10 @@ prüfen BPB-Grenzen, Lesegrenzen und die neuen 32-Bit-Rechenhelfer. Weitere
 Lesefehler. Die 75 allgemeinen, 204 Scanner- und 318 Volume-Zustände laufen
 für Englisch und Deutsch. Die neuen T07-Tests ergänzen je Sprache 43 Kampagnen
 und 185 Zustände. F5 ergänzt 63 Kampagnen mit 678 Zuständen je Sprache;
-F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and 370 states, giving 4,960 states in total. Jede Sprache
-wird zweimal bytegleich gebaut; die 96 gemeinsamen Bootfälle laufen in CI
+F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and
+370 states. The F9 checked-profile test adds 37 campaigns and 336 states,
+giving 5,632 states across both languages. Jede Sprache
+wird zweimal bytegleich gebaut; die 98 gemeinsamen Bootfälle laufen in CI
 einmal mit Englisch.
 
 Die automatische CHS-Geometrie des großen QEMU-Images reicht für den

@@ -13,6 +13,7 @@ try:
     from .state_records import encode as encode_state, model_header as state_model_header
     from .config_fixtures import CONFIG_CASES, mutate_config_fixture
     from .state_fixtures import STATE_CASES, mutate_state_fixture
+    from .profile_fixtures import PROFILE_CASES, mutate_profile_fixture
     from .visibility_fixtures import VISIBILITY_CASES, mutate_visibility_fixture
     from .config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS, STATE_CLUSTERS, FIXTURE_MEDIA_ID, TEST_INSTALL_ID
     from .build_abi_probe import inspect_map, prepare_output
@@ -26,6 +27,7 @@ except ImportError:
     from state_records import encode as encode_state, model_header as state_model_header
     from config_fixtures import CONFIG_CASES, mutate_config_fixture
     from state_fixtures import STATE_CASES, mutate_state_fixture
+    from profile_fixtures import PROFILE_CASES, mutate_profile_fixture
     from visibility_fixtures import VISIBILITY_CASES, mutate_visibility_fixture
     from config_records import install_records, model_header, encode as encode_config, layout_crc, CLUSTERS, STATE_CLUSTERS, FIXTURE_MEDIA_ID, TEST_INSTALL_ID
     from build_abi_probe import inspect_map, prepare_output
@@ -81,6 +83,7 @@ CASES = {
     "hdd-config-model": "RB HDD PASS",
     "hdd-state-model": "RB HDD PASS",
     "hdd-visibility-model": "RB HDD PASS",
+    "hdd-profile-model": "RB HDD PASS",
 }
 
 
@@ -327,7 +330,9 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("config", "core/config.c"), ("config-io", "core/config_io.c"),
                          ("record-io", "core/record_io.c"), ("state", "core/state.c"), ("state-check", "core/state_check.c"),
                          ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c"),
-                         ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c")):
+                         ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
+                         ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
+                         ("profile-selftest", "tests/profile/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
@@ -348,6 +353,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "config-model": ["-DRB_TEST=1", "-DRB_CONFIG_MODEL_TEST=1"],
                 "state-model": ["-DRB_TEST=1", "-DRB_STATE_MODEL_TEST=1"],
                 "visibility-model": ["-DRB_TEST=1", "-DRB_VISIBILITY_MODEL_TEST=1"],
+                "profile-model": ["-DRB_TEST=1", "-DRB_PROFILE_MODEL_TEST=1"],
                 "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
@@ -371,12 +377,16 @@ def build_stage2(destination, nasm, wcc, wlink):
             linked_objects.append(destination / "state-selftest.obj")
         if variant == "visibility-model":
             linked_objects.append(destination / "visibility-selftest.obj")
+        if handoff or variant == "profile-model":
+            linked_objects.append(destination / "profile-test.obj")
+        if variant == "profile-model":
+            linked_objects.append(destination / "profile-selftest.obj")
         if handoff or variant == "handoff-model":
             linked_objects.append(destination / "handoff.obj")
         if variant == "handoff-model":
             linked_objects.append(destination / "handoff-selftest.obj")
         if handoff:
-            linked_objects.extend([destination / "handoff-test.obj",
+            linked_objects.extend([destination / "handoff-test.obj", destination / "profile-test-run.obj",
                 destination / f"handoff-{FAULTS.get(variant.removeprefix('handoff-'), 0)}.obj"])
         linked_objects.append(destination / "end.obj")
         objects = ",".join(str(path) for path in linked_objects)
@@ -464,7 +474,7 @@ def build(output, language="en"):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES, *STATE_CASES, *VISIBILITY_CASES)):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES, *STATE_CASES, *VISIBILITY_CASES, *PROFILE_CASES)):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
             if case == "hdd-menu-model":
                 variant = "menu-model"
@@ -478,8 +488,12 @@ def build(output, language="en"):
                 variant = "config-model"
             if case == "hdd-state-model":
                 variant = "state-model"
+            if case == "hdd-profile-model":
+                variant = "profile-model"
             if case == "hdd-visibility-model":
                 variant = "visibility-model"
+            if case in PROFILE_CASES:
+                variant = "handoff"
             if case in HANDOFF_CASES:
                 fault = HANDOFF_CASES[case].get("register_fault")
                 variant = "handoff" + ("-" + fault if fault else "")
@@ -496,6 +510,8 @@ def build(output, language="en"):
                 size, extents = mutate_config_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
             if case in STATE_CASES:
                 size, extents = mutate_state_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
+            if case in PROFILE_CASES:
+                size, extents = mutate_profile_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
             if case in VISIBILITY_CASES:
                 size, extents = mutate_visibility_fixture(size, extents, case, (destination / "handoff-vbr.bin").read_bytes(), language)
             if case == "retroboot-handoff":
@@ -513,7 +529,7 @@ def build(output, language="en"):
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
                 "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES,
-                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES, "state_cases": STATE_CASES, "visibility_cases": VISIBILITY_CASES}
+                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES, "state_cases": STATE_CASES, "visibility_cases": VISIBILITY_CASES, "profile_cases": PROFILE_CASES}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Built {destination.name} ({language}, CP437): MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest

@@ -141,5 +141,14 @@
   "VIS_MATCH": "Die aktuelle MBR-Sicht passt zum Profil.",
   "VIS_CHANGE": "Sichtänderungen sind nötig; es wurde nichts geschrieben.",
   "VIS_BLOCKED": "Keine Vorschau: Record- oder Zielprüfung fehlgeschlagen.",
-  "VIS_ADMIN": "Bindung oder verborgener Zustand der Verwaltung geändert."
+  "VIS_ADMIN": "Bindung oder verborgener Zustand der Verwaltung geändert.",
+  "PROFILE_TEST_HELP": "F9: Geprüften Test-VBR starten (Rückkehr durch Neustart)",
+  "PROFILE_TEST_FAILED": "Geprüfter Profiltest abgewiesen",
+  "PROFILE_TEST_SELECTION": "Angezeigtes Profil geändert oder nicht verfügbar. Neu prüfen.",
+  "PROFILE_TEST_PROOF": "Erneute Record- oder Zielprüfung fehlgeschlagen.",
+  "PROFILE_TEST_CHANGE": "Das Profil erfordert Partitionsänderungen. Teststart gesperrt.",
+  "PROFILE_TEST_TARGET": "Ziel weicht vom eingebauten T07-Prüfmuster ab.",
+  "PROFILE_TEST_CODE": "Aktueller Sektor weicht vom eingebauten Test-VBR ab.",
+  "PROFILE_TEST_REASON": "Test / Prüfung / Detail (hex):",
+  "PROFILE_TEST_REVIEW": "F7: Profil erneut prüfen | Esc: Menü"
 }

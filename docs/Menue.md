@@ -80,7 +80,8 @@ und die beobachtete Leseart. Menü (PR #6) und Scanner (PR #7) wurden am
 wurden nicht angegeben. Auch die Sprachvarianten aus PR #8 wurden inzwischen
 manuell bestätigt, ohne neue Plattformdaten. F3 aus PR #9 wurde ebenfalls bestätigt. Auch das separate
 [T07-Testimage](Handoff.md) aus PR #10 wurde manuell bestätigt, ohne neue
-Plattformdaten. F5 and F6 were reported complete; [F7](Visibility.md) is the new manual check.
+Plattformdaten. F5 and F6 were reported complete. German [F7](Visibility.md) screenshots
+were confirmed under VirtualBox; the English [F9 test](ProfileTest.md) is pending.
 
 ## Implementierung und Grenzen
 
@@ -124,7 +125,7 @@ make hdd-test
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-`make hdd-test` baut zweimal, prüft 96 positive/negative HDD-Startfälle und
+`make hdd-test` baut zweimal, prüft 98 positive/negative HDD-Startfälle und
 führt anschließend Menü-, Scanner-, Volume- und Übergabeprüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
@@ -154,7 +155,8 @@ ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
 Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
-Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests sind es 117 Hosttests. Beide Sprachen durchlaufen
+Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests. Four checked-profile tests bring
+the host total to 121. Beide Sprachen durchlaufen
 dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
 deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
 Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen
@@ -163,6 +165,7 @@ Weitere 43 Volume-Kampagnen je Sprache prüfen je 318 Zustände, insgesamt
 mit Menü/Scanner also 1.194 UI-Zustände. Ihre Nachweise liegen unter `build/volume/` und
 `build/volume-de/`; Details stehen in der [Volume-Anleitung](VolumeHeaders.md).
 43 T07-Kampagnen ergänzen je Sprache 185 Zustände; 63 F5-Kampagnen ergänzen
-678 Konfigurationszustände. F6 adds 650 and F7 adds 370 states per language. Insgesamt ergeben sich 4.960 UI-Zustände. F4 bleibt im normalen Image ohne Wirkung.
+678 Konfigurationszustände. F6 adds 650, F7 adds 370 and F9 adds 336 states per language, giving 5,632
+states across both languages. F4 bleibt im normalen Image ohne Wirkung.
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).
