@@ -32,7 +32,7 @@
   "RECOVERY_PAGES": "Information pages are available with F2 and Esc.",
   "RECOVERY_READ_ONLY": "No disk data will be changed.",
   "KEY_HELP": "Arrows: select  Enter: view  Esc: menu",
-  "FUNCTION_HELP": "F2: Tables  F3: Volume  F5: Profiles  F6: State  F8: Recovery",
+  "FUNCTION_HELP": "F2: Tables  F3: Volume  F5: Profiles  F6: State  F7: View  F8: Recovery",
   "ERROR_OK": "OK",
   "ERROR_IO": "Sector could not be read",
   "ERROR_SIGNATURE": "Invalid sector signature",
@@ -129,5 +129,17 @@
   "STATE_SCAN": "Fresh partition scan failed.",
   "STATE_LAYOUT": "The layout changed after the records were loaded.",
   "STATE_VOLUME": "Current target volume header is invalid or unsupported.",
-  "STATE_VBR": "Current VBR differs from the recorded fingerprint."
+  "STATE_VBR": "Current VBR differs from the recorded fingerprint.",
+  "VIS_TITLE": "Current and intended primary partitions",
+  "VIS_SCOPE": "Preview only. No disk writes or OS start.",
+  "VIS_CODES": "Preview / check / detail:",
+  "VIS_COLUMNS": "Slot         Current type/active         Intended type/active",
+  "VIS_VISIBLE": "Visible now / intended:",
+  "VIS_ACTIVE": "Active now / intended:",
+  "VIS_CHANGED": "Changed slots (mask):",
+  "VIS_HELP": "Left/Right: entry | F7: read again | Esc: menu",
+  "VIS_MATCH": "Current MBR visibility matches the profile.",
+  "VIS_CHANGE": "Visibility changes are required; nothing has been written.",
+  "VIS_BLOCKED": "No preview: record or current-target check failed.",
+  "VIS_ADMIN": "Management-volume binding or hidden state changed."
 }

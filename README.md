@@ -4,13 +4,14 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only profile/installation-state diagnosis and test-VBR handoff.**
+**Current stage: read-only profile, installation-state and visibility checks.**
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
 C/assembly test floppy remains available. F5 now validates stored start-profile
 records against the actual disk layout. F6 compares independent installation
-records with the current target VBR. OS authorization, chainloading,
+records with the current target VBR. F7 previews current and intended primary
+partition types and active flags. OS authorization, chainloading,
 partition changes and installation are future steps. An independent test VBR now
 checks the real-mode transition in an explicitly selected test image.
 
@@ -27,6 +28,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [T07 test-VBR handoff and manual test](docs/Handoff.md)
 - [F5 configuration copies, profile format and manual check](docs/Configuration.md)
 - [F6 installation state, identity binding and manual check](docs/InstallationState.md)
+- [F7 current/intended partition preview and manual check](docs/Visibility.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
@@ -87,11 +89,12 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 94 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 96 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
-header states, 185 handoff states, 678 configuration states and 650 installation-state states through emulated
-keyboard input, with VGA, memory and disk-write checks: 4,220 states across both languages. There are 113 host tests.
+header states, 185 handoff states, 678 configuration states, 650 installation-state states
+and 370 visibility states through emulated keyboard input, with VGA, memory
+and disk-write checks: 4,960 states across both languages. There are 117 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -100,7 +103,8 @@ F3 checks FAT16/FAT32 headers; Left/Right cycles through data partitions.
 Header plausibility does not establish filesystem integrity or OS bootability.
 F5 reads the two configuration files and displays validated profile descriptions.
 F6 checks independent installation records and the current target VBR.
-Automatic boot remains disabled pending visibility checks and OS-start authorization.
+F7 previews current and intended primary-partition visibility and active flags.
+Automatic boot remains disabled pending OS-start authorization.
 
 The **HDD BIOS boot** workflow publishes both compact diagnostic images, both
 128 MiB handoff-test images and their evidence
@@ -110,7 +114,8 @@ Manual success was reported for the earlier floppy, HDD startup, menu (PR #6)
 and partition scanner (PR #7), followed by the English/German builds (PR #8) and F3 view (PR #9).
 T07 from PR #10 was also manually confirmed, without further platform details.
 The F5 test from merged PR #11 was also reported complete, without additional
-platform or language-coverage details. F6 is the new manual check.
+platform or language-coverage details. F6 from merged PR #12 was subsequently
+confirmed; F7 is the new manual check.
 
 For T07, boot `retroboot-handoff.img` and press **F4 from the main menu**.
 The expected result is `RB HANDOFF PASS`; rebooting returns to RetroBoot.

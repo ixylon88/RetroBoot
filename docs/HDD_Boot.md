@@ -43,13 +43,14 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Englische Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett unter `build/hdd-de/` |
-| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 2.110 UI-Zustände einschließlich T07 |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 2.480 UI-Zustände einschließlich T07 |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild, 94 Bootfälle und alle 2.110 UI-Zustände in QEMU |
+| `make hdd-test` | Wiederholungsbuild, 96 Bootfälle und alle 2.480 UI-Zustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler und Blättern prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Headerprüfung und Bedienung prüfen |
 | `make config-test` | Einmal bauen und F5, A/B-Auswahl, FAT-Dateizuordnung und Fehlerpfade prüfen |
+| `make visibility-test` | Build once and verify F7 current/intended primary-partition previews |
 | `make state-test` | Build once and verify F6 record bindings, phases and the current VBR |
 | `make handoff-test` | Einmal bauen und gezielt T07 einschließlich Abweisungen und fehlerhafter Übergaben prüfen |
 | `python3 tools/test_hdd.py --qemu /pfad/qemu-system-i386 --bios /pfad/bios-256k.bin` | Bereits gebaute Images mit ausdrücklich gewähltem Emulator/BIOS prüfen |
@@ -88,8 +89,8 @@ dabei nicht protokolliert. Inzwischen wurden auch die vier C-Erfolgsmeldungen
 aus PR #5 sowie Menü (PR #6) und Scanner (PR #7) manuell bestätigt, ohne
 erneute genaue Plattformangabe. Auch die Sprachvarianten aus PR #8 wurden
 manuell bestätigt, ebenso F3 aus PR #9 und T07 aus PR #10, ohne neue
-Plattformdaten. The F5 test from PR #11 was also reported complete. The new
-[F6 state check](InstallationState.md) and an explicitly forced manual CHS
+Plattformdaten. F5 from PR #11 and F6 from PR #12 were also reported complete. The new
+[F7 visibility preview](Visibility.md) and an explicitly forced manual CHS
 fallback remain open for verification.
 
 Die 64-MiB-Datei ist ein rohes Festplattenabbild. Im Ordner mit
@@ -107,6 +108,7 @@ Nach den Bootmeldungen erscheint jetzt das Menü. Pfeile wählen eine
 Informationsseite, Enter öffnet sie, Esc führt zurück; F2 prüft MBR und EBR-Kette,
 F3 prüft einen FAT-Volume-Header, F5 die Konfigurationsdateien und F8 zeigt die Recovery-Hinweise.
 F6 compares independent installation records with the current target VBR.
+F7 previews current/intended primary types and active flags without writes.
 Im kompakten Image erscheinen vier primäre
 Slots und das logische Verwaltungsvolume. Der Auswahlbalken ersetzt den Cursor.
 Eine alte VDI muss aus dem neuen Image erneut erzeugt werden.
@@ -305,13 +307,15 @@ beziehungsweise Ursache an und halten den Rechner an.
 
 ## Nachweise
 
-Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
+Earlier checks used QEMU 8.2.2/SeaBIOS. The F7 increment uses QEMU
+10.0.13/SeaBIOS locally with `pc-i440fx-8.2`, CPU `486`, 16 MiB RAM;
+CI records its own emulator and ROM versions:
 
-- 113 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+- 117 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
   unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 94 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 96 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -338,6 +342,8 @@ Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
   Zwei weitere prüfen 51 Bedingungen des C/16-Partitionsparsers.
   Zwei weitere prüfen 114 Bedingungen für FAT-Header und 32-Bit-Arithmetik.
   Zwei weitere prüfen 29 Bedingungen der Übergabevorbereitung.
+  Further pairs verify 84 configuration, 86 installation-state and
+  52 visibility assertions.
   Zusätzlich werden die normalen Images in fünf Menükampagnen bedient:
   insgesamt 75 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
 - 32 Scanner-Kampagnen prüfen weitere 204 Zustände: Strukturfehler, begrenzte
@@ -350,8 +356,8 @@ Lokal geprüft mit QEMU 8.2.2/SeaBIOS, i440FX, CPU `486`, 16 MiB RAM:
 - Weitere 43 T07-Kampagnen mit 185 Zuständen je Sprache prüfen die echte
   Übergabe, Registerfehler, frische Ablehnung und unveränderte Zielbytes.
   Zusätzlich prüfen 63 Konfigurationskampagnen je Sprache 678 F5-Zustände.
-  F6 adds 65 campaigns and 650 states per language.
-  Einschließlich dieser Kampagnen sind es 4.220 Bildschirmzustände.
+  F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and 370 states.
+  Einschließlich dieser Kampagnen sind es 4.960 Bildschirmzustände.
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
 und kann EDD als nicht vorhanden melden. Der MBR selbst bleibt in diesen
@@ -363,7 +369,7 @@ Sie reservieren 1 KiB am oberen Ende des konventionellen Speichers über den
 BDA-Speicherzähler und hängen sich in den INT-13h-Vektor ein. Diese Eingriffe
 gehören zum Testaufbau, nicht zum ausgelieferten Festplattenimage.
 
-42 Boot-Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
+43 Boot-Szenarien laufen jeweils mit EDD und CHS. Die IDE-Traces müssen exakt
 dieselbe geordnete Sektorfolge einschließlich Wiederholungen enthalten.
 Die BIOS-Traces beweisen dabei die Benutzung von AH=42h beziehungsweise
 AH=02h nach der Auswahl. Spur-/Zylinderwechsel werden bei 16/63 geprüft;

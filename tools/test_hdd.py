@@ -253,6 +253,8 @@ def main():
             raise ValueError(f"{name}: native configuration model tests did not pass")
         if case.source == "hdd-state-model" and "RB STATE MODEL PASS" not in output:
             raise ValueError(f"{name}: native installation-state tests did not pass")
+        if case.source == "hdd-visibility-model" and "RB VISIBILITY MODEL PASS" not in output:
+            raise ValueError(f"{name}: native visibility tests did not pass")
         causes = {"hdd-c-bss-fault": "C BSS ERROR", "hdd-c-data-fault": "C data ERROR",
                   "hdd-c-context-fault": "C context ERROR"}
         if case.source in causes and causes[case.source] not in output:

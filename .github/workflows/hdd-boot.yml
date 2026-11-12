@@ -13,7 +13,7 @@ permissions:
 jobs:
   hdd-boot:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state and VBR handoff
+      - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state, visibility and VBR handoff
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
@@ -138,3 +138,17 @@ jobs:
             build/state-de/*.bin
             build/state-de/*.png
             build/state-de/*.conf
+            build/visibility/*.json
+            build/visibility/*.log
+            build/visibility/*.trace
+            build/visibility/*.txt
+            build/visibility/*.bin
+            build/visibility/*.png
+            build/visibility/*.conf
+            build/visibility-de/*.json
+            build/visibility-de/*.log
+            build/visibility-de/*.trace
+            build/visibility-de/*.txt
+            build/visibility-de/*.bin
+            build/visibility-de/*.png
+            build/visibility-de/*.conf

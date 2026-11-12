@@ -18,9 +18,14 @@ not acquire the new files or executable when a download is replaced.
 
 | Image | Expected F6 result |
 | --- | --- |
-| `hdd/retroboot-hdd.img` | Both record pairs `0000 / 0000`; state generation `00000001`, copy A; no selected profile (`0006`) |
-| `hdd/retroboot-handoff.img` | Both pairs `0000 / 0000`; generation `00000001`, copy A; green matching-records/current-VBR result (`0000`); profile `Test VBR` |
+| `hdd/retroboot-hdd.img` | Both record pairs `0000 / 0000`; state generation `00000001`, copy A; no selected profile; check/detail `0006 / 0000` |
+| `hdd/retroboot-handoff.img` | Both pairs `0000 / 0000`; generation `00000001`, copy A; green matching-records/current-VBR result; check/detail `0000 / 0000`; profile `Test VBR` |
 | Corresponding files under `hdd-de/` | Identical results with German labels |
+
+The two A/B copy-status lines are separate from the check/detail line. On
+the normal image, healthy copies (`0000 / 0000`) and no configured entry
+(`0006 / 0000`) are expected together. The F6 manual test was reported complete;
+no additional platform or language coverage was specified.
 
 The handoff image's installation ID is `0000000100000001`. Its state record
 is marked `ready` solely for the synthetic, owned test VBR. The corresponding

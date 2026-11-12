@@ -48,6 +48,11 @@ void rb_state_load(rb_state_result *result, rb_sector_reader read, void *opaque,
 void rb_state_check(rb_state_proof *result, const rb_config_result *config,
                     const rb_state_result *state, rb_u16 index, rb_sector_reader read,
                     void *opaque, rb_u32 low, rb_u32 high);
+/* The complete scan is returned only with a matching record/VBR result. */
+void rb_state_check_layout(rb_state_proof *result, rb_partition_scan *scan,
+                           const rb_config_result *config, const rb_state_result *state,
+                           rb_u16 index, rb_sector_reader read, void *opaque,
+                           rb_u32 low, rb_u32 high);
 rb_u16 __cdecl rb_state_selftest(void);
 
 #endif

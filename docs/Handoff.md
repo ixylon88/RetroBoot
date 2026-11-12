@@ -11,7 +11,7 @@ The **retroboot-hdd-bios** artifact contains two image kinds per language:
 
 | Image | Purpose |
 | --- | --- |
-| `hdd/retroboot-hdd.img`, `hdd-de/retroboot-hdd.img` | Existing 64 MiB diagnostic menu, including F2/F3/F5/F6 |
+| `hdd/retroboot-hdd.img`, `hdd-de/retroboot-hdd.img` | Existing 64 MiB diagnostic menu, including F2/F3/F5/F6/F7 |
 | `hdd/retroboot-handoff.img`, `hdd-de/retroboot-handoff.img` | New 128 MiB T07 image, with a primary test target and the existing hidden management volume |
 
 The [HDD guide](HDD_Boot.md) describes BIOS-mode QEMU/VirtualBox startup.
@@ -47,7 +47,8 @@ Manual success for PR #9's F3 view was reported after its merge, without new
 VM, machine or BIOS details. T07 from PR #10 was subsequently manually
 confirmed too, without further platform details. The [F5 configuration
 test](Configuration.md) from PR #11 was also reported complete. The new
-[F6 state check](InstallationState.md) remains open for manual verification.
+[F6 state check](InstallationState.md) was subsequently confirmed;
+[F7 visibility](Visibility.md) remains open for manual verification.
 
 ## Authorization and exact reads
 
@@ -130,9 +131,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 113 host tests include fixture preservation, literal primary-entry values,
+- 117 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 94 boot cases include 42 identical EDD/CHS read-sequence pairs. The new
+- 96 boot cases include 43 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS
@@ -147,8 +148,9 @@ A direct run on already built images is also available:
 
 The handoff/menu/scanner/volume suites total 782 states per language.
 The [configuration suite](Configuration.md) adds 678 and the
-[installation-state suite](InstallationState.md) adds 650, giving 2,110 per language
-and 4,220 across both languages. Both languages build twice with
+[installation-state suite](InstallationState.md) adds 650 and the
+[visibility suite](Visibility.md) adds 370, giving 2,480 per language
+and 4,960 across both languages. Both languages build twice with
 byte-identical results. `handoff-results.json` is written only when all its
 campaigns pass. Reports, text pages, screenshots, low-memory/Stage-2/VGA dumps
 and disk traces accompany the two normal and two handoff images in CI.
