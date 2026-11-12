@@ -73,6 +73,15 @@ KEYS = (
     "STATE_LAYOUT",
     "STATE_VOLUME",
     "STATE_VBR",
+    "PROFILE_TEST_HELP",
+    "PROFILE_TEST_FAILED",
+    "PROFILE_TEST_SELECTION",
+    "PROFILE_TEST_PROOF",
+    "PROFILE_TEST_CHANGE",
+    "PROFILE_TEST_TARGET",
+    "PROFILE_TEST_CODE",
+    "PROFILE_TEST_REASON",
+    "PROFILE_TEST_REVIEW",
     "VIS_TITLE",
     "VIS_SCOPE",
     "VIS_CODES",
@@ -101,7 +110,7 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

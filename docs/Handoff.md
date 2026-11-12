@@ -3,7 +3,9 @@
 This increment proves the real-mode handoff using an owned 512-byte test
 boot sector. It does not authorize an installed OS. The normal diagnostic
 images retain their read-only menu and ignore F4. The dedicated
-`retroboot-handoff.img` adds an explicit F4 action on the main menu.
+`retroboot-handoff.img` has an explicit F4 action on the main menu. Its
+separate [F9 path from F7](ProfileTest.md) now repeats the independent record
+and visibility checks before the same owned-sector transition.
 
 ## Manual test
 
@@ -48,7 +50,8 @@ VM, machine or BIOS details. T07 from PR #10 was subsequently manually
 confirmed too, without further platform details. The [F5 configuration
 test](Configuration.md) from PR #11 was also reported complete. The new
 [F6 state check](InstallationState.md) was subsequently confirmed;
-[F7 visibility](Visibility.md) remains open for manual verification.
+[F7 visibility](Visibility.md) was confirmed in German under VirtualBox.
+The English [F9 checked-profile test](ProfileTest.md) is the next manual check.
 
 ## Authorization and exact reads
 
@@ -131,9 +134,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 117 host tests include fixture preservation, literal primary-entry values,
+- 121 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 96 boot cases include 43 identical EDD/CHS read-sequence pairs. The new
+- 98 boot cases include 44 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS
@@ -141,6 +144,8 @@ A direct run on already built images is also available:
   failures and nine intentionally faulty transitions: DS, ES, SS, SP, SI,
   DL, DF, IF and the copied partition entry. Normal-menu F4 is inert. A further
   positive run uses no test option ROM.
+  The deliberately wrong SS uses segment `2000h`, so its temporary IRET frame
+  stays outside the complete Stage 2 segment as the test build grows.
 - Host inspection compares all 512 loaded VBR bytes, the entry and adjacent
   memory, the saved entry state and the INT-13h vector. VGA output, Stage 2
   bytes, BSS and stack guard are checked. Exact post-menu reads, EDD/CHS pairs,
@@ -149,8 +154,8 @@ A direct run on already built images is also available:
 The handoff/menu/scanner/volume suites total 782 states per language.
 The [configuration suite](Configuration.md) adds 678 and the
 [installation-state suite](InstallationState.md) adds 650 and the
-[visibility suite](Visibility.md) adds 370, giving 2,480 per language
-and 4,960 across both languages. Both languages build twice with
+[visibility suite](Visibility.md) adds 370. The [checked-profile suite](ProfileTest.md)
+adds 336, giving 2,816 per language and 5,632 across both languages. Both languages build twice with
 byte-identical results. `handoff-results.json` is written only when all its
 campaigns pass. Reports, text pages, screenshots, low-memory/Stage-2/VGA dumps
 and disk traces accompany the two normal and two handoff images in CI.

@@ -75,16 +75,17 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 117 host tests include seven catalog tests, with independent byte values
+The 121 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 96-case boot suite runs once in CI with English, covering the shared
+The full 98-case boot suite runs once in CI with English, covering the shared
 loader, C startup, native menu-model, parser, arithmetic, configuration and handoff preparation tests. Both languages
 run all five general menu campaigns, 32 scanner, 43 volume-header and 43
-handoff, 63 configuration, 65 installation-state and 37 visibility campaigns: 2,480 VGA/keyboard states per language, 4,960 total. Every visible
+handoff, 63 configuration, 65 installation-state, 37 visibility and
+37 checked-profile campaigns: 2,816 VGA/keyboard states per language, 5,632 total. Every visible
 translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
@@ -101,4 +102,6 @@ Manual success for both language variants from PR #8 was reported on
 historical VGA/BIOS configuration is therefore not established. F3 from PR #9
 and the [T07 handoff image](Handoff.md) from PR #10 were subsequently confirmed
 too, without further platform details. The F5 test from merged PR #11 was reported complete without added coverage details.
-F6 was subsequently confirmed; F7 now needs its own manual check. T07 target-side PASS/FAIL remains English ASCII.
+F6 was subsequently confirmed. German F7 screenshots were confirmed under
+VirtualBox on 12 November 2026. The next manual check uses the English
+[F9 checked-profile path](ProfileTest.md); its result remains pending. T07 target-side PASS/FAIL remains English ASCII.

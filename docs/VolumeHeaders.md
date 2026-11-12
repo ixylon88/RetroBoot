@@ -99,7 +99,8 @@ Manual success for the English/German builds from PR #8 and subsequently the
 F3 page from PR #9 was reported without new platform details. The new separate
 T07 and the subsequent F5 test were also reported complete. The new
 [F6 state check](InstallationState.md) was subsequently confirmed;
-[F7 visibility](Visibility.md) remains open for manual verification.
+[F7 visibility](Visibility.md) was confirmed in German under VirtualBox;
+the English [F9 checked-profile test](ProfileTest.md) is the next manual check.
 
 ## Native arithmetic and verification
 
@@ -128,9 +129,9 @@ make volume-test RB_LANGUAGE=en
 images can be checked with `python3 tools/test_volume.py --language en`, with
 optional `--qemu` and `--bios` paths as in the other emulator tests.
 
-- 117 host tests include four fixture checks for preserved loader data, fixed
+- 121 host tests include four fixture checks for preserved loader data, fixed
   header values, disjoint ranges and rejected inputs.
-- The 96-case boot suite includes the native `hdd-volume-model` with both
+- The 98-case boot suite includes the native `hdd-volume-model` with both
   EDD and CHS: 114 assertions (`V=072`, hexadecimal), comprising 30 arithmetic
   and 84 parser/read-bound assertions, followed by `RB VOLUME MODEL PASS`.
 - Each language runs 43 volume campaigns with 318 VGA/keyboard states.

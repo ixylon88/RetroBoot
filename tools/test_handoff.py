@@ -37,7 +37,7 @@ def check_receipt(low, before, vbr, fault=None):
                       struct.unpack_from('<12H', low, 0x824)))
     expected = dict(cs=0, ds=0, es=0, ss=0, sp=0x7C00, si=0x800, dx=0x80, fs=0, gs=0)
     if fault in ('ds', 'es'): expected[fault] = 0x80
-    elif fault == 'ss': expected['ss'] = 0x1000
+    elif fault == 'ss': expected['ss'] = 0x2000
     elif fault == 'sp': expected['sp'] = 0x7B00
     elif fault == 'si': expected['si'] = 0x801
     elif fault == 'dl': expected['dx'] = 0x81

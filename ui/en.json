@@ -141,5 +141,14 @@
   "VIS_MATCH": "Current MBR visibility matches the profile.",
   "VIS_CHANGE": "Visibility changes are required; nothing has been written.",
   "VIS_BLOCKED": "No preview: record or current-target check failed.",
-  "VIS_ADMIN": "Management-volume binding or hidden state changed."
+  "VIS_ADMIN": "Management-volume binding or hidden state changed.",
+  "PROFILE_TEST_HELP": "F9: Start checked test VBR (reboot to return)",
+  "PROFILE_TEST_FAILED": "Checked profile test rejected",
+  "PROFILE_TEST_SELECTION": "The displayed profile changed or is unavailable. Review again.",
+  "PROFILE_TEST_PROOF": "Fresh record or current-target check failed.",
+  "PROFILE_TEST_CHANGE": "The profile requires partition changes. Test start blocked.",
+  "PROFILE_TEST_TARGET": "Target differs from the compiled T07 test fixture.",
+  "PROFILE_TEST_CODE": "Current sector differs from the compiled test VBR.",
+  "PROFILE_TEST_REASON": "Test / check / detail (hex):",
+  "PROFILE_TEST_REVIEW": "F7: Review profile again | Esc: menu"
 }

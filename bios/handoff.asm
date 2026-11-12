@@ -35,7 +35,9 @@ _rb_handoff:
     mov ss, ax
     mov sp, RB_HANDOFF_STACK
 %if RB_HANDOFF_FAULT = 3
-    mov ax, 0x1000
+    ; Keep the deliberately wrong stack outside the entire Stage 2 segment.
+    ; Its IRET frame must not corrupt loaded code as that code grows.
+    mov ax, 0x2000
     mov ss, ax
     xor ax, ax
 %elif RB_HANDOFF_FAULT = 4

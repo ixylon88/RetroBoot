@@ -8,7 +8,7 @@
 #include "state.h"
 #include "visibility.h"
 #ifdef RB_HANDOFF_TEST
-#include "handoff.h"
+#include "profile_test.h"
 #endif
 
 #define NORMAL 0x17U
@@ -18,6 +18,12 @@
 static const char * const labels[3] = {
     RB_UI_SYSTEM_INFO, RB_UI_PARTITIONS, RB_UI_RECOVERY
 };
+#ifdef RB_HANDOFF_TEST
+static const char * const profile_test_messages[] = {
+    "", RB_UI_PROFILE_TEST_SELECTION, RB_UI_PROFILE_TEST_PROOF,
+    RB_UI_PROFILE_TEST_CHANGE, RB_UI_PROFILE_TEST_TARGET, RB_UI_PROFILE_TEST_CODE
+};
+#endif
 static const char digits[] = "0123456789ABCDEF";
 static const char * const scan_errors[] = {
     RB_UI_ERROR_OK, RB_UI_ERROR_IO, RB_UI_ERROR_SIGNATURE,
@@ -110,7 +116,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                  const rb_state_result *installation, const rb_state_proof *proof,
                  const rb_visibility_result *visibility
 #ifdef RB_HANDOFF_TEST
-                 , rb_u16 handoff_status, rb_u16 handoff_detail
+                 , rb_u16 handoff_status, rb_u16 handoff_detail, rb_u16 profile_status
 #endif
                  )
 {
@@ -315,6 +321,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
 
         text(19, 4, RB_UI_VIS_HELP, NORMAL);
 #ifdef RB_HANDOFF_TEST
+        text(20, 4, RB_UI_PROFILE_TEST_HELP, 0x1E);
     } else if (view == 5) {
         text(5, 4, RB_UI_HANDOFF_FAILED, TITLE);
         text(6, 4, handoff_status == RB_HANDOFF_SCAN ? scan_errors[handoff_detail]
@@ -325,6 +332,21 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         hex(10, 11, handoff_detail, 4);
         text(13, 4, RB_UI_NO_CHANGES, NORMAL);
         text(18, 4, RB_UI_HANDOFF_RETRY, NORMAL);
+    } else if (view == 9) {
+        text(5, 4, RB_UI_PROFILE_TEST_FAILED, TITLE);
+        text(6, 4, profile_test_messages[profile_status], 0x1E);
+        text(8, 4, RB_UI_PROFILE_TEST_REASON, NORMAL);
+        hex(10, 4, profile_status, 4); text(10, 9, "/", NORMAL);
+        hex(10, 11, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.status : 0, 4);
+        text(10, 16, "/", NORMAL);
+        hex(10, 18, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.detail : 0, 4);
+        if (profile_status == RB_PROFILE_TEST_PROOF) {
+            text(12, 4, visibility->status == RB_VISIBILITY_ADMIN ? RB_UI_VIS_ADMIN
+                : proof_messages[visibility->proof.status], 0x1E);
+        }
+        text(14, 4, RB_UI_LBA_HEX, NORMAL); hex(14, 23, visibility->error_lba, 8);
+        text(17, 4, RB_UI_NO_CHANGES, NORMAL);
+        text(19, 4, RB_UI_PROFILE_TEST_REVIEW, NORMAL);
 #endif
     } else {
         text(5, 4, labels[2], TITLE);
@@ -393,7 +415,7 @@ void __cdecl rb_menu_run(void)
     rb_u16 probe, volume_index = RB_MENU_NONE;
     rb_u16 config_index = 0;
 #ifdef RB_HANDOFF_TEST
-    rb_u16 handoff_status = 0, handoff_detail = 0;
+    rb_u16 handoff_status = 0, handoff_detail = 0, profile_status = 0;
 #endif
     rb_u32 now;
     rb_loader_copy(&snapshot);
@@ -402,7 +424,7 @@ void __cdecl rb_menu_run(void)
     rb_video_init();
     draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
 #ifdef RB_HANDOFF_TEST
-         , handoff_status, handoff_detail
+         , handoff_status, handoff_detail, profile_status
 #endif
          );
     debug_state(serial, view, state.selected, page);
@@ -437,6 +459,15 @@ void __cdecl rb_menu_run(void)
             debug_text("RB HANDOFF REJECT status="); debug_hex(handoff_status);
             debug_text(" detail="); debug_hex(handoff_detail); debug_text("\r\n");
             view = 5;
+        } else if ((key >> 8) == 0x43U && view == 8) {
+            debug_text("RB PROFILE BEGIN\r\n");
+            profile_status = rb_run_profile_test(&config, &installation, &visibility, &config_index,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+            debug_text("RB PROFILE REJECT status="); debug_hex(profile_status);
+            debug_text(" proof="); debug_hex(visibility.proof.status);
+            debug_text(" detail="); debug_hex(visibility.proof.detail);
+            debug_text(" index="); debug_hex(config_index); debug_text("\r\n");
+            view = 9;
 #endif
         } else if ((key >> 8) == 0x3FU) {
             view = 6; config_index = 0;
@@ -528,7 +559,7 @@ void __cdecl rb_menu_run(void)
         }
         draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
 #ifdef RB_HANDOFF_TEST
-             , handoff_status, handoff_detail
+             , handoff_status, handoff_detail, profile_status
 #endif
              );
         debug_state(++serial, view, state.selected, page);
