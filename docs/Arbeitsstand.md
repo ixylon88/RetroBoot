@@ -4,13 +4,19 @@ Updated: 13 November 2026.
 
 ## Saved baseline
 
-PR #17 (read-only journal diagnosis) is merged into `historical` at
-`1d454d5934a7bf6cafeff1da2b230a090e348a7e`. Its four PR checks passed.
+PR #18 (independent read-only rescue diagnosis) is merged into `historical` at
+`b696df7e2665168289e51ac69b5ef2a42063a91d`. Its four PR checks passed.
+The German rescue floppy was manually confirmed under VirtualBox with the
+64 MiB compact fixture, 128 MiB handoff fixture, no HDD and an unrelated 2 GiB
+HDD. The initial page was also shown. Exact observations and coverage limits
+are recorded as text in [ExternalRescue.md](ExternalRescue.md).
+
+PR #17 remains the read-only HDD journal baseline.
 F8 followed by Enter reads the identity-bound A/B journal records and compares
 the current MBR; F10 audits eight management files. The manual procedure
 provided after PR #17 was reported checked and confirmed. No additional
 image/language, machine/BIOS, individual field values or separate key-path
-observations were supplied. This establishes no coverage of the new floppy.
+observations were supplied for that earlier report.
 
 The F10 status `0000 / 0000` was separately confirmed on 13 November 2026.
 English F7 followed by F9 from PR #14 was confirmed under VirtualBox that day:
@@ -20,9 +26,32 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: independent rescue-floppy diagnosis
+## Current increment: external metadata container
 
-Branch `codex/external-rescue-diagnostics` adds a separate 1,440 KiB FAT12
+Branch `codex/external-backup-format` defines a bounded sector-based container,
+a Python encoder/inspector and a streaming native C/16 validator. Its header
+stores claimed media/disk identity, layout, capacity and geometry; descriptors
+carry original/approved MBRs, EBRs, multi-sector or discontiguous boot areas and
+configuration/state copies. Bounds, ordering, overlap, required roles and CRCs
+are checked. Failed validation clears all selected metadata.
+
+The [container contract](ExternalBackup.md) specifies the wire format, status
+codes, host command and exact trust boundary. Structural validity does not
+prove snapshot completeness, record semantics, provenance, live-media identity
+or permission to restore. Only synthetic format examples are generated. Real
+collection, rescue file loading, independently checked target binding and
+restore remain open. No normal-menu change or new manual VM check is needed.
+
+Verification adds nine host tests (149 total) and 72 native scenarios with
+216 assertions (`B=00D8`, `RB BACKUP MODEL PASS`) per build language. The model
+includes a 1 MiB streamed file, boot areas over 64 KiB, 42 descriptors, separated
+boot regions, resealed malformed fields, payload damage and final-sector I/O
+failure. Normal rescue binaries/images are unchanged; backup code is linked
+only into an additional model variant.
+
+## Independent rescue baseline
+
+Merged PR #18 adds a separate 1,440 KiB FAT12
 floppy in English and German. It has its own CRC-pinned loader, C startup,
 BIOS discovery and MBR/EBR diagnostic page. No HDD code or filesystem is needed
 to start. Enter reads drive `80h`; Enter repeats; Esc clears. The observed disk
@@ -38,11 +67,13 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 140 host tests plus the reference layout report.
+- 149 host tests plus the reference layout report, including the container tests.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
+  The additional backup-model boot brings the current total to 78 boots and
+  434 UI states across both languages.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged. Independent host vectors decode FAT12 packing
@@ -58,7 +89,7 @@ Verification scope:
 Local native tests use QEMU 10.0.13/SeaBIOS with `pc-i440fx-8.2`, CPU `486`
 and 16 MiB RAM; CI records its own versions and ROM hashes. PR checks/artifacts
 provide validation for the proposed commit; merge remains part of project
-review. Manual confirmation of the external floppy is pending.
+review. The German external floppy has the manual evidence recorded above.
 
 English is the default; German shares the logic and CP437 encoder including
 `ÄÖÜäöüß`. Repository prose is impersonal and excludes private details.
@@ -67,7 +98,8 @@ The frozen specification v0.2 and archives are unchanged.
 ## Open work
 
 1. Complete independent external recovery before the first write tests:
-   define/import a bounded backup with independent media/geometry binding and
+   collect and import a semantically complete backup using the new bounded
+   container, with independent media/geometry binding and
    all required MBR/EBR/VBR metadata, including FAT32 backup headers and
    configuration/state. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.

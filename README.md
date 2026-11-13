@@ -23,6 +23,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Build commands, verification and next steps](docs/Entwicklung.md)
 - [BIOS/ABI test floppy](docs/ABI_Probe.md)
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
+- [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
