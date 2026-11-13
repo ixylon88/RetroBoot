@@ -86,9 +86,9 @@ Separate `ui/rescue/` catalogs reuse the CP437 encoder, including umlauts and
 The diagnostic scope is 38 boots and 217 keyboard/VGA states per language:
 76 boots and 434 states total, plus 28 native C/16 assertions in each rescue
 model boot (`R=001C`, `RB RESCUE MODEL PASS`). The subsequent
-[container model](ExternalBackup.md) adds one test-only boot per language,
-bringing the current total to 78 boots and 434 states. Host checks now total
-149 tests. Diagnostic coverage includes:
+[container model](ExternalBackup.md) and [saved-record model](BackupRecords.md)
+each add one test-only boot per language, bringing the current total to 80
+boots and 434 states. Host checks now total 155 tests. Diagnostic coverage includes:
 
 - Metadata-only HDDs with no executable boot path or filesystem contents,
   unrecognized boot code, erased MBRs, bad MBR/EBR signatures, unsupported

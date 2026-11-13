@@ -14,12 +14,14 @@ try:
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
     from rescue_text import LANGUAGES, metadata, output_name, render_header
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
 
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
@@ -101,11 +103,14 @@ def build(kind='rescue',language='en'):
         if r.returncode or 'Warning!' in r.stdout+r.stderr:raise ValueError('Build failed: '+r.stdout+r.stderr)
     (destination/'rescue_text.h').write_text(render_header(language),encoding='ascii')
     (destination/'backup_vectors.h').write_text(model_header(),encoding='ascii')
+    (destination/'backup_record_vectors.h').write_text(record_header(),encoding='ascii')
     objects=[]
     for name,source in (('rescue','core/rescue.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
         if name!='model':objects.append(obj)
-    for name,source in (('backup','core/backup.c'),('backup-tests','tests/backup/model.c')):
+    for name,source in (('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
+            ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
+            ('saved-state','core/state.c'),('saved-record-io','core/record_io.c'),('saved-volume','core/volume.c')):
         run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),
             '-fo='+str(destination/(name+'.obj')),source)
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
@@ -117,10 +122,13 @@ def build(kind='rescue',language='en'):
             '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
     for name,defines in (('retroboot-rescue',[]),('rescue-bss-fault',['-DRB_RESCUE_BAD_BSS=1']),
-            ('rescue-model',['-DRB_RESCUE_MODEL=1']),('backup-model',['-DRB_RESCUE_BACKUP_MODEL=1'])):
+            ('rescue-model',['-DRB_RESCUE_MODEL=1']),('backup-model',['-DRB_RESCUE_BACKUP_MODEL=1']),
+            ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1'])):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
         extra=[destination/'model.obj'] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
+        if name=='backup-records-model':
+            extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-record-tests')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -148,6 +156,9 @@ def build(kind='rescue',language='en'):
     example=destination/'synthetic-container.rbb';example.write_bytes(backup_sources()[0]);remember(example)
     manifest['backup_model']=dict(cases=backup_cases(),assertions=3*len(backup_cases()),
         scope='container-integrity-only; synthetic data, no live media match or restore')
+    example=destination/'synthetic-records.rbb';example.write_bytes(record_fixture());remember(example)
+    manifest['backup_records_model']=dict(cases=record_cases(),assertions=4*len(record_cases()),
+        scope='saved partition/record consistency only; no filesystem completeness, live media match or restore')
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     print(f'Built {destination.name}: FAT12 1440 KiB, payload {len(payload)} bytes; no HDD loader dependency',flush=True)
     return manifest

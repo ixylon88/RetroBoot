@@ -24,6 +24,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [BIOS/ABI test floppy](docs/ABI_Probe.md)
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
+- [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
 - [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
