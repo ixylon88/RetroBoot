@@ -8,7 +8,8 @@ org 0
 %endif
 ; 0=passthrough, 1=no EDD, 2=bad EDD signature, 3=no extended-read bit,
 ; 4=no EDD + AH08 error, 5=no EDD + zero sectors, 6=AH48 error,
-; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer.
+; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer, 9=zero capacity.
+; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
     dw 0xAA55
     db 1                       ; one 512-byte ROM block
     jmp init
@@ -42,6 +43,52 @@ init:
     retf
 handler:
     pushf
+%ifdef RB_RESCUE_TRACE
+    ; Rescue-only instrumentation includes attempted floppy/HDD writes.
+    cmp ah, 0x03
+    je .write
+    cmp ah, 0x05
+    je .write
+    cmp ah, 0x0B
+    je .write
+    cmp ah, 0x43
+    jne .read_only
+.write:
+    push ax
+    mov al, '!'
+    out 0xE9, al
+    mov al, 'W'
+    out 0xE9, al
+    mov al, 10
+    out 0xE9, al
+    pop ax
+.read_only:
+%if RB_ROM_MODE == 10 || RB_ROM_MODE == 11
+    cmp dl, 0
+    jne .floppy_done
+    cmp ah, 2
+    jne .floppy_done
+    cmp cx, 16                 ; LBA 33: cylinder 0, head 1, sector 16
+    jne .floppy_done
+    cmp dh, 1
+    jne .floppy_done
+%if RB_ROM_MODE == 10
+    cmp byte [cs:floppy_failures - handler], 0
+    jne .floppy_done
+%endif
+    inc byte [cs:floppy_failures - handler]
+    push ax
+    mov al, '!'
+    out 0xE9, al
+    mov al, 'F'
+    out 0xE9, al
+    mov al, 10
+    out 0xE9, al
+    pop ax
+    jmp rejected
+.floppy_done:
+%endif
+%endif
     cmp dl, 0x80
     jne chain
     push ax
@@ -77,7 +124,7 @@ handler:
     jmp accepted
 %endif
 %endif
-%if RB_ROM_MODE >= 6
+%if RB_ROM_MODE >= 6 && RB_ROM_MODE <= 9
     cmp ah, 0x48
     jne chain
     ; Keep every unrelated field valid: each test must exercise its own guard.
@@ -90,8 +137,12 @@ handler:
 %elif RB_ROM_MODE == 7
     mov word [si + 24], 4096
     jmp accepted
-%else
+%elif RB_ROM_MODE == 8
     mov word [si], 24
+    jmp accepted
+%else
+    mov dword [si + 16], 0
+    mov dword [si + 20], 0
     jmp accepted
 %endif
 %endif
@@ -136,6 +187,9 @@ hex:
 .out:
     out 0xE9, al
     ret
+%if RB_ROM_MODE == 10 || RB_ROM_MODE == 11
+floppy_failures: db 0
+%endif
 old13: dd 0                   ; populated in reserved RAM, never written in ROM
     times 511 - ($ - $$) db 0
     db 0                       ; byte checksum, sealed by the host builder

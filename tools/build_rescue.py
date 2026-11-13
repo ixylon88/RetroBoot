@@ -1,0 +1,152 @@
+"""Build an independent, read-only FAT12 diagnostic floppy, never install it."""
+import argparse
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+import zlib
+
+try:
+    from .build_abi_probe import inspect_map, prepare_output
+    from .build_hdd import layout, write_fixture
+    from .rescue_text import LANGUAGES, metadata, output_name, render_header
+    from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+except ImportError:
+    from build_abi_probe import inspect_map, prepare_output
+    from build_hdd import layout, write_fixture
+    from rescue_text import LANGUAGES, metadata, output_name, render_header
+    from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
+
+IMAGE_BYTES = 1474560
+PAYLOAD_LBA = 33
+HDD_CASES = {
+    'metadata-only': dict(layout=0,entries=5,ebrs=1,marker=1),
+    'unknown-code': dict(layout=0,entries=5,ebrs=1,marker=0),
+    'erased-mbr': dict(layout=2,signature=0,marker=0,disk_id=0),
+    'bad-signature': dict(layout=2,signature=0xAA00,marker=1),
+    'gpt-protective': dict(layout=5,marker=1),
+    'bad-ebr': dict(layout=2,error_lba=63,marker=1),
+    'loop-ebr': dict(layout=12,error_lba=63,marker=1),
+    'mbr-io': dict(status=4,fault_lba=0,fault_once=False),
+    'mbr-retry': dict(layout=0,entries=5,ebrs=1,marker=1,fault_lba=0,fault_once=True),
+    'ebr-io': dict(layout=1,error_lba=63,marker=1,fault_lba=63,fault_once=False),
+}
+
+def inspect_payload(data):
+    if (not 33 <= len(data) <= 0xC000 or data[:6]!=b'\xeb\x1eRBRS'
+            or struct.unpack_from('<H',data,6)[0]!=32
+            or struct.unpack_from('<I',data,8)[0]!=len(data)
+            or struct.unpack_from('<3H',data,16)!=(0x1000,32,1)):
+        raise ValueError('Invalid rescue header or file bounds')
+    begin,end,low,top,flags=struct.unpack_from('<5H',data,22)
+    if not len(data)<=begin<end<=low or (low,top,flags)!=(0xE000,0xFFFE,0):raise ValueError('Invalid rescue BSS/stack')
+    return dict(file_bytes=len(data),bss_begin=begin,bss_end=end,stack_low=low,stack_top=top)
+
+def seal_payload(data):
+    inspect_payload(data);result=bytearray(data)
+    struct.pack_into('<I',result,12,zlib.crc32(result[32:]));return bytes(result)
+
+def fat12_set(fat,cluster,value):
+    if not 0<=cluster<2849 or not 0<=value<=0xFFF:raise ValueError('FAT12 entry outside fixture')
+    at=cluster+cluster//2;pair=struct.unpack_from('<H',fat,at)[0]
+    pair=(pair&0x000F)|(value<<4) if cluster&1 else (pair&0xF000)|value
+    struct.pack_into('<H',fat,at,pair)
+
+def make_image(boot,payload):
+    inspect_payload(payload)
+    if struct.unpack_from('<I',payload,12)[0]!=zlib.crc32(payload[32:]):raise ValueError('Unsealed rescue payload')
+    if (len(boot)!=512 or boot[510:]!=b'\x55\xaa' or boot[11:36]
+            !=struct.pack('<HBHBHHBHHHII',512,1,1,2,224,2880,0xF0,9,18,2,0,0)):
+        raise ValueError('Unsupported rescue FAT12 BPB')
+    image=bytearray(IMAGE_BYTES);image[:512]=boot
+    fat=bytearray(9*512);fat[:3]=b'\xf0\xff\xff';sectors=(len(payload)+511)//512
+    for i in range(sectors):fat12_set(fat,i+2,0xFFF if i==sectors-1 else i+3)
+    image[512:10*512]=fat;image[10*512:19*512]=fat
+    root=19*512;image[root:root+11]=b'RB RESCUE  ';image[root+11]=8
+    root+=32;image[root:root+11]=b'RBRESCUEBIN';image[root+11]=0x20
+    for offset in (16,18,24):struct.pack_into('<H',image,root+offset,0x21) # 1980-01-01
+    struct.pack_into('<HI',image,root+26,2,len(payload))
+    padded=payload+b'\xa5'*(-len(payload)%512)
+    image[PAYLOAD_LBA*512:PAYLOAD_LBA*512+len(padded)]=padded
+    return bytes(image)
+
+def hdd_fixture(name):
+    if name not in HDD_CASES:raise ValueError('Unknown rescue HDD fixture')
+    size,admin,extents=layout(False)
+    # Deliberately no HDD boot code, VBR, bootstrap, FAT or Stage 2 contents.
+    mbr=bytearray(extents[0]);mbr[432:436]=b'RBM1';ebr=bytearray(extents[63*512])
+    if name=='unknown-code':mbr[:440]=b'\xcc'*440
+    elif name=='erased-mbr':mbr[:]=bytes(512)
+    elif name=='bad-signature':mbr[510]=0
+    elif name=='gpt-protective':mbr[498]=0xEE
+    elif name=='bad-ebr':ebr[510]=0
+    elif name=='loop-ebr':
+        ebr[466]=5;struct.pack_into('<II',ebr,470,0,128520)
+    return size,{0:bytes(mbr),63*512:bytes(ebr)}
+
+def build(kind='rescue',language='en'):
+    if kind not in ('rescue','rescue-repeat'):raise ValueError('Unsupported rescue build output')
+    destination=ROOT/'build'/output_name(kind,language);prepare_output(destination)
+    lock=json.loads(LOCK.read_text());nasm=TOOLCHAIN/('nasm-'+lock['nasm']['version'])/'nasm'
+    wcc,wlink=(TOOLCHAIN/'watcom'/name for name in ('wcc','wlink'))
+    for name,p in (('wcc',wcc),('wlink',wlink)):verify(p,lock['open_watcom']['executables'][name])
+    if subprocess.check_output([str(nasm),'-v'],text=True).split()[:3]!=['NASM','version',lock['nasm']['version']]:raise ValueError('Wrong NASM')
+    env={k:v for k,v in os.environ.items() if k.upper() not in {'WCC','WLINK','WATCOM','INCLUDE','LIB','LIBPATH'}}
+    def run(*args):
+        r=subprocess.run([str(a) for a in args],cwd=ROOT,env=env,capture_output=True,text=True)
+        if r.returncode or 'Warning!' in r.stdout+r.stderr:raise ValueError('Build failed: '+r.stdout+r.stderr)
+    (destination/'rescue_text.h').write_text(render_header(language),encoding='ascii')
+    objects=[]
+    for name,source in (('rescue','core/rescue.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
+        obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
+        if name!='model':objects.append(obj)
+    for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
+        obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
+    artifacts={};memory={}
+    def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
+    def floppy(name,payload):
+        boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
+            '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),'boot/rescue.asm','-o',boot)
+        image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
+    for name,defines in (('retroboot-rescue',[]),('rescue-bss-fault',['-DRB_RESCUE_BAD_BSS=1']),('rescue-model',['-DRB_RESCUE_MODEL=1'])):
+        obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
+        run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
+        linked=[obj,*objects[:-1]]+([destination/'model.obj'] if name=='rescue-model' else [])+[objects[-1]]
+        run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
+        data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
+        symbols={n:int(a,16) for a,n in re.findall(r'^([0-9a-fA-F]{8})[+*]?\s+(\w+)\s*$',mapfile.read_text(),re.MULTILINE)}
+        symbols={n:symbols[n] for n in ('rb_entry','rb_file_end','rb_bss_begin','rb_bss_end','_rb_rescue_initialized','_rb_rescue_bss')}
+        if (symbols['rb_entry']!=32 or symbols['rb_file_end']!=len(data)
+                or symbols['rb_bss_begin']!=header['bss_begin'] or symbols['rb_bss_end']!=header['bss_end']
+                or not 32<=symbols['_rb_rescue_initialized']<=len(data)-2
+                or not header['bss_begin']<=symbols['_rb_rescue_bss']<=header['bss_end']-32):raise ValueError('Rescue map/header mismatch')
+        memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols)
+        remember(binary);floppy(name,data)
+    payload=(destination/'retroboot-rescue.bin').read_bytes()
+    bad=bytearray(payload);struct.pack_into('<H',bad,memory['retroboot-rescue']['symbols']['_rb_rescue_initialized'],0xDEAD)
+    floppy('rescue-data-fault',seal_payload(bad))
+    original=(destination/'retroboot-rescue.img').read_bytes()
+    for name,offset in (('rescue-crc-fault',PAYLOAD_LBA*512+40),('rescue-header-fault',PAYLOAD_LBA*512+20)):
+        bad=bytearray(original);bad[offset]^=1;p=destination/(name+'.img');p.write_bytes(bad);remember(p)
+    for name in HDD_CASES:
+        size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
+    for mode in range(12):
+        p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),'tests/bios/int13_rom.asm','-o',p)
+        data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
+    manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,
+        host_executable_sha256=dict(nasm=sha256(nasm),wcc=sha256(wcc),wlink=sha256(wlink)),memory=memory,artifacts=artifacts,hdd_cases=HDD_CASES)
+    (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+    print(f'Built {destination.name}: FAT12 1440 KiB, payload {len(payload)} bytes; no HDD loader dependency',flush=True)
+    return manifest
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--language',choices=LANGUAGES,default='en');p.add_argument('--repeat',action='store_true');a=p.parse_args()
+    first=build(language=a.language)
+    if a.repeat:
+        if first!=build('rescue-repeat',a.language):raise ValueError('Repeated rescue build differs')
+        print('Reproducibility: all rescue binaries, images and manifests are identical')
+if __name__=='__main__':
+    try:main()
+    except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:print('Rescue build: '+str(error),file=sys.stderr);sys.exit(1)

@@ -30,12 +30,21 @@ The language cannot currently be changed inside the running menu.
 | Volume header evidence | `build/volume/` | `build/volume-de/` |
 | Configuration evidence | `build/config/` | `build/config-de/` |
 | Handoff evidence | `build/handoff/` | `build/handoff-de/` |
+| Rescue floppy | `build/rescue/retroboot-rescue.img` | `build/rescue-de/retroboot-rescue.img` |
+| Rescue repeat build | `build/rescue-repeat/` | `build/rescue-repeat-de/` |
+| Rescue evidence | `build/rescue-test/` | `build/rescue-test-de/` |
 
 The **retroboot-hdd-bios** CI artifact contains both compact diagnostic images
 and both separate 128 MiB handoff-test images. Inside
 the archive the paths start with `hdd/` and `hdd-de/`; the outer `build/`
 directory is omitted. A new image needs a fresh raw-to-VDI conversion for
 VirtualBox; an older VDI still contains the older program.
+
+The independent [rescue floppy](ExternalRescue.md) uses `make rescue-test
+RB_LANGUAGE=en` or `make rescue-test RB_LANGUAGE=de`. Its separate
+`ui/rescue/en.json` and `ui/rescue/de.json` catalogs use the same encoding rules.
+The **retroboot-rescue-diagnostics** artifact contains both floppies; these
+attach directly to a floppy controller and require no VDI conversion.
 
 ## Characters and encoding
 
@@ -75,7 +84,7 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 134 host tests include seven catalog tests, with independent byte values
+The 140 host tests include seven HDD catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
@@ -89,6 +98,11 @@ handoff, 63 configuration, 65 installation-state, 37 visibility and
 translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
+
+Rescue adds 38 boots and 217 VGA/keyboard states per language, including
+independent startup with absent or damaged HDDs. Its catalog test checks field
+bounds, output isolation and `ß` in the German help line. Both rescue builds
+also repeat byte-identically; the HDD binary/catalog hashes remain unchanged.
 
 The build manifest records the selected language, `cp437` encoding and the
 catalog SHA-256. UI tests reject a stale or mismatched catalog and require
