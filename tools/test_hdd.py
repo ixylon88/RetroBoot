@@ -255,6 +255,8 @@ def main():
             raise ValueError(f"{name}: native installation-state tests did not pass")
         if case.source == "hdd-audit-model" and "RB AUDIT MODEL PASS" not in output:
             raise ValueError("Missing native allocation-audit evidence")
+        if case.source == "hdd-journal-model" and "RB JOURNAL MODEL PASS" not in output:
+            raise ValueError("Missing native transaction-journal evidence")
         if case.source == "hdd-profile-model" and "RB PROFILE MODEL PASS" not in output:
             raise ValueError("Missing native profile-test evidence")
         if case.source == "hdd-visibility-model" and "RB VISIBILITY MODEL PASS" not in output:

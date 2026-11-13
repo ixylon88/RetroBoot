@@ -129,7 +129,7 @@ make hdd-test
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-`make hdd-test` baut zweimal, prüft 100 positive/negative HDD-Startfälle und
+`make hdd-test` baut zweimal, prüft 102 positive/negative HDD-Startfälle und
 führt anschließend Menü-, Scanner-, Volume- und Übergabeprüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
@@ -159,8 +159,8 @@ ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
 Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
-Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests. Four checked-profile and five allocation-audit tests bring
-the host total to 126. Beide Sprachen durchlaufen
+Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests. Four checked-profile, five allocation-audit and four journal-format tests bring
+the host total to 130. Beide Sprachen durchlaufen
 dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
 deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
 Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen

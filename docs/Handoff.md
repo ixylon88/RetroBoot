@@ -135,9 +135,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 126 host tests include fixture preservation, literal primary-entry values,
+- 130 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 100 boot cases include 45 identical EDD/CHS read-sequence pairs. The new
+- 102 boot cases include 46 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS

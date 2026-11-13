@@ -27,6 +27,9 @@ extern _rb_state_selftest
 %ifdef RB_AUDIT_MODEL_TEST
 extern _rb_audit_selftest
 %endif
+%ifdef RB_JOURNAL_MODEL_TEST
+extern _rb_journal_selftest
+%endif
 %ifdef RB_PROFILE_MODEL_TEST
 extern _rb_profile_test_selftest
 %endif
@@ -206,6 +209,17 @@ rb_entry:
     mov si, audit_model_message
     call print
 %endif
+%ifdef RB_JOURNAL_MODEL_TEST
+    call _rb_journal_selftest
+    test ax, ax
+    jnz failed
+    cmp sp, RB_STACK_TOP
+    jne failed
+    cmp word [RB_STACK_LOW], RB_STACK_GUARD
+    jne failed
+    mov si, journal_model_message
+    call print
+%endif
     mov si, ready_message
     call print
 %ifdef RB_TEST
@@ -306,6 +320,9 @@ profile_model_message db 'RB PROFILE MODEL PASS', 13, 10, 0
 
 %ifdef RB_AUDIT_MODEL_TEST
 audit_model_message db 'RB AUDIT MODEL PASS', 13, 10, 0
+%endif
+%ifdef RB_JOURNAL_MODEL_TEST
+journal_model_message db 'RB JOURNAL MODEL PASS', 13, 10, 0
 %endif
 
 segment CONST public align=2 class=DATA use16

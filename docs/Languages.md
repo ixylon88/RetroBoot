@@ -75,13 +75,13 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 126 host tests include seven catalog tests, with independent byte values
+The 130 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 100-case boot suite runs once in CI with English, covering the shared
+The full 102-case boot suite runs once in CI with English, covering the shared
 loader, C startup, native menu-model, parser, arithmetic, configuration and handoff preparation tests. Both languages
 run all five general menu campaigns, 32 scanner, 43 volume-header and 43
 handoff, 63 configuration, 65 installation-state, 37 visibility and
@@ -105,5 +105,5 @@ too, without further platform details. The F5 test from merged PR #11 was report
 F6 was subsequently confirmed. German F7 screenshots were confirmed under
 VirtualBox on 12 November 2026. English F7 followed by the
 [F9 checked-profile path](ProfileTest.md) was confirmed there on
-13 November 2026, including `RB HANDOFF PASS`. The new [F10 manual check](AdminAllocation.md)
-remains pending. T07 target-side PASS/FAIL remains English ASCII.
+13 November 2026, including `RB HANDOFF PASS`. The [F10](AdminAllocation.md) status `0000 / 0000` was also confirmed,
+without further language or key-path details. T07 target-side PASS/FAIL remains English ASCII.

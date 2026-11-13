@@ -67,7 +67,7 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett; Ausgabe unter `build/hdd-de/` |
 | `make hdd-ui-test RB_LANGUAGE=de` | Deutschen Wiederholungsbuild und alle 3.186 UI-Zustände prüfen |
 | `make hdd-check` | HDD-Artefakte zweimal bauen und vollständig vergleichen |
-| `make hdd-test` | Repeat build, 100 boot cases and 3,186 keyboard/VGA states for the selected language |
+| `make hdd-test` | Repeat build, 102 boot cases and 3,186 keyboard/VGA states for the selected language |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung in QEMU prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler, Wiederholungen und mehrseitige Tabellen prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Header, Lesefehler und F3-Bedienung prüfen |
@@ -135,7 +135,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **126 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **130 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -165,14 +165,14 @@ zurückgemeldet. Rechner- und BIOS-Daten zu diesem Test sind noch nicht erfasst.
 
 Der HDD-Ladeweg erreicht Stage 2 unter QEMU 8.2.2/SeaBIOS sowohl im kompakten
 64-MiB-Image als auch bei den hohen LBAs des 8-GB-Referenzplans. Insgesamt
-100 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
+102 Bootfälle prüfen Erfolg, beschädigte Metadaten/Dateien, C-Startfehler, Menü-/Parserlogik und echte induzierte
 Blocklesefehler. Quellimages bleiben unverändert; die I/O-Traces zeigen ab
 dem MBR-Lesen keine Schreiboperationen. Die HDD-Artefakte sind in zwei Builds
 bytegleich. Der Speichervertrag steht in `include/boot.inc` und der HDD-Anleitung.
 
 Ohne EDD-Unterstützung verwendet derselbe MBR jetzt CHS über die mit AH=08h
 abgefragte BIOS-Geometrie. Fehlerhafte Geometrie oder ein zu kleiner Bereich
-werden abgewiesen. 45 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
+werden abgewiesen. 46 EDD-/CHS-Testpaare lesen identische Sektorfolgen; die
 im Speicher geladene Stage 2 stimmt in beiden Wegen Byte für Byte mit der
 gebauten Datei überein. Auch Spur-/Zylinderwechsel und hohe Zylinderbits
 werden im Emulator durchlaufen. Ein manueller VirtualBox-HDD-Start wurde
@@ -223,7 +223,7 @@ F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and
 370 states. The F9 checked-profile test adds 37 campaigns and 336 states,
 and F10 adds 37 campaigns with 370 allocation-audit states,
 giving 6,372 states across both languages. Jede Sprache
-wird zweimal bytegleich gebaut; die 100 gemeinsamen Bootfälle laufen in CI
+wird zweimal bytegleich gebaut; die 102 gemeinsamen Bootfälle laufen in CI
 einmal mit Englisch.
 
 Die automatische CHS-Geometrie des großen QEMU-Images reicht für den
