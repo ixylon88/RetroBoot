@@ -1,4 +1,4 @@
-"""Metadata-only defects for the closed six-file management-volume audit."""
+"""Metadata-only defects for the closed eight-file management-volume audit."""
 import struct
 
 # Expected diagnostic fields are literal, independent of the native auditor.

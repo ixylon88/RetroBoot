@@ -82,3 +82,64 @@ def model_header():
             'static const rb_u8 rb_journal_vector[1536] = {\n'
             + '\n'.join('    '+','.join(str(c) for c in data[i:i+16])+',' for i in range(0,len(data),16))
             + '\n};\n')
+
+
+CLUSTERS = (3200, 3300)
+
+
+def allocate(extents, admin):
+    """Allocate two owned three-sector slots in a newly generated fixture."""
+    result = dict(extents)
+    start = admin['start_lba']; spf = admin['fat']['sectors_per_fat']; spc = admin['fat']['sectors_per_cluster']
+    if spc < 4: raise ValueError('Fixture allocator needs a journal-sized cluster')
+    root_lba = start + 1 + 2 * spf; data_lba = root_lba + 32
+    root = bytearray(result[root_lba * 512])
+    tables = [bytearray(result[(start + 1 + i * spf) * 512]) for i in range(2)]
+    for i, cluster in enumerate(CLUSTERS):
+        at = (25 + i) * 32
+        if any(root[at:at+32]) or cluster >= admin['fat']['data_clusters'] + 2:
+            raise ValueError('Journal directory slot or cluster is unavailable')
+        root[at:at+11] = b'RBTXN   ' + bytes([65+i]) + b'  '; root[at+11] = 0x20
+        struct.pack_into('<HI',root,at+26,cluster,BYTES)
+        for table in tables:
+            if struct.unpack_from('<H',table,cluster*2)[0]: raise ValueError('Occupied journal cluster')
+            struct.pack_into('<H',table,cluster*2,0xFFFF)
+        offset = (data_lba + (cluster-2)*spc)*512
+        if offset in result: raise ValueError('Occupied journal extent')
+        result[offset] = bytes(BYTES)
+    result[root_lba*512] = bytes(root)
+    for i,table in enumerate(tables): result[(start+1+i*spf)*512] = bytes(table)
+    return result
+
+
+def baseline(extents, size, admin_start):
+    """Seed an EMPTY EDD baseline only on an owned, complete generated image."""
+    result = dict(extents); vbr=result[admin_start*512]
+    spf=struct.unpack_from('<H',vbr,22)[0]; spc=vbr[13]
+    count=struct.unpack_from('<I',vbr,32)[0]; data_lba=admin_start+1+2*spf+32
+    record=encode(before=result[0],after=result[0],sequence=1,phase=EMPTY,
+        disk_id=struct.unpack_from('<I',result[0],440)[0],layout=layout_crc(result),
+        admin_start=admin_start,admin_sectors=count,media_id=FIXTURE_MEDIA_ID,capacity=size//512)
+    for cluster in CLUSTERS: result[(data_lba+(cluster-2)*spc)*512]=record
+    return result
+
+
+
+def io_model_header():
+    try:
+        from .config_records import encode as configuration
+        from .state_records import encode as state
+    except ImportError:
+        from config_records import encode as configuration
+        from state_records import encode as state
+    before=bytearray(model_record()[512:1024]); after=bytearray(model_record()[1024:])
+    ebr=bytearray(512);ebr[450]=0x16;struct.pack_into('<II',ebr,454,63,5285)
+    for sector in (before,after):struct.pack_into('<I',sector,506,5348)
+    binding=dict(disk_id=0x52425431,layout=layout_crc({0:before,63*512:ebr}),admin_start=126,admin_sectors=5285)
+    vectors=dict(rb_io_journal=encode(before=bytes(before),after=bytes(after),sequence=2,phase=PREPARED,
+                 media_id=FIXTURE_MEDIA_ID,capacity=262144,**binding),
+                 rb_io_config=configuration(media_id=FIXTURE_MEDIA_ID,**binding),rb_io_state=state(**binding))
+    return '/* Owned fragmented three-sector reader vectors. */\n' + '\n'.join(
+        'static const rb_u8 '+name+'['+str(len(data))+'] = {\n'
+        + '\n'.join('    '+','.join(str(c) for c in data[i:i+16])+',' for i in range(0,len(data),16))
+        + '\n};' for name,data in vectors.items())+'\n'

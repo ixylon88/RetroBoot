@@ -14,7 +14,7 @@ auch lokal ausführbar sind.
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
 | [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
-| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 102 shared boot cases and 3,186 UI states per language; publish both normal and both handoff images with evidence |
+| [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
 unterschiedlichem `os`. So werden beispielsweise Unterschiede bei Pfaden,
@@ -48,11 +48,14 @@ Im HDD-Artefakt liegen Image und Bootnachweise unter `hdd/`, die
 allgemeinen Bildschirm- und Tastaturnachweise unter `menu/`, die Scanner-
 Fehler- und Blätternachweise unter `scan/` und die FAT-Headernachweise unter
 `volume/`. Übergabenachweise liegen unter `handoff/`, Konfigurationsnachweise unter `config/`. F6/F7/F9/F10 evidence is under `state/`, `visibility/`, `profile/` and `audit/`. Die deutschen Entsprechungen
-liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/`, `config-de/`, `state-de/`, `visibility-de/`, `profile-de/` and `audit-de/`. Sprache, CP437-Kodierung
+liegen unter `hdd-de/`, `menu-de/`, `scan-de/`, `volume-de/`, `handoff-de/`, `config-de/`, `state-de/`, `visibility-de/`, `profile-de/`, `audit-de/` and `journal-de/`. Sprache, CP437-Kodierung
 und Kataloghash sind in den Manifesten und UI-Berichten vermerkt.
 Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
-Die 102 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
+Die 104 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
+
+The journal reports, screenshots and read traces are under `journal/` and
+`journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
@@ -91,7 +94,7 @@ F8 und eine unbekannte Taste an QEMUs emulierte PS/2-Tastatur. Nach jeder
 Aktion liest sie die echte VGA-Textseite und kontrolliert Texte, Zahlen und
 Auswahlfarben. Dies läuft für beide Sprachen, einschließlich Umlauten und `ß`.
 The menu, scanner, volume, handoff, configuration, installation-state,
-visibility, checked-profile and allocation-audit campaigns total 6,372 screen states.
+visibility, checked-profile, allocation-audit and journal campaigns total 7,362 screen states.
 RAM-Prüfung und Schreibüberwachung bleiben dabei aktiv.
 Die Countdownlogik wird zusätzlich im tatsächlich gebauten C/16-Code mit
 vorgegebenen Zeitwerten geprüft; im normalen Menü ist Autostart ausgeschaltet.

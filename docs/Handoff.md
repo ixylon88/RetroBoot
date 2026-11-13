@@ -135,9 +135,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 130 host tests include fixture preservation, literal primary-entry values,
+- 134 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 102 boot cases include 46 identical EDD/CHS read-sequence pairs. The new
+- 104 boot cases include 47 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS
@@ -156,8 +156,9 @@ The handoff/menu/scanner/volume suites total 782 states per language.
 The [configuration suite](Configuration.md) adds 678 and the
 [installation-state suite](InstallationState.md) adds 650 and the
 [visibility suite](Visibility.md) adds 370. The [checked-profile suite](ProfileTest.md)
-adds 336 and the [allocation suite](AdminAllocation.md) adds 370, giving
-3,186 per language and 6,372 across both languages. Both languages build twice with
+adds 336, the [allocation suite](AdminAllocation.md) adds 370, and
+[journal diagnosis](JournalDiagnosis.md) adds 495, giving
+3,681 per language and 7,362 across both languages. Both languages build twice with
 byte-identical results. `handoff-results.json` is written only when all its
 campaigns pass. Reports, text pages, screenshots, low-memory/Stage-2/VGA dumps
 and disk traces accompany the two normal and two handoff images in CI.

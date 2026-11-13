@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state, visibility, checked profiles, allocation and VBR handoff
+      - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state, visibility, checked profiles, allocation, journal diagnosis and VBR handoff
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
@@ -180,3 +180,17 @@ jobs:
             build/audit-de/*.bin
             build/audit-de/*.png
             build/audit-de/*.conf
+            build/journal/*.json
+            build/journal/*.log
+            build/journal/*.trace
+            build/journal/*.txt
+            build/journal/*.bin
+            build/journal/*.png
+            build/journal/*.conf
+            build/journal-de/*.json
+            build/journal-de/*.log
+            build/journal-de/*.trace
+            build/journal-de/*.txt
+            build/journal-de/*.bin
+            build/journal-de/*.png
+            build/journal-de/*.conf

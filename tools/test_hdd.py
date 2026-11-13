@@ -253,8 +253,10 @@ def main():
             raise ValueError(f"{name}: native configuration model tests did not pass")
         if case.source == "hdd-state-model" and "RB STATE MODEL PASS" not in output:
             raise ValueError(f"{name}: native installation-state tests did not pass")
-        if case.source == "hdd-audit-model" and "RB AUDIT MODEL PASS" not in output:
+        if case.source == "hdd-audit-model" and ("RB AUDIT MODEL PASS" not in output or "A=0050" not in output):
             raise ValueError("Missing native allocation-audit evidence")
+        if case.source == "hdd-journal-io-model" and ("RB JOURNAL IO PASS" not in output or "D=002A" not in output):
+            raise ValueError("Missing native journal reader evidence")
         if case.source == "hdd-journal-model" and "RB JOURNAL MODEL PASS" not in output:
             raise ValueError("Missing native transaction-journal evidence")
         if case.source == "hdd-profile-model" and "RB PROFILE MODEL PASS" not in output:

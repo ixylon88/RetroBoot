@@ -75,17 +75,17 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 130 host tests include seven catalog tests, with independent byte values
+The 134 host tests include seven catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
 different Stage 2 binaries.
 
-The full 102-case boot suite runs once in CI with English, covering the shared
+The full 104-case boot suite runs once in CI with English, covering the shared
 loader, C startup, native menu-model, parser, arithmetic, configuration and handoff preparation tests. Both languages
 run all five general menu campaigns, 32 scanner, 43 volume-header and 43
 handoff, 63 configuration, 65 installation-state, 37 visibility and
-37 checked-profile and 37 allocation-audit campaigns: 3,186 VGA/keyboard states per language, 6,372 total. Every visible
+37 checked-profile, 37 allocation-audit and 45 journal campaigns: 3,681 VGA/keyboard states per language, 7,362 total. Every visible
 translated label, including scanner and header errors, is checked against the selected
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.

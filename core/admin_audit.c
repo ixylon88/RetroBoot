@@ -1,10 +1,10 @@
 #include "admin_audit.h"
 
 const char * const rb_audit_names[RB_AUDIT_FILES] = {
-    "RBBOOT.SYS", "RBSTG2.BIN", "RBCFG.A", "RBCFG.B", "RBSTATE.A", "RBSTATE.B"
+    "RBBOOT.SYS", "RBSTG2.BIN", "RBCFG.A", "RBCFG.B", "RBSTATE.A", "RBSTATE.B", "RBTXN.A", "RBTXN.B"
 };
 static const char short_names[RB_AUDIT_FILES][12] = {
-    "RBBOOT  SYS", "RBSTG2  BIN", "RBCFG   A  ", "RBCFG   B  ", "RBSTATE A  ", "RBSTATE B  "
+    "RBBOOT  SYS", "RBSTG2  BIN", "RBCFG   A  ", "RBCFG   B  ", "RBSTATE A  ", "RBSTATE B  ", "RBTXN   A  ", "RBTXN   B  "
 };
 
 typedef struct { rb_u16 cluster, next, file; } allocation;
@@ -120,7 +120,7 @@ rb_u16 rb_audit_admin(rb_admin_audit *r, rb_sector_reader read, void *opaque,
             if (!entry[0]) { ended = 1; break; }
             if (entry[0] == 0xE5) { continue; }
             /* A volume label has no data chain. Directories/LFN are outside
-             * this deliberately closed six-file format, not silently skipped. */
+             * this deliberately closed eight-file format, not silently skipped. */
             if (entry[11] == 8 && !word(entry + 20) && !word(entry + 26) && !dword(entry + 28)) { continue; }
             found = RB_AUDIT_FILES;
             for (k = 0; k < RB_AUDIT_FILES; ++k) {
@@ -135,9 +135,9 @@ rb_u16 rb_audit_admin(rb_admin_audit *r, rb_sector_reader read, void *opaque,
                 return fail(r, RB_AUDIT_ROOT, 4, lba, found + 1, word(entry + 26));
             }
             file->bytes = dword(entry + 28); cluster = word(entry + 26);
-            maximum = found == 0 ? 8192UL : found == 1 ? 49152UL : 512UL;
+            maximum = found == 0 ? 8192UL : found == 1 ? 49152UL : found < 6 ? 512UL : 1536UL;
             if (!file->bytes || file->bytes > maximum || (found == 0 && file->bytes % 512)
-                    || (found >= 2 && file->bytes != 512)) {
+                    || (found >= 2 && file->bytes != maximum)) {
                 return fail(r, RB_AUDIT_ROOT, 5, lba, found + 1, cluster);
             }
             if (cluster < 2 || (rb_u32)cluster > work.volume.clusters + 1) {
@@ -184,11 +184,17 @@ rb_u16 rb_audit_admin(rb_admin_audit *r, rb_sector_reader read, void *opaque,
             work.nodes[work.node_count].cluster = cluster;
             work.nodes[work.node_count].next = next;
             work.nodes[work.node_count++].file = i + 1;
+            if (i >= 6) {
+                for (k = 0; k < spc && j * spc + k < 3; ++k) {
+                    r->journal_lba[i - 6][j * spc + k] = work.volume.data_lba
+                        + ((rb_u32)cluster - 2) * spc + k;
+                }
+            }
             cluster = next;
         }
     }
 
-    /* The bounded file sizes need at most 116 ownership entries, not a 64 KiB
+    /* The bounded file sizes need at most 122 ownership entries, not a 64 KiB
      * FAT in near memory. Sorting permits one linear sweep of both full FATs. */
     for (i = 1; i < work.node_count; ++i) {
         saved = work.nodes[i]; j = i;
@@ -213,6 +219,7 @@ rb_u16 rb_audit_admin(rb_admin_audit *r, rb_sector_reader read, void *opaque,
     }
     r->total_clusters = (rb_u16)work.volume.clusters;
     r->used_clusters = work.node_count; r->free_clusters = free;
+    r->scan = work.scan;
     clear_work();
     return RB_AUDIT_OK;
 }

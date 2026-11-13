@@ -103,6 +103,26 @@ KEYS = (
     "AUDIT_ERROR_FILE",
     "AUDIT_REVIEW",
     "AUDIT_LIMIT",
+    "JOURNAL_TITLE",
+    "JOURNAL_SCOPE",
+    "JOURNAL_ALLOCATION",
+    "JOURNAL_CONFIG",
+    "JOURNAL_STATE",
+    "JOURNAL_IDENTITY",
+    "JOURNAL_IO",
+    "JOURNAL_CHANGED",
+    "JOURNAL_INVALID",
+    "JOURNAL_BASELINE",
+    "JOURNAL_PREPARED_OLD",
+    "JOURNAL_PREPARED_NEW",
+    "JOURNAL_COMMITTED_NEW",
+    "JOURNAL_DIVERGED",
+    "JOURNAL_LOAD_CODES",
+    "JOURNAL_COPY_CODES",
+    "JOURNAL_SEQUENCE",
+    "JOURNAL_PHASE",
+    "JOURNAL_CRCS",
+    "JOURNAL_HELP",
     "VIS_TITLE",
     "VIS_SCOPE",
     "VIS_CODES",
@@ -128,11 +148,12 @@ WIDTHS.update(SYSTEM_INFO=67, PARTITIONS=67, RECOVERY=67, READ_ONLY=13,
               CONFIG_EXTENT=25, CONFIG_FLAGS=27, STATE_CONFIG_COPIES=25, STATE_COPIES=25,
               STATE_MEDIA=25, STATE_REASON=25, STATE_INSTALL_ID=25, STATE_CRC=25,
               VIS_CODES=26, VIS_VISIBLE=26, VIS_ACTIVE=26, VIS_CHANGED=26,
+              JOURNAL_LOAD_CODES=28, JOURNAL_COPY_CODES=28, JOURNAL_SEQUENCE=28, JOURNAL_PHASE=28, JOURNAL_CRCS=28,
               AUDIT_CODES=28, AUDIT_ERROR_FILE=28, AUDIT_CLUSTERS=34)
 
 
 def output_name(kind, language):
-    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile", "audit"):
+    if language not in LANGUAGES or kind not in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile", "audit", "journal"):
         raise ValueError("Unknown build language or output kind")
     return kind if language == "en" else kind + "-" + language
 

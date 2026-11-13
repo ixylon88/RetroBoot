@@ -11,7 +11,7 @@ the C environment, clears BSS and passes the BIOS context to C. The separate
 C/assembly test floppy remains available. F5 now validates stored start-profile
 records against the actual disk layout. F6 compares independent installation
 records with the current target VBR. F7 previews current and intended primary
-partition types and active flags. F10 audits allocation of the six current
+partition types and active flags. F10 audits allocation of the eight current
 management files, both FAT copies and unowned allocated clusters. OS authorization, chainloading,
 partition changes and installation are future steps. An independent test VBR now
 checks the real-mode transition in an explicitly selected test image.
@@ -93,13 +93,13 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 102 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 104 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
-and 370 visibility states, plus 336 checked-profile and 370 allocation-audit states, through
-emulated keyboard input with VGA, memory and disk-write checks: 6,372 states
-across both languages. There are 130 host tests.
+and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
+emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
+across both languages. There are 134 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -109,7 +109,8 @@ Header plausibility does not establish filesystem integrity or OS bootability.
 F5 reads the two configuration files and displays validated profile descriptions.
 F6 checks independent installation records and the current target VBR.
 F7 previews current and intended primary-partition visibility and active flags.
-F10 checks the six management files and the complete FAT allocation.
+F8 followed by Enter reads the transaction journal; Enter repeats the diagnosis.
+F10 checks the eight management files and the complete FAT allocation.
 Automatic boot remains disabled pending OS-start authorization.
 
 The **HDD BIOS boot** workflow publishes both compact diagnostic images, both
@@ -127,15 +128,18 @@ there on 13 November 2026: matching preview and `RB HANDOFF PASS`.
 No BIOS version, physical-hardware coverage or original-OS start was established.
 
 For the allocation check, boot either current image and press **F10**.
-The expected result is a green consistency message, `0000 / 0000` and a
-six-file table. F10 rereads; Esc returns. The [allocation guide](docs/AdminAllocation.md)
+The expected result is a green consistency message, `0000 / 0000` and an
+eight-file table. F10 rereads; Esc returns. The [allocation guide](docs/AdminAllocation.md)
 records expected counts and limitations. F10 status `0000 / 0000` was manually
 confirmed on 13 November 2026, without additional coverage details.
 
-The next increment adds a [transaction-journal model](docs/TransactionJournal.md)
-with 126 native assertions for paired records and old/new/current MBR relations.
-It is tested in a dedicated native variant; the standard images remain
-byte-identical, and no new manual VM test is required for this increment.
+The [journal diagnosis](docs/JournalDiagnosis.md) adds the next manual check:
+**F8, then Enter**. On the standard EDD route, expect a green empty-baseline
+message, `0000 / 0000`, journal codes `0000 / 0000 / 0000`, sequence
+`00000001`, phase/copy `0000 / A` and equal old/new MBR CRCs. Enter rereads;
+Esc returns. Both release images change in this increment. The linked guide
+explains the intentionally rejected geometry on a forced CHS boot and the
+matching CHS fixtures used in automated tests.
 
 For the checked-profile test, boot `hdd/retroboot-handoff.img`, press
 **F7**, then **F9**. A fresh record and visibility check must pass before

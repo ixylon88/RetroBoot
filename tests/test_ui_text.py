@@ -32,7 +32,7 @@ class MenuCatalogTests(unittest.TestCase):
 
     def test_translation_cannot_overwrite_adjacent_screen_field(self):
         for key, width in (("CHS_HEADS", 13), ("AUDIT_CODES", 28),
-                           ("AUDIT_ERROR_FILE", 28), ("AUDIT_CLUSTERS", 34)):
+                           ("AUDIT_ERROR_FILE", 28), ("JOURNAL_COPY_CODES", 28), ("JOURNAL_CRCS", 28), ("AUDIT_CLUSTERS", 34)):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 validate_catalog(dict(load_catalog("en"), **{key: "x" * (width + 1)}))
             validate_catalog(dict(load_catalog("en"), **{key: "ö" * width}))
@@ -57,9 +57,9 @@ class MenuCatalogTests(unittest.TestCase):
             checked_catalog(manifest, "en")
 
     def test_output_directories_are_separate_and_cannot_escape_build(self):
-        names = {output_name(kind, language) for kind in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile", "audit")
+        names = {output_name(kind, language) for kind in ("hdd", "hdd-repeat", "menu", "scan", "volume", "handoff", "config", "state", "visibility", "profile", "audit", "journal")
                  for language in LANGUAGES}
-        self.assertEqual(len(names), 22)
+        self.assertEqual(len(names), 24)
         self.assertEqual(output_name("hdd", "en"), "hdd")
         self.assertEqual(output_name("hdd", "de"), "hdd-de")
         for language in ("fr", "../de", "", "EN"):

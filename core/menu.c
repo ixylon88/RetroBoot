@@ -8,6 +8,7 @@
 #include "state.h"
 #include "visibility.h"
 #include "admin_audit.h"
+#include "journal_io.h"
 #ifdef RB_HANDOFF_TEST
 #include "profile_test.h"
 #endif
@@ -29,6 +30,14 @@ static const char * const audit_messages[] = {
     RB_UI_AUDIT_OK, RB_UI_AUDIT_SCAN, RB_UI_AUDIT_ADMIN, RB_UI_AUDIT_IO,
     RB_UI_AUDIT_ROOT, RB_UI_AUDIT_CHAIN, RB_UI_AUDIT_SHARED, RB_UI_AUDIT_COPIES,
     RB_UI_AUDIT_HEADER, RB_UI_AUDIT_ORPHAN, RB_UI_AUDIT_CHANGED, RB_UI_AUDIT_BOOTSTRAP
+};
+static const char * const journal_load_messages[] = {
+    "", RB_UI_JOURNAL_ALLOCATION, RB_UI_JOURNAL_CONFIG, RB_UI_JOURNAL_STATE,
+    RB_UI_JOURNAL_IDENTITY, RB_UI_JOURNAL_IO, RB_UI_JOURNAL_CHANGED
+};
+static const char * const journal_observations[] = {
+    RB_UI_JOURNAL_INVALID, RB_UI_JOURNAL_BASELINE, RB_UI_JOURNAL_PREPARED_OLD,
+    RB_UI_JOURNAL_PREPARED_NEW, RB_UI_JOURNAL_COMMITTED_NEW, RB_UI_JOURNAL_DIVERGED
 };
 static const char digits[] = "0123456789ABCDEF";
 static const char * const scan_errors[] = {
@@ -120,7 +129,8 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                  const rb_volume_probe *volume, rb_u16 volume_index,
                  const rb_config_result *config, rb_u16 config_index,
                  const rb_state_result *installation, const rb_state_proof *proof,
-                 const rb_visibility_result *visibility, const rb_admin_audit *audit
+                 const rb_visibility_result *visibility, const rb_admin_audit *audit,
+                 const rb_journal_diagnosis *journal
 #ifdef RB_HANDOFF_TEST
                  , rb_u16 handoff_status, rb_u16 handoff_detail, rb_u16 profile_status
 #endif
@@ -358,28 +368,56 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     } else if (view == 10) {
         text(5, 4, RB_UI_AUDIT_TITLE, TITLE);
         text(6, 4, RB_UI_AUDIT_SCOPE, NORMAL);
+        text(7, 4, RB_UI_AUDIT_LIMIT, NORMAL);
         text(8, 4, audit_messages[audit->status], audit->status ? 0x1E : 0x1A);
         text(9, 4, RB_UI_AUDIT_CODES, NORMAL);
         hex(9, 32, audit->status, 4); text(9, 37, "/", NORMAL); hex(9, 39, audit->detail, 4);
         if (!audit->status) {
-            text(11, 4, RB_UI_AUDIT_COLUMNS, NORMAL);
+            text(10, 4, RB_UI_AUDIT_COLUMNS, NORMAL);
             for (index = 0; index < RB_AUDIT_FILES; ++index) {
-                text(12 + index, 4, rb_audit_names[index], TITLE);
-                hex(12 + index, 17, audit->files[index].bytes, 8);
-                hex(12 + index, 30, audit->files[index].clusters, 4);
-                hex(12 + index, 41, audit->files[index].first_lba, 8);
+                text(11 + index, 4, rb_audit_names[index], TITLE);
+                hex(11 + index, 17, audit->files[index].bytes, 8);
+                hex(11 + index, 30, audit->files[index].clusters, 4);
+                hex(11 + index, 41, audit->files[index].first_lba, 8);
             }
-            text(18, 4, RB_UI_AUDIT_CLUSTERS, NORMAL);
-            hex(18, 38, audit->total_clusters, 4); text(18, 43, "/", NORMAL);
-            hex(18, 45, audit->used_clusters, 4); text(18, 50, "/", NORMAL);
-            hex(18, 52, audit->free_clusters, 4);
+            text(19, 4, RB_UI_AUDIT_CLUSTERS, NORMAL);
+            hex(19, 38, audit->total_clusters, 4); text(19, 43, "/", NORMAL);
+            hex(19, 45, audit->used_clusters, 4); text(19, 50, "/", NORMAL);
+            hex(19, 52, audit->free_clusters, 4);
         } else {
             text(11, 4, RB_UI_LBA_HEX, NORMAL); hex(11, 32, audit->error_lba, 8);
             text(13, 4, RB_UI_AUDIT_ERROR_FILE, NORMAL);
             hex(13, 32, audit->error_file, 4); text(13, 37, "/", NORMAL); hex(13, 39, audit->error_cluster, 4);
         }
-        text(19, 4, RB_UI_AUDIT_REVIEW, NORMAL);
-        text(20, 4, RB_UI_AUDIT_LIMIT, NORMAL);
+        text(20, 4, RB_UI_AUDIT_REVIEW, NORMAL);
+    } else if (view == 11) {
+        text(5, 4, RB_UI_JOURNAL_TITLE, TITLE);
+        text(6, 4, RB_UI_JOURNAL_SCOPE, NORMAL);
+        text(8, 4, journal->status ? journal_load_messages[journal->status]
+            : journal->journal.status ? RB_UI_JOURNAL_INVALID
+            : journal_observations[journal->journal.observation],
+            !journal->status && !journal->journal.status
+                && (journal->journal.observation == RB_TX_BASELINE
+                    || journal->journal.observation == RB_TX_COMMITTED_NEW) ? 0x1A : 0x1E);
+        text(9, 4, RB_UI_JOURNAL_LOAD_CODES, NORMAL);
+        hex(9, 32, journal->status, 4); text(9, 37, "/", NORMAL); hex(9, 39, journal->detail, 4);
+        text(10, 4, RB_UI_JOURNAL_COPY_CODES, NORMAL);
+        hex(10, 32, journal->journal.status, 4); text(10, 37, "/", NORMAL);
+        hex(10, 39, journal->journal.copies[0], 4); text(10, 44, "/", NORMAL);
+        hex(10, 46, journal->journal.copies[1], 4);
+        if (!journal->status && !journal->journal.status) {
+            text(12, 4, RB_UI_JOURNAL_SEQUENCE, NORMAL); hex(12, 32, journal->journal.record.sequence, 8);
+            text(13, 4, RB_UI_JOURNAL_PHASE, NORMAL);
+            hex(13, 32, journal->journal.record.phase, 4); text(13, 37, "/", NORMAL);
+            text(13, 39, journal->journal.source ? "B" : "A", NORMAL);
+            text(14, 4, RB_UI_JOURNAL_CRCS, NORMAL);
+            hex(14, 32, journal->journal.record.before_crc, 8); text(14, 41, "/", NORMAL);
+            hex(14, 43, journal->journal.record.after_crc, 8);
+            text(15, 4, RB_UI_VIS_CHANGED, NORMAL); hex(15, 32, journal->journal.record.changed, 2);
+        }
+        text(17, 4, RB_UI_LBA_HEX, NORMAL); hex(17, 32, journal->error_lba, 8);
+        text(19, 4, RB_UI_JOURNAL_HELP, NORMAL);
+        text(20, 4, RB_UI_NO_CHANGES, NORMAL);
     } else {
         text(5, 4, labels[2], TITLE);
         text(8, 4, RB_UI_RECOVERY_MISSING, NORMAL);
@@ -448,6 +486,7 @@ void __cdecl rb_menu_run(void)
     rb_u16 probe, volume_index = RB_MENU_NONE;
     rb_u16 config_index = 0;
     rb_admin_audit audit;
+    rb_journal_diagnosis journal;
 #ifdef RB_HANDOFF_TEST
     rb_u16 handoff_status = 0, handoff_detail = 0, profile_status = 0;
 #endif
@@ -456,7 +495,7 @@ void __cdecl rb_menu_run(void)
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit, &journal
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail, profile_status
 #endif
@@ -472,7 +511,7 @@ void __cdecl rb_menu_run(void)
             rb_idle();
             continue;
         }
-        rescan = 0; probe = 0; verify_state = 0;
+        rescan = 0; probe = 0; verify_state = 0; action = RB_MENU_NONE;
         if (view == 0) {
             action = rb_menu_step(&state, key, now);
             if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
@@ -538,6 +577,20 @@ void __cdecl rb_menu_run(void)
             debug_text(" cluster="); debug_hex(audit.error_cluster); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
+        } else if ((view == 3 || view == 11) && (key & 0xFFU) == 13U && action == RB_MENU_NONE) {
+            view = 11;
+            debug_text("RB JOURNAL BEGIN\r\n");
+            rb_journal_load(&journal, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436),
+                rb_boot.io_mode == 1 ? 1 : 2,
+                rb_boot.io_mode == 1 ? 0 : (rb_u16)snapshot.heads,
+                rb_boot.io_mode == 1 ? 0 : (rb_u16)snapshot.sectors_per_track);
+            debug_text("RB JOURNAL load="); debug_hex(journal.status);
+            debug_text(" detail="); debug_hex(journal.detail);
+            debug_text(" status="); debug_hex(journal.journal.status);
+            debug_text(" copies="); debug_hex(journal.journal.copies[0]); debug_hex(journal.journal.copies[1]);
+            debug_text(" observation="); debug_hex(journal.journal.observation); debug_text("\r\n");
         } else if ((view == 6 || view == 7 || view == 8) && config.status == 0 && config.config.count
                 && ((key >> 8) == 0x4BU || (key >> 8) == 0x4DU)) {
             config_index = (key >> 8) == 0x4BU
@@ -601,7 +654,7 @@ void __cdecl rb_menu_run(void)
             debug_text(" index="); debug_hex(config_index);
             debug_text(" changed="); debug_hex(visibility.changed); debug_text("\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit, &journal
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail, profile_status
 #endif

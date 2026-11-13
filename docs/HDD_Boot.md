@@ -43,9 +43,9 @@ make hdd-test
 | --- | --- |
 | `make hdd` | Englische Bootdateien und neue Testimages unter `build/hdd/` |
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett unter `build/hdd-de/` |
-| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 3.186 UI-Zustände einschließlich T07 |
+| `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 3.681 UI-Zustände einschließlich T07 |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild, 102 Bootfälle und alle 3.186 UI-Zustände in QEMU |
+| `make hdd-test` | Wiederholungsbuild, 104 Bootfälle und alle 3.681 UI-Zustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler und Blättern prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Headerprüfung und Bedienung prüfen |
@@ -311,11 +311,11 @@ Earlier checks used QEMU 8.2.2/SeaBIOS. The F7/F9/F10 increments use QEMU
 10.0.13/SeaBIOS locally with `pc-i440fx-8.2`, CPU `486`, 16 MiB RAM;
 CI records its own emulator and ROM versions:
 
-- 130 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+- 134 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
   unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 102 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 104 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -343,8 +343,8 @@ CI records its own emulator and ROM versions:
   Zwei weitere prüfen 114 Bedingungen für FAT-Header und 32-Bit-Arithmetik.
   Zwei weitere prüfen 29 Bedingungen der Übergabevorbereitung.
   Further pairs verify 84 configuration, 86 installation-state and
-  52 visibility, 60 checked-profile, 72 allocation-audit and
-  126 transaction-journal assertions.
+  52 visibility, 60 checked-profile, 80 allocation-audit and
+  126 transaction-journal and 42 journal-reader assertions.
   Zusätzlich werden die normalen Images in fünf Menükampagnen bedient:
   insgesamt 75 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
 - 32 Scanner-Kampagnen prüfen weitere 204 Zustände: Strukturfehler, begrenzte
@@ -359,7 +359,8 @@ CI records its own emulator and ROM versions:
   Zusätzlich prüfen 63 Konfigurationskampagnen je Sprache 678 F5-Zustände.
   F6 adds 65 campaigns and 650 states per language; F7 adds 37 campaigns and 370 states.
   F9 adds 37 campaigns and 336 states; F10 adds 37 campaigns and 370 states
-  per language, giving 6,372 states in total.
+  per language. Journal diagnosis adds 45 campaigns and 495 states per language,
+  giving 7,362 states in total.
 
 Das eigene Option-ROM `tests/bios/int13_rom.asm` protokolliert INT-13h-Aufrufe
 und kann EDD als nicht vorhanden melden. Der MBR selbst bleibt in diesen
