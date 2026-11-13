@@ -34,7 +34,8 @@ from merged PR #14 was confirmed under VirtualBox on 13 November 2026.
 The supplied screenshots show the matching English preview with its F9 hint
 and `RB HANDOFF PASS` at the owned test VBR. Reboot behavior, a BIOS version,
 physical hardware and original-OS compatibility were not established by this
-report. The next manual check is [F10 allocation](AdminAllocation.md).
+report. The subsequent [F10 allocation](AdminAllocation.md) check was
+confirmed with `0000 / 0000`, without additional coverage details.
 
 ## Fresh preparation
 

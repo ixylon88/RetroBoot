@@ -10,6 +10,7 @@ import sys
 import zlib
 
 try:
+    from .journal_records import model_header as journal_model_header
     from .audit_fixtures import AUDIT_CASES, mutate_audit_fixture
     from .state_records import encode as encode_state, model_header as state_model_header
     from .config_fixtures import CONFIG_CASES, mutate_config_fixture
@@ -25,6 +26,7 @@ try:
     from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
     from .ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
 except ImportError:
+    from journal_records import model_header as journal_model_header
     from audit_fixtures import AUDIT_CASES, mutate_audit_fixture
     from state_records import encode as encode_state, model_header as state_model_header
     from config_fixtures import CONFIG_CASES, mutate_config_fixture
@@ -87,6 +89,7 @@ CASES = {
     "hdd-visibility-model": "RB HDD PASS",
     "hdd-profile-model": "RB HDD PASS",
     "hdd-audit-model": "RB HDD PASS",
+    "hdd-journal-model": "RB HDD PASS",
 }
 
 
@@ -314,6 +317,7 @@ def build_stage2(destination, nasm, wcc, wlink):
             raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
 
     (destination / "config_fixture.h").write_text(model_header(), encoding="ascii")
+    (destination / "journal_fixture.h").write_text(journal_model_header(), encoding="ascii")
     (destination / "handoff_fixture.inc").write_text(assembler_header(), encoding="ascii")
     test_vbr = destination / "handoff-vbr.bin"
     run(nasm, "-Werror", "-f", "bin", "-I", "./", "-I", str(destination) + "/",
@@ -339,7 +343,8 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
                          ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
-                         ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c")):
+                         ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
+                         ("journal", "core/journal.c"), ("journal-selftest", "tests/journal/model.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
@@ -362,6 +367,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "visibility-model": ["-DRB_TEST=1", "-DRB_VISIBILITY_MODEL_TEST=1"],
                 "profile-model": ["-DRB_TEST=1", "-DRB_PROFILE_MODEL_TEST=1"],
                 "audit-model": ["-DRB_TEST=1", "-DRB_AUDIT_MODEL_TEST=1"],
+                "journal-model": ["-DRB_TEST=1", "-DRB_JOURNAL_MODEL_TEST=1"],
                 "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
@@ -388,6 +394,9 @@ def build_stage2(destination, nasm, wcc, wlink):
         linked_objects.append(destination / "admin-audit.obj")
         if variant == "audit-model":
             linked_objects.append(destination / "audit-selftest.obj")
+        # Journal decoding is a native model first; no runtime menu/IO wiring.
+        if variant == "journal-model":
+            linked_objects.extend([destination / "journal.obj", destination / "journal-selftest.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")
         if variant == "profile-model":
@@ -501,6 +510,8 @@ def build(output, language="en"):
                 variant = "state-model"
             if case == "hdd-audit-model":
                 variant = "audit-model"
+            if case == "hdd-journal-model":
+                variant = "journal-model"
             if case == "hdd-profile-model":
                 variant = "profile-model"
             if case == "hdd-visibility-model":

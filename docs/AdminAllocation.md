@@ -41,9 +41,10 @@ explain the remaining difference. File sizes and counts change as code grows.
 The German handoff Stage 2 needs one more cluster than the English handoff.
 F10 does not validate record contents; F5/F6 retain their separate record checks.
 
-Manual F10 coverage remains pending. English F7 followed by F9 was confirmed
+The F10 status `0000 / 0000` was manually confirmed on 13 November 2026.
+No additional image/language, machine/BIOS or key-path details were supplied. English F7 followed by F9 was confirmed
 under VirtualBox on 13 November 2026, including the matching preview and
-`RB HANDOFF PASS`. That earlier result does not cover F10.
+`RB HANDOFF PASS`. The separate F10 report confirms its status result.
 
 ## Supported management format
 

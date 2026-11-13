@@ -4,86 +4,88 @@ Updated: 13 November 2026.
 
 ## Saved baseline
 
-PR #14 (checked-profile test handoff) is merged into `historical` at
-`0b9054bd25746d6f183654601ee75759802269cf`. Its host, ABI and HDD CI passed.
-English F7 followed by F9 was manually confirmed under VirtualBox on
-13 November 2026. The supplied screenshots show the matching English preview,
-`0000 / 0000 / 0000`, P1 `06 / 80`, P4 `05 / 00`, visible/active masks
-`01 / 01`, changed mask `00`, the F9 hint, and then `RB HANDOFF PASS` with
-`Test VBR reached. Reboot to return.` No BIOS version, reboot observation,
-physical-hardware coverage or original-OS start was established by that report.
+PR #15 (F10 management-volume allocation audit) is merged into `historical`
+at `2da5c3c284bb9f031af60718ef883534d3a52fc9`. Its PR host, ABI and HDD CI
+passed. The published artifact was downloaded and verified: 86 image/binary/
+ROM components matched local builds, all 6,372 UI-state reports were present,
+and 740 F10 VGA/RAM states were checked. The merge tree matched the tested tree.
 
-Earlier manual reports cover the ABI floppy, HDD/C startup, menu, partition
-scanner, English/German builds, F3, the T07 test-VBR handoff, F5 and F6.
-German F7 screenshots from PR #13 confirmed both expected normal/handoff
-views under VirtualBox on 12 November 2026. These reports do not establish
-coverage beyond their stated environments and increments.
+The F10 status `0000 / 0000` was manually confirmed on 13 November 2026.
+No additional image/language, machine/BIOS, repeated-read or navigation details
+were supplied. The report confirms the allocation status without broadening
+coverage to other keys or environments.
 
-## Current increment: management-volume allocation
+English F7 followed by F9 from PR #14 was confirmed under VirtualBox on
+13 November 2026: matching preview, `0000 / 0000 / 0000`, unchanged masks,
+the F9 hint, and `RB HANDOFF PASS`. That report established no BIOS version,
+reboot observation, physical-hardware coverage or original-OS start. Earlier
+reports cover the ABI floppy, HDD/C startup, menu, partition scanner,
+English/German builds, F3, isolated T07, F5/F6 and German F7. Their coverage
+remains limited to the reported results.
 
-Branch `codex/admin-allocation-audit` adds F10 to both normal and handoff images.
-It validates the hidden management-volume binding and the six current root
-files, walks their exact bounded chains, rejects shared clusters, binds the
-contiguous bootstrap to its VBR pointer, and compares both full FATs. Unowned
-allocated data clusters and successors changing during the final sweep block
-the check. Private scratch and incomplete file/count results are cleared on
-failure. The [allocation guide](AdminAllocation.md) records supported formats,
-codes, controls, limits and the pending manual check.
+## Current increment: transaction-journal model
 
-F10 rereads; Esc returns to the menu; F8 opens recovery information and F10
-also works there. Enter, F4 and F9 are inert on the audit page. The existing
-F7-to-F9 path still executes only the exact owned T07 test VBR after its own
-fresh record/target checks. F10 adds no disk writes, installer transitions,
-journal, countdown or original-OS starts and grants no persistent write lease.
+Branch `codex/transaction-journal-model` adds a pure C16 decoder, conservative
+A/B pair selection and current-MBR observation for three-sector `RBTXN`
+records. Each record contains a header plus complete old/new MBR snapshots,
+with CRC32 protection of all bytes, sequence, disk/layout/media identity and
+BIOS geometry. Only supported primary type/active bytes may change.
 
-Released diagnostic roots now contain the canonical six-file set. Explicit
-`hdd-*` loader fixtures retain the extra directory/LFN entries used to prove
-bootstrap skipping. Unknown live entries block the closed allocation audit;
-future journal/export/backup files need explicit ownership support.
+A prepared record can follow the immediately preceding empty/committed record
+only when the old/new snapshots form an exact bytewise chain. A completion
+must match the prepared transaction's sequence and both complete snapshots.
+Corrupt/missing copies, contradictory pairs or skipped/reset sequences never
+select an older fallback as authority. Current-MBR observations distinguish
+baseline, prepared/old, prepared/new, committed/new and divergence. These are
+byte comparisons and record claims, not proof of write history or durability.
+
+The [journal guide](TransactionJournal.md) defines the binary format, trust
+boundary, pair rules and limitations. The decoder has no disk reader/writer
+callback, static scratch or retained pointers. It is linked only into the native
+model test variant. The six-file F10 format, normal/handoff binaries and all
+pre-existing generated image/binary components remain byte-identical to PR #15.
+No new manual VM test is needed for this increment.
 
 Verification scope:
 
-- 126 host checks plus the reference layout report.
-- Two byte-identical builds per language in CI; unchanged 48 KiB Stage 2
-  and 8 KiB stack budgets. Normal Stage 2 is 32,496 bytes (EN) and 33,060
-  bytes (DE); the handoff variants are 36,856 bytes (EN) and 37,482 bytes (DE).
-- 100 boot cases, including 45 identical EDD/CHS sector-sequence pairs.
-- Native C16 assertions: 26 menu/timer, 51 partition parser, 114 volume/
-  arithmetic, 29 handoff, 84 configuration, 86 installation-state,
-  52 visibility, 60 checked-profile and 72 allocation checks (`A=0048`).
-- Per language: 75 menu, 204 scanner, 318 volume, 185 handoff, 678
-  configuration, 650 installation-state, 370 visibility, 336 checked-profile
-  and 370 allocation states; 3,186 per language and 6,372 total.
-- F10's 37 campaigns per language cover metadata faults, full FAT padding,
-  shared chains, orphan allocation, unsupported roots, wrong sizes/bootstrap
-  binding, real I/O failures/retries, fresh repeated checks, recovery access,
-  inert start keys, VGA/RAM/BSS/stack, exact metadata reads, unchanged handoff
-  memory, unchanged source images and zero block writes.
+- 130 host tests plus the reference layout report. Four new tests cover literal
+  journal fields/CRCs, the host-to-C16 vector, every-byte checksum coverage,
+  fixture transitions and rejected inputs.
+- 126 native journal assertions (`T=007E`, `RB JOURNAL MODEL PASS`) through
+  EDD and CHS, including every observation, both slot orders, geometry/identity
+  changes, protected MBR bytes, all six torn three-sector replacement combinations,
+  sequence exhaustion and stale-result cleanup.
+- 102 boot cases with 46 identical EDD/CHS sector-sequence pairs. Existing
+  native models retain 26 menu, 51 partition, 114 volume/arithmetic, 29 handoff,
+  84 configuration, 86 state, 52 visibility, 60 profile and 72 allocation checks.
+- Both languages build twice in CI. The unchanged UI suites cover 3,186 states
+  per language, 6,372 total, with RAM/BSS/stack checks and zero writes.
+- Normal Stage 2 remains 32,496 bytes EN / 33,060 bytes DE; handoff remains
+  36,856 / 37,482 bytes. Journal-model binaries are 43,070 / 43,634 bytes,
+  within the existing 48 KiB file and 8 KiB stack budgets.
 
-Local emulator checks use QEMU 10.0.13/SeaBIOS with `pc-i440fx-8.2`, CPU
-`486` and 16 MiB RAM. CI records its own versions and ROM hashes. English
-remains the default; `RB_LANGUAGE=de` selects CP437 German including umlauts
-and `ß`, with separate outputs. Repository prose remains impersonal and
-contains no private personal details. Specification v0.2 is unchanged.
-CI results and downloadable artifacts belong to this branch's PR; only the
-project's reviewed merge updates `historical`.
+Local native tests use QEMU 10.0.13/SeaBIOS with `pc-i440fx-8.2`, CPU `486`
+and 16 MiB RAM; CI records its own versions and ROM hashes. English remains
+the default; German uses the same logic and CP437 including `ÄÖÜäöüß`.
+Repository prose remains impersonal and excludes private details. The frozen
+specification v0.2 and archives are unchanged. PR checks/artifacts provide the
+current branch's validation; merge remains part of project review.
 
 ## Open work
 
-1. Review and manually check F10 on current images: green consistency message,
-   `0000 / 0000`, six-file table, repeat read, Esc and recovery access.
-   The [guide](AdminAllocation.md) contains exact current cluster counts.
-2. Extend ownership support deliberately for the journal and recovery files;
-   design recovery-backed transactions, fresh identity allocation and controlled
-   installer transitions. This audit observes current metadata and cannot alone
-   authorize later writes or repair an arbitrary FAT filesystem.
-3. Prepare a controlled original-OS test with separate start authorization
-   and compatibility evidence. The exact T07 binding still authorizes only
-   the owned probe, even when independent records and visibility match.
+1. Add explicit eight-file allocation support for `RBTXN.A/B`, each 1,536 bytes,
+   then a bounded reader and read-only F8 journal diagnosis. The current F10
+   auditor intentionally rejects those files until ownership support is added.
+2. Establish the independent external rescue path required by specification
+   v0.2 before the first write tests. Then implement fresh ownership/identity
+   checks and verified prepare/MBR/completion writes with interruption tests
+   after every step. This model is not a writer or a recovery authorization.
+3. Add fresh installation identities and controlled installer state transitions.
+   Original-OS starts still need separate authorization and compatibility evidence;
+   F9 remains bound to the exact owned T07 test sector.
 
 ## Resuming after a pause
 
-Start with current GitHub branches/PRs, repository code and the open items
-above. Interrupted builds/tests must restart; transient emulator state is not
-a saved checkpoint. Completed increments are committed and proposed as PRs,
-which remain open for project review and merge.
+Start with current GitHub branches/PRs, repository code and the open items above.
+Interrupted tests restart; transient emulator state is not a saved checkpoint.
+Completed increments are committed and proposed as PRs for project review.

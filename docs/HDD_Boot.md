@@ -45,7 +45,7 @@ make hdd-test
 | `make hdd RB_LANGUAGE=de` | Deutsches Menü mit Umlauten und Eszett unter `build/hdd-de/` |
 | `make hdd-ui-test RB_LANGUAGE=de` | Deutscher Wiederholungsbuild und alle 3.186 UI-Zustände einschließlich T07 |
 | `make hdd-check` | Zwei getrennte Builds; Vergleich aller Binärdateien, Images und Manifeste |
-| `make hdd-test` | Wiederholungsbuild, 100 Bootfälle und alle 3.186 UI-Zustände in QEMU |
+| `make hdd-test` | Wiederholungsbuild, 102 Bootfälle und alle 3.186 UI-Zustände in QEMU |
 | `make menu-test` | Einmal bauen und gezielt die Menübedienung prüfen |
 | `make scan-test` | Einmal bauen und gezielt Scannerfehler und Blättern prüfen |
 | `make volume-test` | Einmal bauen und gezielt FAT-Headerprüfung und Bedienung prüfen |
@@ -311,11 +311,11 @@ Earlier checks used QEMU 8.2.2/SeaBIOS. The F7/F9/F10 increments use QEMU
 10.0.13/SeaBIOS locally with `pc-i440fx-8.2`, CPU `486`, 16 MiB RAM;
 CI records its own emulator and ROM versions:
 
-- 126 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
+- 130 Hosttests, darunter MBR-Erhalt, EBR-Adressierung, VGA-Dekodierung und
   unabhängiges Zusammensetzen der Datei über ihre FAT-Kette bis 48 KiB.
 - Bytegleiche Binärdateien, vollständige Image-SHA-256-Werte und Manifeste
   aus zwei getrennten Builds.
-- 100 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
+- 102 Bootläufe: kompakte und große positive Images, beschädigte VBR- und
   Bootstrap-Prüfsummen, ungültige Bereiche/BPBs, fehlende oder zu große Datei,
   kurze/lange/zyklische FAT-Ketten, freie/defekte/falsche Cluster, abweichende
   FAT-Kopien, Header- und CRC-Fehler einschließlich des letzten Fragments.
@@ -343,7 +343,8 @@ CI records its own emulator and ROM versions:
   Zwei weitere prüfen 114 Bedingungen für FAT-Header und 32-Bit-Arithmetik.
   Zwei weitere prüfen 29 Bedingungen der Übergabevorbereitung.
   Further pairs verify 84 configuration, 86 installation-state and
-  52 visibility, 60 checked-profile and 72 allocation-audit assertions.
+  52 visibility, 60 checked-profile, 72 allocation-audit and
+  126 transaction-journal assertions.
   Zusätzlich werden die normalen Images in fünf Menükampagnen bedient:
   insgesamt 75 VGA-Textseiten mit RAM- und I/O-Nachprüfungen, siehe [Textmenü](Menue.md).
 - 32 Scanner-Kampagnen prüfen weitere 204 Zustände: Strukturfehler, begrenzte

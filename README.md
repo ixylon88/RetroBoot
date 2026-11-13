@@ -32,6 +32,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [F7 current/intended partition preview and manual check](docs/Visibility.md)
 - [F9 checked-profile test handoff and manual check](docs/ProfileTest.md)
 - [F10 management-volume allocation and manual check](docs/AdminAllocation.md)
+- [Transaction-journal format and native observation model](docs/TransactionJournal.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
@@ -92,13 +93,13 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 100 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 102 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile and 370 allocation-audit states, through
 emulated keyboard input with VGA, memory and disk-write checks: 6,372 states
-across both languages. There are 126 host tests.
+across both languages. There are 130 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -125,10 +126,16 @@ under VirtualBox. English F7 followed by [F9](docs/ProfileTest.md) was confirmed
 there on 13 November 2026: matching preview and `RB HANDOFF PASS`.
 No BIOS version, physical-hardware coverage or original-OS start was established.
 
-For the new allocation check, boot either current image and press **F10**.
+For the allocation check, boot either current image and press **F10**.
 The expected result is a green consistency message, `0000 / 0000` and a
 six-file table. F10 rereads; Esc returns. The [allocation guide](docs/AdminAllocation.md)
-records expected counts, limitations and the pending manual check.
+records expected counts and limitations. F10 status `0000 / 0000` was manually
+confirmed on 13 November 2026, without additional coverage details.
+
+The next increment adds a [transaction-journal model](docs/TransactionJournal.md)
+with 126 native assertions for paired records and old/new/current MBR relations.
+It is tested in a dedicated native variant; the standard images remain
+byte-identical, and no new manual VM test is required for this increment.
 
 For the checked-profile test, boot `hdd/retroboot-handoff.img`, press
 **F7**, then **F9**. A fresh record and visibility check must pass before
