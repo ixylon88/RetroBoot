@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Festgelegte Werkzeuge laden, C-/Assembly-Diskette zweimal bauen, drei QEMU-Starts prüfen |
+| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then both rescue builds with 76 boots and 434 UI states total |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -38,6 +38,9 @@ kein bestandener Test.
 Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
+- `retroboot-rescue-diagnostics`: independent FAT12 floppies in `rescue/` and
+  `rescue-de/`, with binaries, manifests and evidence in `rescue-test/` and
+  `rescue-test-de/`. Only the two normal floppy images are published.
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
   VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json`, `volume-results.json`,
@@ -56,6 +59,13 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
+
+The [external rescue campaign](ExternalRescue.md) has 38 boots per language,
+including 31 seven-state UI campaigns and seven terminal model/failure boots.
+Each successful full run writes `rescue-results.json`. Evidence checks exact
+reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
+The existing ABI job shares its toolchain setup with these checks; there is
+no additional runner job. Both host jobs now run 140 tests.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
@@ -139,8 +149,10 @@ Auch die Sprachvarianten aus PR #8 wurden manuell bestätigt; zusätzliche
 Plattformdaten liegen dafür nicht vor. Auch F3 aus PR #9 wurde manuell bestätigt.
 Auch T07 aus PR #10 wurde manuell bestätigt, ohne zusätzliche Plattformdaten.
 The F5 test from merged PR #11 was reported complete, without added coverage details.
-F6 was subsequently confirmed. The new [F7 visibility preview](Visibility.md)
-remains open for manual verification.
+F6 and German/English F7 were subsequently confirmed, as were F9 and the
+F10 status. The PR #17 procedure was reported checked and confirmed without
+additional image/language or platform details. Manual confirmation of the
+new external floppy remains open.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

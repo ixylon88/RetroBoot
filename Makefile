@@ -2,7 +2,7 @@ PYTHON ?= python3
 RB_LANGUAGE ?= en
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test rescue rescue-check rescue-test
 
 all: check
 
@@ -88,3 +88,12 @@ audit-test: hdd
 
 journal-test: hdd
 	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
+
+rescue:
+	$(PYTHON) tools/build_rescue.py --language $(RB_LANGUAGE)
+
+rescue-check:
+	$(PYTHON) tools/build_rescue.py --language $(RB_LANGUAGE) --repeat
+
+rescue-test: rescue-check
+	$(PYTHON) tools/test_rescue.py --language $(RB_LANGUAGE)

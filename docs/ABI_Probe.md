@@ -142,6 +142,10 @@ MBR → Verwaltungs-VBR → FAT16-Bootstrap → Stage-2-Ladeweg. Dessen Prüfsum
 EDD-/CHS-Fallback und C-Einstieg werden separat geprüft; Wiederherstellung
 gehört weiterhin zu einer späteren Stufe.
 
+The separate [FAT12 rescue diagnostic floppy](ExternalRescue.md) is now
+available. It starts independently and reads HDD partition metadata; backup
+binding and restore remain open. The ABI probe itself is unchanged.
+
 ## Nachweise und Artefakte
 
 `make boot-test` prüft nacheinander:

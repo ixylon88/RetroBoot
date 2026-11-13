@@ -29,6 +29,10 @@ jobs:
         run: make toolchain
       - name: Reproduce binaries and boot positive/negative fixtures
         run: make boot-test
+      - name: Reproduce and test independent English/German rescue floppies
+        run: |
+          make rescue-test RB_LANGUAGE=en
+          make rescue-test RB_LANGUAGE=de
       - name: Upload probe and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -44,3 +48,35 @@ jobs:
             build/abi/boot-results.json
             build/abi/*.log
             build/abi/*.map
+      - name: Upload rescue floppies and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-rescue-diagnostics
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            build/rescue/retroboot-rescue.img
+            build/rescue-de/retroboot-rescue.img
+            build/rescue/*.bin
+            build/rescue-de/*.bin
+            build/rescue/*.map
+            build/rescue-de/*.map
+            build/rescue/*.rom
+            build/rescue-de/*.rom
+            build/rescue/manifest.json
+            build/rescue-de/manifest.json
+            build/rescue-test/*.json
+            build/rescue-test-de/*.json
+            build/rescue-test/*.log
+            build/rescue-test-de/*.log
+            build/rescue-test/*.trace
+            build/rescue-test-de/*.trace
+            build/rescue-test/*.conf
+            build/rescue-test-de/*.conf
+            build/rescue-test/*.txt
+            build/rescue-test-de/*.txt
+            build/rescue-test/*.png
+            build/rescue-test-de/*.png
+            build/rescue-test/*.bin
+            build/rescue-test-de/*.bin

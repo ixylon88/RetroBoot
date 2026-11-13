@@ -1,6 +1,6 @@
 # Entwicklung – Hostprüfungen und erste Bootlader
 
-Updated: 11 November 2026.
+Updated: 13 November 2026.
 
 Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
 Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
@@ -77,6 +77,10 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make visibility-test` | Build once and verify F7 current/intended primary-partition previews |
 | `make state-test` | Build once and verify F6 record bindings, phases and the current VBR |
 | `make handoff-test` | Einmal bauen und die Übergabe an den Test-VBR einschließlich Abweisungen prüfen |
+| `make journal-test` | Build once and check fresh F8/Enter journal diagnosis |
+| `make rescue` | Build the independent FAT12 diagnostic floppy; `RB_LANGUAGE=de` selects German |
+| `make rescue-check` | Repeat the rescue build and compare binaries, images and manifests |
+| `make rescue-test` | Repeat build, 38 boots and 217 VGA/keyboard states for the selected language |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -135,7 +139,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **134 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **140 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -251,10 +255,10 @@ zusätzlich zu prüfen; die Emulatornachweise ersetzen diese Tests nicht.
 
 Die nächsten Schritte sind:
 
-1. Manually verify the [F7 primary-table preview](Visibility.md), then prepare
-   controlled original-OS validation and recovery-backed writes. A matching
-   preview, declared profile status or fixed T07 binding does not authorize
-   an OS start.
+1. Manually verify the [independent rescue floppy](ExternalRescue.md), then
+   complete backup/media binding and targeted external restore before write
+   tests. F7/F9 and the subsequent PR #17 procedure were reported confirmed;
+   no original-OS authorization follows from these observations.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.
 

@@ -4,7 +4,7 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only profile, state, visibility and allocation checks.**
+**Current stage: read-only HDD checks and independent rescue-floppy diagnosis.**
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
@@ -22,6 +22,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Current specification v0.2](docs/spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md)
 - [Build commands, verification and next steps](docs/Entwicklung.md)
 - [BIOS/ABI test floppy](docs/ABI_Probe.md)
+- [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
 - [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
@@ -77,6 +78,28 @@ twice and verifies one successful and two deliberately failing QEMU boots.
 The **retroboot-abi-probe** CI artifact includes the image and evidence.
 It is not an installation or recovery disk.
 
+## Independent diagnostic floppy
+
+```sh
+make rescue-test RB_LANGUAGE=en
+make rescue-test RB_LANGUAGE=de
+```
+
+The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI probe** workflow
+contains `rescue/retroboot-rescue.img` and `rescue-de/retroboot-rescue.img`.
+Both are FAT12 floppies with an independent loader and C startup. They boot
+without a working HDD MBR, FAT16 bootstrap or Stage 2. Enter probes the first
+HDD and reads its MBR/EBRs; Esc clears the diagnosis. There is no write,
+restore or OS-start action. Media identity and backup binding remain open.
+
+For the next manual test, attach either image as floppy A: in the existing
+BIOS VM, boot floppy first and press **Enter**. With the existing normal HDD
+fixture, expect `0000 / 0000` and boot/target `0000 / 0080`. The HDD image
+needs no replacement or VDI conversion for this increment. The
+[rescue guide](docs/ExternalRescue.md) includes the no-HDD test and limitations.
+Automated rescue checks add 76 boots and 434 VGA/keyboard states across both
+languages. The original ABI floppy remains unchanged.
+
 ## HDD builds and tests
 
 ```sh
@@ -99,7 +122,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 134 host tests.
+across both languages. There are 140 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -133,11 +156,12 @@ eight-file table. F10 rereads; Esc returns. The [allocation guide](docs/AdminAll
 records expected counts and limitations. F10 status `0000 / 0000` was manually
 confirmed on 13 November 2026, without additional coverage details.
 
-The [journal diagnosis](docs/JournalDiagnosis.md) adds the next manual check:
+The [journal diagnosis](docs/JournalDiagnosis.md) is available through
 **F8, then Enter**. On the standard EDD route, expect a green empty-baseline
 message, `0000 / 0000`, journal codes `0000 / 0000 / 0000`, sequence
 `00000001`, phase/copy `0000 / A` and equal old/new MBR CRCs. Enter rereads;
-Esc returns. Both release images change in this increment. The linked guide
+Esc returns. The PR #17 manual procedure was reported checked and confirmed,
+without additional image/language or platform details. The linked guide
 explains the intentionally rejected geometry on a forced CHS boot and the
 matching CHS fixtures used in automated tests.
 
@@ -160,7 +184,7 @@ describes the contract and why this result does not yet authorize an OS start.
 | `ui/` | UTF-8 menu catalogs; converted to CP437 during the build |
 | `tools/`, `tests/` | Host tools, native builds, emulator checks and test fixtures |
 | `tests/abi/`, `include/` | BIOS probe, C interfaces and memory contracts |
-| `boot/` | MBR, FAT16 VBR and bootstrap |
+| `boot/` | MBR, FAT16 VBR/bootstrap and independent FAT12 floppy loader |
 | `core/` | Stage 2 startup, C entry, menu, partition/header/configuration parsers and linker script |
 | `bios/` | VGA, keyboard, BIOS ticks and sector-reader C interface |
 | `runtime/` | ABI/BIOS helpers, HDD unsigned 32-bit arithmetic and linker end markers |
