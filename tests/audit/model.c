@@ -85,8 +85,9 @@ static void setup(void)
     entry(20, "RBSTG2  BIN", 20, 5000);
     entry(21, "RBCFG   A  ", 2800, 512); entry(22, "RBCFG   B  ", 2900, 512);
     entry(23, "RBSTATE A  ", 3000, 512); entry(24, "RBSTATE B  ", 3100, 512);
+    entry(25, "RBTXN   A  ", 3200, 1536); entry(26, "RBTXN   B  ", 3300, 1536);
     fat(2, 0xFFFF); fat(20, 30); fat(30, 40); fat(40, 0xFFFF);
-    fat(2800, 0xFFFF); fat(2900, 0xFFFF); fat(3000, 0xFFFF); fat(3100, 0xFFFF);
+    fat(2800, 0xFFFF); fat(2900, 0xFFFF); fat(3000, 0xFFFF); fat(3100, 0xFFFF); fat(3200, 0xFFFF); fat(3300, 0xFFFF);
 }
 static rb_u16 cleared(void)
 {
@@ -94,6 +95,10 @@ static rb_u16 cleared(void)
     const rb_u8 *p = (const rb_u8 *)result.files;
     if (result.total_clusters || result.used_clusters || result.free_clusters) { return 0; }
     for (i = 0; i < sizeof(result.files); ++i) { if (p[i]) { return 0; } }
+    p = (const rb_u8 *)&result.scan;
+    for (i = 0; i < sizeof(result.scan); ++i) { if (p[i]) { return 0; } }
+    p = (const rb_u8 *)result.journal_lba;
+    for (i = 0; i < sizeof(result.journal_lba); ++i) { if (p[i]) { return 0; } }
     return 1;
 }
 static rb_u16 report(rb_u16 n)
@@ -111,16 +116,16 @@ rb_u16 __cdecl rb_audit_selftest(void)
 {
     rb_u16 n = 0, i;
     setup(); CHECK(AUDIT() == 0);
-    CHECK(result.total_clusters == 32043 && result.used_clusters == 8 && result.free_clusters == 32035);
+    CHECK(result.total_clusters == 32043 && result.used_clusters == 10 && result.free_clusters == 32033);
     CHECK(result.files[1].bytes == 5000 && result.files[1].clusters == 3 && result.files[1].first_lba == 483);
     CHECK(reads == 265 && mbr_reads == 1 && vbr_reads == 1 && !unexpected);
     setup(); ebr[450] = 0x1E; CHECK(AUDIT() == 0);
     setup(); entry(1, "RETROBOOT  ", 0, 0); root[43] = 8; CHECK(AUDIT() == 0);
     setup(); root[683] = 0x27; CHECK(AUDIT() == 0);
-    setup(); full_root = 1; for (i = 25; i < 32; ++i) { root[i * 32] = 0xE5; }
+    setup(); full_root = 1; for (i = 27; i < 32; ++i) { root[i * 32] = 0xE5; }
     CHECK(AUDIT() == 0 && reads == 295);
     setup(); full_root = last_duplicate = 1;
-    for (i = 25; i < 32; ++i) { root[i * 32] = 0xE5; }
+    for (i = 27; i < 32; ++i) { root[i * 32] = 0xE5; }
     REJECT(RB_AUDIT_ROOT); CHECK(result.detail == 2 && result.error_lba == 410);
     setup(); mbr[510] = 0; REJECT(RB_AUDIT_SCAN); CHECK(reads == 1);
     setup(); mbr[436] ^= 1; REJECT(RB_AUDIT_ADMIN); CHECK(!vbr_reads);
@@ -165,14 +170,23 @@ rb_u16 __cdecl rb_audit_selftest(void)
     setup(); CHECK(AUDIT() == 0); mbr_reads = vbr_reads = reads = fat0_reads = 0;
     root[768] = 0xE5; REJECT(RB_AUDIT_ROOT);
 
-    /* Exact maximum: 16 bootstrap, 96 Stage 2 and four record clusters. */
+    /* Exact maximum: 16 bootstrap, 96 Stage 2, four identity records and six journal clusters. */
     setup(); vbr[13] = 1; put32(vbr + 32, 5285); put32(ebr + 458, 5285); put32(mbr + 506, 5348);
     put16(vbr + 70, 16); seal(); put32(root + 28, 8192); put32(root + 668, 49152UL);
     value_count = 0;
     for (i = 2; i < 18; ++i) { fat(i, i == 17 ? 0xFFFF : i + 1); }
     for (i = 20; i < 116; ++i) { fat(i, i == 115 ? 0xFFFF : i + 1); }
-    fat(2800, 0xFFFF); fat(2900, 0xFFFF); fat(3000, 0xFFFF); fat(3100, 0xFFFF);
-    CHECK(AUDIT() == 0 && result.total_clusters == 5000 && result.used_clusters == 116 && result.free_clusters == 4884);
+    fat(2800, 0xFFFF); fat(2900, 0xFFFF); fat(3000, 0xFFFF); fat(3100, 0xFFFF); fat(3200, 0xFFFF); fat(3300, 0xFFFF);
+    fat(3200, 3202); fat(3202, 3204); fat(3204, 0xFFFF);
+    fat(3300, 3302); fat(3302, 3304); fat(3304, 0xFFFF);
+    CHECK(AUDIT() == 0 && result.total_clusters == 5000 && result.used_clusters == 122 && result.free_clusters == 4878);
+    CHECK(result.journal_lba[0][0] == 3609 && result.journal_lba[0][1] == 3611 && result.journal_lba[0][2] == 3613);
+    CHECK(result.journal_lba[1][0] == 3709 && result.journal_lba[1][1] == 3711 && result.journal_lba[1][2] == 3713);
     CHECK(result.files[0].clusters == 16 && result.files[1].clusters == 96);
+    setup(); CHECK(AUDIT() == 0 && result.scan.count == 5 && result.journal_lba[0][2] == 13205);
+    setup(); root[800] = 0xE5; REJECT(RB_AUDIT_ROOT); CHECK(result.error_file == 7);
+    setup(); put32(root + 860, 512); REJECT(RB_AUDIT_ROOT);
+    setup(); put16(root + 858, 3200); REJECT(RB_AUDIT_SHARED);
+    setup(); fat(3200, 3300); REJECT(RB_AUDIT_CHAIN);
     report(n); return 0;
 }

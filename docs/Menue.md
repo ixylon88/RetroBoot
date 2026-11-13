@@ -25,9 +25,9 @@ Die [Sprachanleitung](Languages.md) beschreibt Kodierung und Ausgabepfade.
 | F7 | Current/intended primary types and active flags; no writes or target execution |
 | F6 | Independent installation-state records and current-VBR cross-check; no target execution |
 | F5 | Konfigurationskopien und gespeicherte Profilbeschreibungen frisch prüfen und anzeigen |
-| F8 | Von jeder Seite zu den Recovery-Hinweisen wechseln |
+| F8 | Open Recovery; Enter starts the read-only journal diagnosis |
 | F9 | From F7 in the handoff image only: fresh checks and execution of the exact owned T07 sector |
-| F10 | Fresh allocation audit of the six current management files and both full FAT copies |
+| F10 | Fresh allocation audit of the eight current management files and both full FAT copies |
 
 Andere Tasten starten keine Aktion. Auf einer Informationsseite verändern
 Pfeile hoch/herunter und Enter die Hauptmenüauswahl nicht. Die Hinweise nennen die derzeit
@@ -37,8 +37,8 @@ verfügbare Funktion; F8 bietet noch keine Wiederherstellung an.
 | --- | --- |
 | Systeminformationen | BIOS-Laufwerk, tatsächlich gewählter Leseweg EDD/CHS, erreichbare Sektorzahl, Disk-ID und gegebenenfalls BIOS-CHS-Geometrie |
 | Partitionen | Vier primäre Slots und bis zu 16 logische Einträge mit Flag, Typ, Start-LBA, Sektorzahl und Tabellen-LBA; Werte außer den Eintragsnummern sind hexadezimal |
-| Recovery-Hinweise | Hinweis auf die noch fehlende Wiederherstellung und die verfügbaren Informationsseiten |
-| Management allocation (F10) | Six file sizes, cluster counts and first LBAs; total/used/free counts on success, error location on failure |
+| Recovery-Hinweise | Read-only journal diagnosis via Enter; repair remains unavailable |
+| Management allocation (F10) | Eight file sizes, cluster counts and first LBAs; total/used/free counts on success, error location on failure |
 | Volume-Bootsektor (F3) | Partition, Typ, VBR-LBA und Prüfergebnis; nur bei Erfolg FAT-Typ, Clustergröße, Sektoren, Clusterzahl und Datenanfang |
 
 Die Systeminformationen stammen weiterhin aus dem Bootvorgang. Die
@@ -129,7 +129,7 @@ make hdd-test
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-`make hdd-test` baut zweimal, prüft 102 positive/negative HDD-Startfälle und
+`make hdd-test` baut zweimal, prüft 104 positive/negative HDD-Startfälle und
 führt anschließend Menü-, Scanner-, Volume- und Übergabeprüfungen aus. `make menu-test` baut einmal und
 prüft gezielt das Menü. Bereits gebaute Images lassen sich ohne Neubau prüfen:
 
@@ -159,8 +159,8 @@ ausgewählte echte QEMU-Screenshots und I/O-Traces daneben. Diese Nachweise
 kommen zusammen mit dem kompakten Image ins CI-Artefakt. Die zusätzlichen
 Hosttests prüfen den VGA-Dekoder und FAT-Clusterketten bis zur maximalen
 Stage-2-Dateigröße von 48 KiB. Zusammen mit den Scanner-Fixtures und sieben
-Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests. Four checked-profile, five allocation-audit and four journal-format tests bring
-the host total to 130. Beide Sprachen durchlaufen
+Katalogprüfungen, vier Volume-Fixture-, fünf Übergabe- und sechs Konfigurationstests sowie fünf State- und vier Visibility-Tests. Four checked-profile, five allocation-audit, four journal-format tests and four journal-reader tests bring
+the host total to 134. Beide Sprachen durchlaufen
 dieselben Menü- und Scanner-Kampagnen, zusammen 558 Bildschirmzustände. Die
 deutschen Nachweise liegen unter `build/menu-de/` und `build/scan-de/`.
 Die zusätzlichen 32 Scanner-Kampagnen je Sprache mit 204 Bildschirmzuständen
@@ -169,7 +169,10 @@ Weitere 43 Volume-Kampagnen je Sprache prüfen je 318 Zustände, insgesamt
 mit Menü/Scanner also 1.194 UI-Zustände. Ihre Nachweise liegen unter `build/volume/` und
 `build/volume-de/`; Details stehen in der [Volume-Anleitung](VolumeHeaders.md).
 43 T07-Kampagnen ergänzen je Sprache 185 Zustände; 63 F5-Kampagnen ergänzen
-678 Konfigurationszustände. F6 adds 650, F7 adds 370, F9 adds 336 and F10 adds 370 states per language, giving 6,372
+678 Konfigurationszustände. F6 adds 650, F7 adds 370, F9 adds 336, F10 adds 370 and journal diagnosis adds 495 states per language, giving 7,362
 states across both languages. F4 bleibt im normalen Image ohne Wirkung.
 
 Teststeuerung: [QEMU QMP – send-key und screendump](https://www.qemu.org/docs/master/interop/qemu-qmp-ref.html).
+
+The [journal diagnosis guide](JournalDiagnosis.md) describes the current F8/Enter
+page, repeated reads, expected codes and the EDD/CHS fixture distinction.

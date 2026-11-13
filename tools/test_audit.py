@@ -22,15 +22,15 @@ except ImportError:
 
 REASONS = ('OK', 'SCAN', 'ADMIN', 'IO', 'ROOT', 'CHAIN', 'SHARED', 'COPIES',
            'HEADER', 'ORPHAN', 'CHANGED', 'BOOTSTRAP')
-NAMES = ('RBBOOT.SYS', 'RBSTG2.BIN', 'RBCFG.A', 'RBCFG.B', 'RBSTATE.A', 'RBSTATE.B')
+NAMES = ('RBBOOT.SYS', 'RBSTG2.BIN', 'RBCFG.A', 'RBCFG.B', 'RBSTATE.A', 'RBSTATE.B', 'RBTXN.A', 'RBTXN.B')
 
 
 def file_values(image):
-    """Decode display values from the six fixed fixture entries, not a validator."""
+    """Decode display values from the eight fixed fixture entries, not a validator."""
     with image.open('rb') as stream:
         stream.seek(379 * 512); root = stream.read(1024)
     values = []
-    for index in (0, 20, 21, 22, 23, 24):
+    for index in (0, 20, 21, 22, 23, 24, 25, 26):
         cluster, size = struct.unpack_from('<HI', root, index * 32 + 26)
         values.append((size, (size + 2047) // 2048, 411 + (cluster - 2) * 4))
     return values
@@ -44,7 +44,7 @@ def expected_reads(spec, stage_bytes, attempt):
     if status == 8: return reads + [127, 253]
     stage_count = (stage_bytes + 2047) // 2048
     stage = [20 + i * 10 if i % 2 == 0 else 200 + i * 100 for i in range(stage_count)]
-    chains = [[2], stage, [2800], [2900], [3000], [3100]]
+    chains = [[2], stage, [2800], [2900], [3000], [3100], [3200], [3300]]
     if status == 6: chains = chains[:spec['file'] - 1]
     elif status == 5: chains = chains[:spec['file']]
     cached = None
@@ -74,20 +74,20 @@ def check_audit_screen(data, strings, spec, values):
     cells = [(2,65,strings['READ_ONLY']), (5,4,strings['AUDIT_TITLE']),
              (6,4,strings['AUDIT_SCOPE']), (8,4,strings['AUDIT_' + REASONS[status]]),
              (9,4,strings['AUDIT_CODES']), (9,32,f'{status:04X} / {spec.get("detail", 0):04X}'),
-             (19,4,strings['AUDIT_REVIEW']), (20,4,strings['AUDIT_LIMIT']),
+             (20,4,strings['AUDIT_REVIEW']), (7,4,strings['AUDIT_LIMIT']),
              (21,4,strings['KEY_HELP']), (22,4,strings['FUNCTION_HELP'])]
-    blank = (7, 10)
+    blank = ()
     if status:
         cells += [(11,4,strings['LBA_HEX']), (11,32,f'{spec.get("lba", 0):08X}'),
                   (13,4,strings['AUDIT_ERROR_FILE']), (13,32,f'{spec.get("file", 0):04X} / {spec.get("cluster", 0):04X}')]
-        blank += (12, 14, 15, 16, 17, 18)
+        blank += (10, 12, 14, 15, 16, 17, 18, 19)
     else:
         used = sum(item[1] for item in values)
-        cells += [(11,4,strings['AUDIT_COLUMNS']), (18,4,strings['AUDIT_CLUSTERS']),
-                  (18,38,f'{32043:04X} / {used:04X} / {32043-used:04X}')]
+        cells += [(10,4,strings['AUDIT_COLUMNS']), (19,4,strings['AUDIT_CLUSTERS']),
+                  (19,38,f'{32043:04X} / {used:04X} / {32043-used:04X}')]
         for i, (size, clusters, lba) in enumerate(values):
-            cells += [(12+i,4,NAMES[i]), (12+i,17,f'{size:08X}'),
-                      (12+i,30,f'{clusters:04X}'), (12+i,41,f'{lba:08X}')]
+            cells += [(11+i,4,NAMES[i]), (11+i,17,f'{size:08X}'),
+                      (11+i,30,f'{clusters:04X}'), (11+i,41,f'{lba:08X}')]
     for row, col, value in cells:
         if rows[row][col:col+len(value)] != value:
             raise ValueError(f'Wrong audit text at {row},{col}: {value!r}; {rows[row]!r}')

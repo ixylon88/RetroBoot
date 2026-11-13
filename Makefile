@@ -2,7 +2,7 @@ PYTHON ?= python3
 RB_LANGUAGE ?= en
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test
 
 all: check
 
@@ -45,6 +45,7 @@ hdd-test: hdd-check
 	$(PYTHON) tools/test_visibility.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 
 hdd-ui-test: hdd-check
 	$(PYTHON) tools/test_menu.py --language $(RB_LANGUAGE)
@@ -56,6 +57,7 @@ hdd-ui-test: hdd-check
 	$(PYTHON) tools/test_visibility.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 
 menu-test: hdd
 	$(PYTHON) tools/test_menu.py --language $(RB_LANGUAGE)
@@ -83,3 +85,6 @@ profile-test: hdd
 
 audit-test: hdd
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
+
+journal-test: hdd
+	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)

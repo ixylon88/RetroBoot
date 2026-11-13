@@ -4,16 +4,16 @@ Updated: 13 November 2026.
 
 ## Saved baseline
 
-PR #15 (F10 management-volume allocation audit) is merged into `historical`
-at `2da5c3c284bb9f031af60718ef883534d3a52fc9`. Its PR host, ABI and HDD CI
-passed. The published artifact was downloaded and verified: 86 image/binary/
-ROM components matched local builds, all 6,372 UI-state reports were present,
-and 740 F10 VGA/RAM states were checked. The merge tree matched the tested tree.
+PR #16 (transaction-journal model) is merged into `historical` at
+`38425393924a0c75668d856eb2731ab7cf40dfd6`. Its PR and merge checks passed.
+That increment introduced the pure record decoder, conservative A/B selection
+and full-MBR observation; it did not add a runtime journal page.
 
 The F10 status `0000 / 0000` was manually confirmed on 13 November 2026.
 No additional image/language, machine/BIOS, repeated-read or navigation details
 were supplied. The report confirms the allocation status without broadening
-coverage to other keys or environments.
+coverage to other keys or environments. A later general acknowledgement adds
+no specific manual coverage for the new F8 page.
 
 English F7 followed by F9 from PR #14 was confirmed under VirtualBox on
 13 November 2026: matching preview, `0000 / 0000 / 0000`, unchanged masks,
@@ -23,63 +23,62 @@ reports cover the ABI floppy, HDD/C startup, menu, partition scanner,
 English/German builds, F3, isolated T07, F5/F6 and German F7. Their coverage
 remains limited to the reported results.
 
-## Current increment: transaction-journal model
+## Current increment: read-only journal diagnosis
 
-Branch `codex/transaction-journal-model` adds a pure C16 decoder, conservative
-A/B pair selection and current-MBR observation for three-sector `RBTXN`
-records. Each record contains a header plus complete old/new MBR snapshots,
-with CRC32 protection of all bytes, sequence, disk/layout/media identity and
-BIOS geometry. Only supported primary type/active bytes may change.
+Branch `codex/journal-diagnostics` adds **F8, then Enter** for a fresh journal
+diagnosis. The page distinguishes an empty baseline, prepared/old, prepared/new,
+committed/new and a divergent current MBR. Enter repeats all reads; F8 returns
+to the Recovery landing page and Esc to the menu. F4/F9 are inert on this page.
 
-A prepared record can follow the immediately preceding empty/committed record
-only when the old/new snapshots form an exact bytewise chain. A completion
-must match the prepared transaction's sequence and both complete snapshots.
-Corrupt/missing copies, contradictory pairs or skipped/reset sequences never
-select an older fallback as authority. Current-MBR observations distinguish
-baseline, prepared/old, prepared/new, committed/new and divergence. These are
-byte comparisons and record claims, not proof of write history or durability.
+F10 now owns eight files, including the two 1,536-byte `RBTXN.A/B` records.
+The bounded allocation audit produces three sector addresses per copy, even
+with fragmented chains. The reader performs its own fresh audit, checks both
+configuration and both state records against one nonzero media identity, reads
+both journals and rereads the complete MBR to detect changes during diagnosis.
+An invalid or partial read cannot retain an earlier successful selection.
+Private scratch is cleared on entry and exit. There is no disk writer.
 
-The [journal guide](TransactionJournal.md) defines the binary format, trust
-boundary, pair rules and limitations. The decoder has no disk reader/writer
-callback, static scratch or retained pointers. It is linked only into the native
-model test variant. The six-file F10 format, normal/handoff binaries and all
-pre-existing generated image/binary components remain byte-identical to PR #15.
-No new manual VM test is needed for this increment.
+The [diagnosis guide](JournalDiagnosis.md) contains the manual procedure,
+status codes, trust boundary and automated evidence. The
+[journal guide](TransactionJournal.md) retains the binary and pair contracts.
+This increment changes both released normal/handoff images. A fresh VirtualBox
+conversion is necessary when replacing raw media. Released samples contain an
+EDD baseline; forced CHS deliberately reports a geometry mismatch. Dedicated
+fixtures exercise matching EDD and CHS journals independently.
 
 Verification scope:
 
-- 130 host tests plus the reference layout report. Four new tests cover literal
-  journal fields/CRCs, the host-to-C16 vector, every-byte checksum coverage,
-  fixture transitions and rejected inputs.
-- 126 native journal assertions (`T=007E`, `RB JOURNAL MODEL PASS`) through
-  EDD and CHS, including every observation, both slot orders, geometry/identity
-  changes, protected MBR bytes, all six torn three-sector replacement combinations,
-  sequence exhaustion and stale-result cleanup.
-- 102 boot cases with 46 identical EDD/CHS sector-sequence pairs. Existing
-  native models retain 26 menu, 51 partition, 114 volume/arithmetic, 29 handoff,
-  84 configuration, 86 state, 52 visibility, 60 profile and 72 allocation checks.
-- Both languages build twice in CI. The unchanged UI suites cover 3,186 states
-  per language, 6,372 total, with RAM/BSS/stack checks and zero writes.
-- Normal Stage 2 remains 32,496 bytes EN / 33,060 bytes DE; handoff remains
-  36,856 / 37,482 bytes. Journal-model binaries are 43,070 / 43,634 bytes,
-  within the existing 48 KiB file and 8 KiB stack budgets.
+- 134 host tests plus the reference layout report.
+- 104 boot cases and 47 identical EDD/CHS sector-sequence pairs. Native
+  assertions include 126 journal-model (`T=007E`), 42 journal-reader (`D=002A`)
+  and 80 allocation checks (`A=0050`). Existing models retain 26 menu,
+  51 partition, 114 volume/arithmetic, 29 handoff, 84 configuration, 86 state,
+  52 visibility and 60 profile checks.
+- Both languages build twice. UI campaigns cover 3,681 states per language,
+  7,362 total, including 495 journal states and 370 allocation states each.
+  Evidence includes screenshots, VGA/RAM, stack/BSS checks, exact read traces,
+  unchanged source-image hashes and zero disk writes.
+- Normal Stage 2 is 38,124 bytes EN / 38,732 bytes DE; handoff is
+  42,482 / 43,150 bytes. Test-only native model variants omit unused UI code;
+  the journal-model binary is 30,418 bytes and the journal-reader binary is
+  29,854 bytes. The existing 48 KiB file and 8 KiB stack budgets remain.
 
 Local native tests use QEMU 10.0.13/SeaBIOS with `pc-i440fx-8.2`, CPU `486`
 and 16 MiB RAM; CI records its own versions and ROM hashes. English remains
 the default; German uses the same logic and CP437 including `ÄÖÜäöüß`.
 Repository prose remains impersonal and excludes private details. The frozen
 specification v0.2 and archives are unchanged. PR checks/artifacts provide the
-current branch's validation; merge remains part of project review.
+current branch's validation; merge remains part of project review. Manual F8
+confirmation is still pending.
 
 ## Open work
 
-1. Add explicit eight-file allocation support for `RBTXN.A/B`, each 1,536 bytes,
-   then a bounded reader and read-only F8 journal diagnosis. The current F10
-   auditor intentionally rejects those files until ownership support is added.
-2. Establish the independent external rescue path required by specification
-   v0.2 before the first write tests. Then implement fresh ownership/identity
-   checks and verified prepare/MBR/completion writes with interruption tests
-   after every step. This model is not a writer or a recovery authorization.
+1. Establish the independent external rescue path required by specification
+   v0.2 before the first write tests. Define its own media/identity checks and
+   the evidence needed to recover an interrupted transaction independently.
+2. Add fresh ownership/identity checks and verified prepare/MBR/completion
+   writes with interruption tests after every step. The present observation
+   is neither an atomic snapshot, a durable-history proof nor a write lease.
 3. Add fresh installation identities and controlled installer state transitions.
    Original-OS starts still need separate authorization and compatibility evidence;
    F9 remains bound to the exact owned T07 test sector.

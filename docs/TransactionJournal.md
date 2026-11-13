@@ -5,12 +5,12 @@ visibility switch. It decodes complete old/new MBR snapshots, checks the two
 journal slots as a pair, and compares the selected transaction with a supplied
 current MBR. It performs no disk access and grants no write or OS-start authority.
 
-This increment is linked only into `stage2-journal-model.bin` for native tests.
-`RBTXN.A` and `RBTXN.B` are not yet allocated or read by the released images.
-F8 integration, file ownership, persistent transaction steps and an independent
-external rescue path remain separate work. The normal/handoff images and their
-F10 six-file format remain byte-identical to PR #15; no new manual VM test is
-needed for this model increment.
+The model is now used by the [F8/Enter diagnosis](JournalDiagnosis.md).
+The released images contain two preallocated three-sector journal slots and
+an empty EDD baseline. The eight-file allocation auditor supplies a checked,
+fragmentation-aware sector map. The reader binds all identity records, reads
+the complete journal pair and checks the current MBR again. Persistent writes
+and independent external rescue remain separate work.
 
 ## Three-sector record, version 1
 
@@ -131,17 +131,17 @@ stale-result cleanup and all six partial three-sector replacement combinations.
 The pure model has no sector-reader or writer callback and retains no input
 pointers or static scratch. Four host tests check literal offsets/CRCs, the
 native vector, coverage of every record byte, fixture transitions and rejected
-inputs. The full boot suite now has 102 cases and 46 identical EDD/CHS pairs.
+inputs. The full boot suite now has 104 cases and 47 identical EDD/CHS pairs.
 
-`tools/journal_records.py` creates only owned in-memory vectors. It is not an
-import command or installer. The standard build compiles `core/journal.c`, but
-links it only into the journal model. English/German model binaries remain
-within the existing 48 KiB file and 8 KiB stack budgets. Existing release
-components are compared against the preceding build and remain byte-identical.
+`tools/journal_records.py` creates only owned in-memory vectors and newly
+generated fixture allocations/baselines. It is not an import command or
+installer. The model is linked into the released diagnosis and native tests.
+Test-only startup/model variants omit unused menu code and its private scratch;
+they retain the same core implementations and existing file/stack budgets.
 
-The next runtime step needs explicit eight-file ownership support for the two
-three-sector journal files and a bounded reader before an F8 diagnosis can use
-this model. A writer then needs fresh ownership/identity checks, verified
-prepare/MBR/completion steps, fault injection after each step and independent
-external rescue. Specification v0.2 requires that rescue path before the first
-write tests; this increment does not implement or claim it.
+The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
+42 native reader assertions, 495 UI states per language, manual check and
+remaining limitations. F10 now recognizes all eight files. An independent
+external rescue path is still required before any first write tests, followed
+by fresh ownership/identity checks, verified prepare/MBR/completion writes and
+fault injection after every step.

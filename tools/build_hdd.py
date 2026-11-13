@@ -10,7 +10,8 @@ import sys
 import zlib
 
 try:
-    from .journal_records import model_header as journal_model_header
+    from .journal_fixtures import JOURNAL_CASES, mutate as mutate_journal_fixture
+    from .journal_records import model_header as journal_model_header, io_model_header, allocate as allocate_journal, baseline as journal_baseline
     from .audit_fixtures import AUDIT_CASES, mutate_audit_fixture
     from .state_records import encode as encode_state, model_header as state_model_header
     from .config_fixtures import CONFIG_CASES, mutate_config_fixture
@@ -26,7 +27,8 @@ try:
     from .scan_fixtures import SCAN_CASES, mutate_scan_fixture
     from .ui_text import LANGUAGES, catalog_metadata, load_catalog, output_name, render_header
 except ImportError:
-    from journal_records import model_header as journal_model_header
+    from journal_fixtures import JOURNAL_CASES, mutate as mutate_journal_fixture
+    from journal_records import model_header as journal_model_header, io_model_header, allocate as allocate_journal, baseline as journal_baseline
     from audit_fixtures import AUDIT_CASES, mutate_audit_fixture
     from state_records import encode as encode_state, model_header as state_model_header
     from config_fixtures import CONFIG_CASES, mutate_config_fixture
@@ -90,6 +92,7 @@ CASES = {
     "hdd-profile-model": "RB HDD PASS",
     "hdd-audit-model": "RB HDD PASS",
     "hdd-journal-model": "RB HDD PASS",
+    "hdd-journal-io-model": "RB HDD PASS",
 }
 
 
@@ -232,7 +235,7 @@ def fixture(parts, case, language="en"):
         root[index * 32] = 0xE5
     if case.startswith("hdd-"):
         # Explicit loader campaigns retain directory/LFN skip challenges.
-        # Released diagnostic media use the canonical six-file root.
+        # Released diagnostic media use the canonical eight-file root.
         root[32:64] = directory_entry(b"RBSTG2  BIN", 1, 0)
         root[43] = 0x10
         root[64:96] = directory_entry(b"RBSTG2  BIN", 1, 0)
@@ -288,7 +291,7 @@ def fixture(parts, case, language="en"):
         extents[(data_lba + (cluster - 2) * spc) * SECTOR] = bytes(chunk)
     state = encode_state(disk_id=struct.unpack_from("<I", extents[0], 440)[0], layout=layout_crc(extents),
                          admin_start=start, admin_sectors=count)
-    return size, install_records(extents, admin, language=language, state_records=(state, state))
+    return size, allocate_journal(install_records(extents, admin, language=language, state_records=(state, state)), admin)
 
 
 def write_fixture(path, size, extents):
@@ -317,6 +320,7 @@ def build_stage2(destination, nasm, wcc, wlink):
             raise ValueError(f"Build failed: {args[0]}\n{result.stdout}{result.stderr}")
 
     (destination / "config_fixture.h").write_text(model_header(), encoding="ascii")
+    (destination / "journal_io_fixture.h").write_text(io_model_header(), encoding="ascii")
     (destination / "journal_fixture.h").write_text(journal_model_header(), encoding="ascii")
     (destination / "handoff_fixture.inc").write_text(assembler_header(), encoding="ascii")
     test_vbr = destination / "handoff-vbr.bin"
@@ -344,7 +348,8 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
                          ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
-                         ("journal", "core/journal.c"), ("journal-selftest", "tests/journal/model.c")):
+                         ("journal", "core/journal.c"), ("journal-io", "core/journal_io.c"),
+                         ("journal-selftest", "tests/journal/model.c"), ("journal-io-selftest", "tests/journal/io.c")):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
@@ -367,6 +372,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "visibility-model": ["-DRB_TEST=1", "-DRB_VISIBILITY_MODEL_TEST=1"],
                 "profile-model": ["-DRB_TEST=1", "-DRB_PROFILE_MODEL_TEST=1"],
                 "audit-model": ["-DRB_TEST=1", "-DRB_AUDIT_MODEL_TEST=1"],
+                "journal-io-model": ["-DRB_TEST=1", "-DRB_JOURNAL_IO_TEST=1"],
                 "journal-model": ["-DRB_TEST=1", "-DRB_JOURNAL_MODEL_TEST=1"],
                 "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
@@ -374,11 +380,16 @@ def build_stage2(destination, nasm, wcc, wlink):
         obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
         run(nasm, "-Werror", "-f", "obj", "-I", "./", *defines, "core/start.asm", "-o", obj)
         handoff = variant == "handoff" or variant in {"handoff-" + name for name in FAULTS}
-        linked_objects = [obj, destination / "stage2-c.obj", destination / ("menu-handoff.obj" if handoff else "menu.obj"),
+        linked_objects = [obj, destination / "stage2-c.obj",
                           destination / "menu-model.obj", destination / "ui.obj", destination / "abi.obj",
                           destination / "partitions.obj", destination / "disk.obj", destination / "volume.obj", destination / "arith.obj",
                           destination / "config.obj", destination / "config-io.obj", destination / "record-io.obj",
                           destination / "state.obj", destination / "state-check.obj", destination / "visibility.obj"]
+        # Test-only startup/model variants never enter the UI. Exclude its
+        # unused code and journal scratch while preserving the same core objects.
+        if "-DRB_TEST=1" not in defines:
+            linked_objects.extend([destination / ("menu-handoff.obj" if handoff else "menu.obj"),
+                                   destination / "journal.obj", destination / "journal-io.obj"])
         if variant == "menu-model":
             linked_objects.append(destination / "menu-selftest.obj")
         if variant == "scan-model":
@@ -394,9 +405,10 @@ def build_stage2(destination, nasm, wcc, wlink):
         linked_objects.append(destination / "admin-audit.obj")
         if variant == "audit-model":
             linked_objects.append(destination / "audit-selftest.obj")
-        # Journal decoding is a native model first; no runtime menu/IO wiring.
         if variant == "journal-model":
             linked_objects.extend([destination / "journal.obj", destination / "journal-selftest.obj"])
+        if variant == "journal-io-model":
+            linked_objects.extend([destination / "journal.obj", destination / "journal-io.obj", destination / "journal-io-selftest.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")
         if variant == "profile-model":
@@ -494,7 +506,7 @@ def build(output, language="en"):
             path.write_bytes(data)
             parts[name] = data
             artifacts[path.name] = {"bytes": len(data), "sha256": sha256(path)}
-        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES, *STATE_CASES, *VISIBILITY_CASES, *PROFILE_CASES, *AUDIT_CASES)):
+        for case in (CASES if test else ("retroboot-hdd", "retroboot-reference", *SCAN_CASES, *VOLUME_CASES, *HANDOFF_CASES, *CONFIG_CASES, *STATE_CASES, *VISIBILITY_CASES, *PROFILE_CASES, *AUDIT_CASES, *JOURNAL_CASES)):
             variant = case.removeprefix("hdd-c-") if case.startswith("hdd-c-") else "test" if test else "normal"
             if case == "hdd-menu-model":
                 variant = "menu-model"
@@ -510,6 +522,8 @@ def build(output, language="en"):
                 variant = "state-model"
             if case == "hdd-audit-model":
                 variant = "audit-model"
+            if case == "hdd-journal-io-model":
+                variant = "journal-io-model"
             if case == "hdd-journal-model":
                 variant = "journal-model"
             if case == "hdd-profile-model":
@@ -524,6 +538,8 @@ def build(output, language="en"):
             parts["stage2"] = stage2[variant]
             path = destination / (case + ".img")
             size, extents = fixture(parts, case, language)
+            if case in JOURNAL_CASES:
+                size, extents = mutate_journal_fixture(size, extents, case)
             if case in AUDIT_CASES:
                 size, extents = mutate_audit_fixture(size, extents, case)
             if case in SCAN_CASES:
@@ -549,13 +565,15 @@ def build(output, language="en"):
                     admin_sectors=128457, installations=[dict(install_id=TEST_INSTALL_ID, slot=1, type=6,
                     start=131072, sectors=5073, phase=6, vbr_crc=zlib.crc32((destination / "handoff-vbr.bin").read_bytes()))])
                 for cluster in STATE_CLUSTERS: extents[(411 + (cluster - 2) * 4) * 512] = state
+            if case in ("retroboot-hdd", "retroboot-reference", "retroboot-handoff"):
+                extents = journal_baseline(extents, size, struct.unpack_from("<I", extents[0], 436)[0])
             write_fixture(path, size, extents)
             artifacts[path.name] = {"bytes": size, "sha256": sha256(path)}
     manifest = {"format_version": 2, "purpose": "phase-5-read-only-partition-scan-fixtures",
                 "toolchain": lock, "host_executable_sha256": {
                     "nasm": sha256(nasm), "wcc": sha256(wcc), "wlink": sha256(wlink)},
                 "memory": memory, "artifacts": artifacts, "scan_cases": SCAN_CASES,
-                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES, "state_cases": STATE_CASES, "visibility_cases": VISIBILITY_CASES, "profile_cases": PROFILE_CASES, "audit_cases": AUDIT_CASES}
+                "ui": catalog_metadata(language), "volume_cases": VOLUME_CASES, "handoff_cases": HANDOFF_CASES, "config_cases": CONFIG_CASES, "state_cases": STATE_CASES, "visibility_cases": VISIBILITY_CASES, "profile_cases": PROFILE_CASES, "audit_cases": AUDIT_CASES, "journal_cases": JOURNAL_CASES}
     (destination / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Built {destination.name} ({language}, CP437): MBR 440, VBR 512, bootstrap {len(parts['bootstrap'])}, normal C stage2 {len(stage2['normal'])} bytes", flush=True)
     return manifest

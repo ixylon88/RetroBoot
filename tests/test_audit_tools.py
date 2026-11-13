@@ -17,10 +17,10 @@ class AuditToolsTests(unittest.TestCase):
             start = struct.unpack_from('<I', vbr, 28)[0]
             spf = struct.unpack_from('<H', vbr, 22)[0]
             root = extents[(start + 1 + 2 * spf) * 512]
-            entries = [root[i:i+32] for i in range(0, 25*32, 32) if root[i] != 0xE5]
+            entries = [root[i:i+32] for i in range(0, 27*32, 32) if root[i] != 0xE5]
             self.assertEqual([e[:11] for e in entries],
-                [b'RBBOOT  SYS', b'RBSTG2  BIN', b'RBCFG   A  ', b'RBCFG   B  ', b'RBSTATE A  ', b'RBSTATE B  '])
-            self.assertEqual(root[25*32], 0)
+                [b'RBBOOT  SYS', b'RBSTG2  BIN', b'RBCFG   A  ', b'RBCFG   B  ', b'RBSTATE A  ', b'RBSTATE B  ', b'RBTXN   A  ', b'RBTXN   B  '])
+            self.assertEqual(root[27*32], 0)
         _, extents = fixture(samples(), 'hdd-fragmented')
         self.assertEqual((extents[379*512][43], extents[379*512][75]), (0x10, 0x0F))
 
@@ -73,7 +73,7 @@ class AuditToolsTests(unittest.TestCase):
             for row in range(2,23): data[(row*80+1)*2] = data[(row*80+78)*2] = 0xB3
             for row,col,key in ((2,65,'READ_ONLY'),(5,4,'AUDIT_TITLE'),(6,4,'AUDIT_SCOPE'),
                     (8,4,'AUDIT_COPIES'),(9,4,'AUDIT_CODES'),(11,4,'LBA_HEX'),
-                    (13,4,'AUDIT_ERROR_FILE'),(19,4,'AUDIT_REVIEW'),(20,4,'AUDIT_LIMIT'),
+                    (13,4,'AUDIT_ERROR_FILE'),(20,4,'AUDIT_REVIEW'),(7,4,'AUDIT_LIMIT'),
                     (21,4,'KEY_HELP'),(22,4,'FUNCTION_HELP')): text(row,col,strings[key])
             text(9,32,'0007 / 0000'); text(11,32,'0000017A'); text(13,32,'0000 / 0000')
             data[(8*80+4)*2+1] = 0x1E

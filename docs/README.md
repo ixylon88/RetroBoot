@@ -12,8 +12,9 @@
 | [Textmenü](Menue.md) | Bedienung, Informationsseiten und Tastatur-/Bildschirmnachweise |
 | [Partitionsprüfung](Partitionen.md) | MBR-/EBR-Scanner, Grenzen, Fehlerseiten und Blättertests |
 | [FAT volume headers](VolumeHeaders.md) | F3-BPB-Prüfung, unterstützte Formate, Grenzen und Nachweise; englische Anleitung |
+| [Journal diagnosis](JournalDiagnosis.md) | F8/Enter, identity checks, bounded journal reads and manual test |
 | [Transaction-journal model](TransactionJournal.md) | Three-sector records, conservative pair selection and current-MBR observations |
-| [Management allocation](AdminAllocation.md) | F10 six-file ownership, full FAT comparison and read-only diagnostics |
+| [Management allocation](AdminAllocation.md) | F10 eight-file ownership, full FAT comparison and read-only diagnostics |
 | [Checked-profile test](ProfileTest.md) | F9 from F7, fresh records and visibility, exact owned T07 target |
 | [Partition visibility](Visibility.md) | F7 current/intended primary types and active flags; read-only preview |
 | [Installation-state records](InstallationState.md) | F6, independent identities, state phases and current-VBR cross-check |
