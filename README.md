@@ -4,14 +4,15 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only profile, installation-state and visibility checks.**
+**Current stage: read-only profile, state, visibility and allocation checks.**
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
 C/assembly test floppy remains available. F5 now validates stored start-profile
 records against the actual disk layout. F6 compares independent installation
 records with the current target VBR. F7 previews current and intended primary
-partition types and active flags. OS authorization, chainloading,
+partition types and active flags. F10 audits allocation of the six current
+management files, both FAT copies and unowned allocated clusters. OS authorization, chainloading,
 partition changes and installation are future steps. An independent test VBR now
 checks the real-mode transition in an explicitly selected test image.
 
@@ -30,6 +31,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [F6 installation state, identity binding and manual check](docs/InstallationState.md)
 - [F7 current/intended partition preview and manual check](docs/Visibility.md)
 - [F9 checked-profile test handoff and manual check](docs/ProfileTest.md)
+- [F10 management-volume allocation and manual check](docs/AdminAllocation.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
@@ -90,13 +92,13 @@ make hdd RB_LANGUAGE=en         # build/hdd/retroboot-hdd.img
 make hdd RB_LANGUAGE=de         # build/hdd-de/retroboot-hdd.img
 ```
 
-The full test runs 98 boot cases covering both BIOS read paths, the 8 GB
+The full test runs 100 boot cases covering both BIOS read paths, the 8 GB
 reference layout, fragmented files and injected failures. Each language also
 runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
-and 370 visibility states, plus 336 checked-profile test states, through
-emulated keyboard input with VGA, memory and disk-write checks: 5,632 states
-across both languages. There are 121 host tests.
+and 370 visibility states, plus 336 checked-profile and 370 allocation-audit states, through
+emulated keyboard input with VGA, memory and disk-write checks: 6,372 states
+across both languages. There are 126 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
@@ -106,6 +108,7 @@ Header plausibility does not establish filesystem integrity or OS bootability.
 F5 reads the two configuration files and displays validated profile descriptions.
 F6 checks independent installation records and the current target VBR.
 F7 previews current and intended primary-partition visibility and active flags.
+F10 checks the six management files and the complete FAT allocation.
 Automatic boot remains disabled pending OS-start authorization.
 
 The **HDD BIOS boot** workflow publishes both compact diagnostic images, both
@@ -118,10 +121,16 @@ T07 from PR #10 was also manually confirmed, without further platform details.
 The F5 test from merged PR #11 was also reported complete, without additional
 platform or language-coverage details. F6 from merged PR #12 was subsequently
 confirmed. German F7 screenshots from PR #13 confirmed both expected views
-under VirtualBox. The new [F9 manual check](docs/ProfileTest.md) is planned
-with the English build; its result remains pending.
+under VirtualBox. English F7 followed by [F9](docs/ProfileTest.md) was confirmed
+there on 13 November 2026: matching preview and `RB HANDOFF PASS`.
+No BIOS version, physical-hardware coverage or original-OS start was established.
 
-For the new checked-profile test, boot `hdd/retroboot-handoff.img`, press
+For the new allocation check, boot either current image and press **F10**.
+The expected result is a green consistency message, `0000 / 0000` and a
+six-file table. F10 rereads; Esc returns. The [allocation guide](docs/AdminAllocation.md)
+records expected counts, limitations and the pending manual check.
+
+For the checked-profile test, boot `hdd/retroboot-handoff.img`, press
 **F7**, then **F9**. A fresh record and visibility check must pass before
 the exact T07 sector can run. The expected result is `RB HANDOFF PASS`.
 The normal diagnostic image has no F9 action.

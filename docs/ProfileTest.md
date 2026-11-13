@@ -7,7 +7,7 @@ known sector; an earlier green F7 result supplies no authorization.
 
 ## Manual check
 
-The next manual check uses the English build from the **retroboot-hdd-bios**
+The manual check uses the English build from the **retroboot-hdd-bios**
 artifact. A fresh image or newly converted VirtualBox VDI is required.
 Replacing a raw image does not update an existing VDI.
 
@@ -29,8 +29,12 @@ Main-menu F4 retains the earlier isolated [T07 test](Handoff.md).
 
 German F7 screenshots from PR #13 were manually confirmed under VirtualBox
 on 12 November 2026: both expected results, P1 `06 / 80`, P4 `05 / 00`,
-matching `01 / 01` masks and changed mask `00`. That report establishes
-neither an English F7 manual check nor F9 coverage. F9 remains pending.
+matching `01 / 01` masks and changed mask `00`. English F7 followed by F9
+from merged PR #14 was confirmed under VirtualBox on 13 November 2026.
+The supplied screenshots show the matching English preview with its F9 hint
+and `RB HANDOFF PASS` at the owned test VBR. Reboot behavior, a BIOS version,
+physical hardware and original-OS compatibility were not established by this
+report. The next manual check is [F10 allocation](AdminAllocation.md).
 
 ## Fresh preparation
 

@@ -51,7 +51,8 @@ confirmed too, without further platform details. The [F5 configuration
 test](Configuration.md) from PR #11 was also reported complete. The new
 [F6 state check](InstallationState.md) was subsequently confirmed;
 [F7 visibility](Visibility.md) was confirmed in German under VirtualBox.
-The English [F9 checked-profile test](ProfileTest.md) is the next manual check.
+English F7 followed by [F9](ProfileTest.md) was confirmed under VirtualBox
+on 13 November 2026, including `RB HANDOFF PASS`.
 
 ## Authorization and exact reads
 
@@ -134,9 +135,9 @@ A direct run on already built images is also available:
 `--bios` paths. Outputs are isolated under `build/handoff/` and
 `build/handoff-de/`.
 
-- 121 host tests include fixture preservation, literal primary-entry values,
+- 126 host tests include fixture preservation, literal primary-entry values,
   malformed inputs and independent rejection of corrupted receipt fields.
-- 98 boot cases include 44 identical EDD/CHS read-sequence pairs. The new
+- 100 boot cases include 45 identical EDD/CHS read-sequence pairs. The new
   native C16 preparation model runs 29 assertions (`H=1D`) through each path,
   including stale-result rejection, bounded reads and cleared failure buffers.
 - Each language runs 43 handoff campaigns and 185 screen states. Both BIOS
@@ -155,7 +156,8 @@ The handoff/menu/scanner/volume suites total 782 states per language.
 The [configuration suite](Configuration.md) adds 678 and the
 [installation-state suite](InstallationState.md) adds 650 and the
 [visibility suite](Visibility.md) adds 370. The [checked-profile suite](ProfileTest.md)
-adds 336, giving 2,816 per language and 5,632 across both languages. Both languages build twice with
+adds 336 and the [allocation suite](AdminAllocation.md) adds 370, giving
+3,186 per language and 6,372 across both languages. Both languages build twice with
 byte-identical results. `handoff-results.json` is written only when all its
 campaigns pass. Reports, text pages, screenshots, low-memory/Stage-2/VGA dumps
 and disk traces accompany the two normal and two handoff images in CI.

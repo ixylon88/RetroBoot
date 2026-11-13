@@ -7,6 +7,7 @@
 #include "config.h"
 #include "state.h"
 #include "visibility.h"
+#include "admin_audit.h"
 #ifdef RB_HANDOFF_TEST
 #include "profile_test.h"
 #endif
@@ -24,6 +25,11 @@ static const char * const profile_test_messages[] = {
     RB_UI_PROFILE_TEST_CHANGE, RB_UI_PROFILE_TEST_TARGET, RB_UI_PROFILE_TEST_CODE
 };
 #endif
+static const char * const audit_messages[] = {
+    RB_UI_AUDIT_OK, RB_UI_AUDIT_SCAN, RB_UI_AUDIT_ADMIN, RB_UI_AUDIT_IO,
+    RB_UI_AUDIT_ROOT, RB_UI_AUDIT_CHAIN, RB_UI_AUDIT_SHARED, RB_UI_AUDIT_COPIES,
+    RB_UI_AUDIT_HEADER, RB_UI_AUDIT_ORPHAN, RB_UI_AUDIT_CHANGED, RB_UI_AUDIT_BOOTSTRAP
+};
 static const char digits[] = "0123456789ABCDEF";
 static const char * const scan_errors[] = {
     RB_UI_ERROR_OK, RB_UI_ERROR_IO, RB_UI_ERROR_SIGNATURE,
@@ -114,7 +120,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                  const rb_volume_probe *volume, rb_u16 volume_index,
                  const rb_config_result *config, rb_u16 config_index,
                  const rb_state_result *installation, const rb_state_proof *proof,
-                 const rb_visibility_result *visibility
+                 const rb_visibility_result *visibility, const rb_admin_audit *audit
 #ifdef RB_HANDOFF_TEST
                  , rb_u16 handoff_status, rb_u16 handoff_detail, rb_u16 profile_status
 #endif
@@ -148,6 +154,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         }
         text(17, 4, RB_UI_DRIVE, NORMAL);
         hex(17, 19, rb_boot.drive, 2); text(17, 21, "h", NORMAL);
+        text(20, 4, RB_UI_AUDIT_HELP, NORMAL);
         text(18, 4, rb_boot.io_mode == 1 ? RB_UI_ROUTE_EDD : RB_UI_ROUTE_CHS, NORMAL);
 #ifdef RB_HANDOFF_TEST
         text(19, 4, RB_UI_HANDOFF_HELP, 0x1E);
@@ -348,11 +355,37 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(17, 4, RB_UI_NO_CHANGES, NORMAL);
         text(19, 4, RB_UI_PROFILE_TEST_REVIEW, NORMAL);
 #endif
+    } else if (view == 10) {
+        text(5, 4, RB_UI_AUDIT_TITLE, TITLE);
+        text(6, 4, RB_UI_AUDIT_SCOPE, NORMAL);
+        text(8, 4, audit_messages[audit->status], audit->status ? 0x1E : 0x1A);
+        text(9, 4, RB_UI_AUDIT_CODES, NORMAL);
+        hex(9, 32, audit->status, 4); text(9, 37, "/", NORMAL); hex(9, 39, audit->detail, 4);
+        if (!audit->status) {
+            text(11, 4, RB_UI_AUDIT_COLUMNS, NORMAL);
+            for (index = 0; index < RB_AUDIT_FILES; ++index) {
+                text(12 + index, 4, rb_audit_names[index], TITLE);
+                hex(12 + index, 17, audit->files[index].bytes, 8);
+                hex(12 + index, 30, audit->files[index].clusters, 4);
+                hex(12 + index, 41, audit->files[index].first_lba, 8);
+            }
+            text(18, 4, RB_UI_AUDIT_CLUSTERS, NORMAL);
+            hex(18, 38, audit->total_clusters, 4); text(18, 43, "/", NORMAL);
+            hex(18, 45, audit->used_clusters, 4); text(18, 50, "/", NORMAL);
+            hex(18, 52, audit->free_clusters, 4);
+        } else {
+            text(11, 4, RB_UI_LBA_HEX, NORMAL); hex(11, 32, audit->error_lba, 8);
+            text(13, 4, RB_UI_AUDIT_ERROR_FILE, NORMAL);
+            hex(13, 32, audit->error_file, 4); text(13, 37, "/", NORMAL); hex(13, 39, audit->error_cluster, 4);
+        }
+        text(19, 4, RB_UI_AUDIT_REVIEW, NORMAL);
+        text(20, 4, RB_UI_AUDIT_LIMIT, NORMAL);
     } else {
         text(5, 4, labels[2], TITLE);
         text(8, 4, RB_UI_RECOVERY_MISSING, NORMAL);
         text(10, 4, RB_UI_RECOVERY_PAGES, NORMAL);
         text(13, 4, RB_UI_RECOVERY_READ_ONLY, NORMAL);
+        text(18, 4, RB_UI_AUDIT_HELP, NORMAL);
     }
     text(21, 4, RB_UI_KEY_HELP, NORMAL);
     text(22, 4, RB_UI_FUNCTION_HELP, NORMAL);
@@ -414,6 +447,7 @@ void __cdecl rb_menu_run(void)
     rb_u16 key, action, rescan, verify_state, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
     rb_u16 config_index = 0;
+    rb_admin_audit audit;
 #ifdef RB_HANDOFF_TEST
     rb_u16 handoff_status = 0, handoff_detail = 0, profile_status = 0;
 #endif
@@ -422,7 +456,7 @@ void __cdecl rb_menu_run(void)
     /* No configured/approved boot profiles: diagnostic entries, no timer. */
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail, profile_status
 #endif
@@ -492,6 +526,16 @@ void __cdecl rb_menu_run(void)
             debug_text(view == 7 ? "RB STATE records=" : "RB VISIBILITY records="); debug_hex(installation.status);
             debug_text(" copies="); debug_hex(installation.copies[0]); debug_hex(installation.copies[1]);
             debug_text(" source="); debug_hex(installation.source); debug_text("\r\n");
+        } else if ((key >> 8) == 0x44U) {
+            view = 10;
+            debug_text("RB AUDIT BEGIN\r\n");
+            rb_audit_admin(&audit, rb_disk_read, (void *)0,
+                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+            debug_text("RB AUDIT status="); debug_hex(audit.status);
+            debug_text(" detail="); debug_hex(audit.detail);
+            debug_text(" file="); debug_hex(audit.error_file);
+            debug_text(" cluster="); debug_hex(audit.error_cluster); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
         } else if ((view == 6 || view == 7 || view == 8) && config.status == 0 && config.config.count
@@ -557,7 +601,7 @@ void __cdecl rb_menu_run(void)
             debug_text(" index="); debug_hex(config_index);
             debug_text(" changed="); debug_hex(visibility.changed); debug_text("\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail, profile_status
 #endif
