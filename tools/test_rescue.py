@@ -14,11 +14,13 @@ try:
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from .test_menu import Qmp, screen_rows, wait_marker
     from .test_hdd import check_bios_route
+    from .backup_vectors import cases as backup_cases
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from test_menu import Qmp, screen_rows, wait_marker
     from test_hdd import check_bios_route
+    from backup_vectors import cases as backup_cases
 
 REASONS=('OK','NO_DISK','PARAMS','GEOMETRY','IO','CHANGED')
 ACTIONS=((None,0),('ret',1),('ret',1),('f4',1),('f9',1),('esc',0),('ret',1))
@@ -81,7 +83,7 @@ def scenarios():
         cases.append(dict(name=f'bios-{rom}',fixture='metadata-only',spec=spec,mode='CHS' if rom<6 else 'EDD',rom=rom))
     cases += [dict(name='bare',fixture='metadata-only',spec=HDD_CASES['metadata-only'],mode='EDD',rom=None),
               dict(name='floppy-retry',fixture='metadata-only',spec=HDD_CASES['metadata-only'],mode='EDD',rom=10)]
-    for image,marker in (('rescue-model','RB RESCUE MODEL PASS'),('rescue-bss-fault','RB RESCUE STARTUP ERROR'),
+    for image,marker in (('rescue-model','RB RESCUE MODEL PASS'),('backup-model','RB BACKUP MODEL PASS'),('rescue-bss-fault','RB RESCUE STARTUP ERROR'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -166,6 +168,7 @@ def main():
                 else:
                     qmp.call('stop');qmp.call('screendump',{'filename':str(out/(name+'.png')),'format':'png'})
                     if case['name']=='rescue-model' and 'R=001C' not in log.read_text():raise ValueError('Missing native rescue assertions')
+                    if case['name']=='backup-model' and f'B={3*len(backup_cases()):04X}' not in log.read_text():raise ValueError('Missing native backup assertions')
                 qmp.call('quit')
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:

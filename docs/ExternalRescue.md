@@ -41,9 +41,23 @@ contains these normal images:
    The floppy still starts. Enter then reports `0001 / 0000`, with no retained
    capacity, identity, CRC or partition-count fields.
 
-Manual confirmation of this external increment is pending. The preceding
-PR #17 procedure was reported checked and confirmed, without additional
-image/language, machine/BIOS or individual field-value details.
+The German rescue floppy was confirmed under VirtualBox on 13 November 2026
+with both published HDD fixtures, no HDD and an unrelated HDD. The initial
+page without diagnostic fields was also shown. Observed values:
+
+| Attached medium | Reachable sectors, hex | Probe/layout | Disk ID | MBR CRC32 | Signature/marker | Entries/EBRs |
+| --- | --- | --- | --- | --- | --- | --- |
+| Compact 64 MiB fixture | `0000000000020000` | `0000 / 0000` | `52425431` | `90835F6A` | `AA55 / 0001` | `0005 / 0001` |
+| Handoff 128 MiB fixture | `0000000000040000` | `0000 / 0000` | `52425431` | `E75726EB` | `AA55 / 0001` | `0005 / 0001` |
+| No HDD | Blank | `0001 / 0000` | Blank | Blank | Blank | Blank |
+| Unrelated 2 GiB HDD | `0000000000400000` | `0000 / 0000` | `00000000` | `4661F29B` | `AA55 / 0000` | `0004 / 0000` |
+
+Attached disks used EDD; boot/target was `0000 / 0080`. The unrelated disk's
+zero observed ID grants no identity match. Its count includes the four primary
+slots and does not establish four populated partitions. No VirtualBox/BIOS
+version, separate repeated-Enter/Esc result, English manual test, I/O trace,
+physical-hardware coverage or original-OS start was established by this report.
+Evidence is retained as text; PR #18 is merged into `historical`.
 
 A visible QEMU start with the existing compact fixture is available as:
 
@@ -69,10 +83,12 @@ binary artifacts and manifests. Output directories are `build/rescue/` and
 Separate `ui/rescue/` catalogs reuse the CP437 encoder, including umlauts and
 `ß`, without changing HDD catalogs.
 
-The automated scope is 38 boots and 217 keyboard/VGA states per language:
-76 boots and 434 states total, plus 28 native C/16 assertions in each model
-boot (`R=001C`, `RB RESCUE MODEL PASS`). Six additional host tests bring the
-repository total to 140. Coverage includes:
+The diagnostic scope is 38 boots and 217 keyboard/VGA states per language:
+76 boots and 434 states total, plus 28 native C/16 assertions in each rescue
+model boot (`R=001C`, `RB RESCUE MODEL PASS`). The subsequent
+[container model](ExternalBackup.md) adds one test-only boot per language,
+bringing the current total to 78 boots and 434 states. Host checks now total
+149 tests. Diagnostic coverage includes:
 
 - Metadata-only HDDs with no executable boot path or filesystem contents,
   unrecognized boot code, erased MBRs, bad MBR/EBR signatures, unsupported

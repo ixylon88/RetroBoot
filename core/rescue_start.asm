@@ -7,6 +7,11 @@ global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_rescue_runtime, _rb_rescue_run, _rb_putc
 %ifdef RB_RESCUE_MODEL
 extern _rb_rescue_selftest
+%define RB_RESCUE_ANY_MODEL 1
+%endif
+%ifdef RB_RESCUE_BACKUP_MODEL
+extern _rb_backup_selftest
+%define RB_RESCUE_ANY_MODEL 1
 %endif
 
     jmp short rb_entry
@@ -40,8 +45,12 @@ rb_entry:
     jnz failed
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
     jne failed
-%ifdef RB_RESCUE_MODEL
+%ifdef RB_RESCUE_ANY_MODEL
+%ifdef RB_RESCUE_BACKUP_MODEL
+    call _rb_backup_selftest
+%else
     call _rb_rescue_selftest
+%endif
     test ax, ax
     jnz failed
     cmp sp, RB_STACK_TOP - 2
@@ -82,7 +91,9 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_MODEL
+%ifdef RB_RESCUE_BACKUP_MODEL
+model_pass db 'RB BACKUP MODEL PASS', 13, 10, 0
+%elifdef RB_RESCUE_MODEL
 model_pass db 'RB RESCUE MODEL PASS', 13, 10, 0
 %endif
 segment CONST public align=2 class=DATA use16

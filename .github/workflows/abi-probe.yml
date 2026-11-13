@@ -64,6 +64,8 @@ jobs:
             build/rescue-de/*.map
             build/rescue/*.rom
             build/rescue-de/*.rom
+            build/rescue/synthetic-container.rbb
+            build/rescue-de/synthetic-container.rbb
             build/rescue/manifest.json
             build/rescue-de/manifest.json
             build/rescue-test/*.json
