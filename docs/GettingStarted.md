@@ -1,0 +1,158 @@
+# Getting started with RetroBoot test builds
+
+RetroBoot is being developed into a boot manager for classic BIOS PCs.
+The current builds demonstrate startup, inspect disk metadata and check saved
+backup files. Installation, real backup creation and restoration are still
+under development. The published images are test media for a separate VM.
+
+No knowledge of sector addresses or partition-table formats is needed for the
+following checks. The useful information is **build, image, screen and key**.
+A key by itself is ambiguous: the HDD menu and the rescue floppy are different
+programs, and F4 has a different purpose in each.
+
+## First check: a saved file on a demo floppy
+
+This check needs VirtualBox on an x86 host and one floppy image. No guest OS,
+installation ISO or virtual HDD is required. A previously working RetroBoot
+test VM can be reused, with its power off when changing the boot image.
+
+### 1. Download the matching build
+
+1. Open the [RetroBoot Actions page](https://github.com/ixylon88/RetroBoot/actions)
+   and select **BIOS ABI probe**.
+2. Open the successful run for the intended PR or `historical` revision.
+   Record its link. A green run for an older commit is a different build.
+3. Under **Artifacts**, download **retroboot-rescue-diagnostics** and extract
+   the ZIP into a new directory named for that run.
+4. Select one image from the table below. English and German use the same
+   program logic; the language is fixed in each image.
+
+GitHub requires a signed-in account with repository read access for artifact
+downloads. These workflow artifacts expire after 30 days. The repository's
+**Code → Download ZIP** contains source files, not the compiled test images.
+An artifact may also be uploaded after a failed run, so its presence alone
+does not establish a successful build.
+
+| Image inside the extracted artifact | Language | Contents |
+| --- | --- | --- |
+| `rescue/retroboot-rescue-demo.img` | English | Program plus a synthetic backup example |
+| `rescue-de/retroboot-rescue-demo.img` | German | Program plus the same synthetic example |
+| `rescue/retroboot-rescue.img` | English | Program without a backup file |
+| `rescue-de/retroboot-rescue.img` | German | Program without a backup file |
+
+For this first check, the filename ends in **`-demo.img`**. Every image in this
+table is a 1,474,560-byte floppy image. The example is not a backup of an
+attached HDD and cannot be used to restore one.
+
+### 2. Attach the floppy in VirtualBox
+
+With the test VM powered off:
+
+1. In **Settings → System**, select legacy BIOS by disabling **UEFI/EFI**.
+   Set **Floppy** first in the boot order.
+2. In **Settings → Storage**, add a floppy controller if absent. Add its first
+   floppy drive and choose the selected `retroboot-rescue-demo.img` as A:.
+3. Start the VM. The title must read **RetroBoot Rescue**, with **Read only**
+   or **Nur lesen** at the right.
+
+The floppy `.img` is attached directly as a raw floppy image. HDD-to-VDI
+conversion is only relevant to the separate HDD tests below. VirtualBox label
+wording can vary with version and interface language.
+
+### 3. Run the file check
+
+From the initial **RetroBoot Rescue** page, press **F4**. The page now names
+the saved file **RBBACKUP.RBB** on floppy A:.
+
+| Field | Expected demo result | Meaning |
+| --- | --- | --- |
+| File / check / detail | `0000 / 0000 / 0000` | File access and saved-content checks passed |
+| Record detail | `0000` | No nested record error |
+| Volumes / FAT16 / FAT32 | `0002 / 0001 / 0001` | Two saved volumes: one of each format |
+| Reserved sectors | `0021` | 33 sectors in hexadecimal notation |
+| Matching READY VBRs | `0001` | One saved start-sector checksum matches its saved record |
+| Floppy / saved-disk error LBA | Both `00000000` | No error location reported |
+| Descriptor kind / index | `0000 / 0000` | No rejected descriptor reported |
+
+The green message concerns the **saved file**. It does not confirm that an
+attached HDD matches that file, that an OS boots, or that restoration is ready.
+
+**Enter** repeats this file check. **Esc** returns to the initial HDD diagnosis
+page. Enter on that initial page checks an attached HDD instead; without one,
+the expected diagnosis is **BIOS reports no HDD**. F4 still checks the floppy
+file without an HDD.
+
+## Which image and which key?
+
+The following routes remain separate. The image names and screen titles identify
+the test even when a chat message or screenshot is no longer nearby.
+
+| Image and starting screen | Key sequence | Purpose and expected result |
+| --- | --- | --- |
+| `retroboot-rescue-demo.img`, **RetroBoot Rescue** | **F4** | Check the example backup file; the table above applies |
+| `retroboot-rescue.img`, **RetroBoot Rescue** | **F4** | Expected missing-file result `0005 / 0000 / 0000` |
+| Either rescue image, initial diagnosis page | **Enter** | Read the first HDD's partition metadata; outcome depends on the attached HDD |
+| `retroboot-hdd.img` or `retroboot-handoff.img`, **RetroBoot** menu | **F10** | Audit allocation of the eight management files; expected `0000 / 0000` |
+| Either HDD image, **RetroBoot** menu | **F8**, then **Enter** | Read the transaction journal; see [journal diagnosis](JournalDiagnosis.md) |
+| `retroboot-handoff.img`, **RetroBoot** menu | **F7**, then **F9** | Check the selected test profile, then run the test sector: `RB HANDOFF PASS` |
+| `retroboot-handoff.img`, **RetroBoot** main menu | **F4** | Earlier isolated test-sector handoff: `RB HANDOFF PASS` |
+
+The handoff test ends at a small test program. Restarting the VM returns to
+RetroBoot. It does not launch DOS or Windows. The normal `retroboot-hdd.img`
+has no handoff action. Detailed HDD setup, including conversion to a new VDI,
+is in [HDD_Boot.md](HDD_Boot.md). Its images come from **HDD BIOS boot →
+retroboot-hdd-bios**, under `hdd/` for English and `hdd-de/` for German.
+
+**The backup-target comparison increment has no new screen or key.** Its core
+is exercised in automated native tests only. F4 continues to check saved
+content; it does not yet compare the file with an attached HDD.
+
+## When the result differs
+
+| Observation | First check |
+| --- | --- |
+| The title is **RetroBoot**, although a rescue test was intended | The HDD probably booted; check floppy attachment and boot priority |
+| F4 reports `0005 / 0000 / 0000` | The normal rescue image intentionally has no backup; select `-demo.img` for the example |
+| Enter reports no HDD | This is expected with no HDD attached; F4 remains available |
+| An HDD check still shows an older result or file count | Confirm the artifact run and replace any VDI converted from an older image |
+| A key has no effect | Check the current screen, then click inside the VM to give it keyboard focus |
+| Another status or a startup error appears | Record the exact result with its image, screen and key; consult the linked feature guide |
+
+Diagnostic numbers belong to a particular page. A nonzero number can be an
+expected result, such as the deliberately absent backup file. Conversely, zero
+codes on one page say nothing about checks on another page.
+
+A short text report is sufficient; screenshots are optional:
+
+```text
+Build: PR/commit and workflow-run link
+Image: artifact name and exact path inside the ZIP
+Environment: VirtualBox version; attached test HDD or no HDD
+Screen and keys: RetroBoot Rescue → F4
+Observed: file/check/detail; any differing message or counter
+Repeat/return: Enter and Esc checked, or not checked
+```
+
+## Terms used in the diagnostics
+
+| Term | Plain meaning |
+| --- | --- |
+| Image / `.img` | A file containing the bytes of an entire virtual diskette or disk |
+| VM | A virtual PC, such as a VirtualBox machine |
+| BIOS | Firmware that starts this classic PC before an operating system runs |
+| MBR / EBR | Tables describing where disk partitions begin and end |
+| VBR | The first sector of a volume, containing its format information and potentially startup code |
+| FAT / cluster | The filesystem's allocation table / a group of sectors assigned to a file |
+| LBA | A sector's numbered position; an error location, not a command to enter |
+| CRC | A checksum for detecting inconsistency; it does not prove authenticity |
+| READY | A saved installation-state label; additional checks are needed before an OS start |
+| PR / CI / artifact | Proposed changes / automatic build and test runs / their downloadable output |
+
+The [current project state](Arbeitsstand.md) records completed work and remaining
+steps. Feature documents hold the detailed codes; the specification is intended
+for implementation work. A later installation and recovery manual will need
+the finished procedures, supported machines and recovery tests before those
+operations can be described as available.
+
+External references: GitHub's [artifact download procedure](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)
+and Oracle's [VirtualBox 7.2 VM settings](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/working-with-vms.html).

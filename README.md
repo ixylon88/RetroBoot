@@ -18,6 +18,7 @@ checks the real-mode transition in an explicitly selected test image.
 
 ## Documentation
 
+- [Getting started: downloads, VirtualBox, images and keys](docs/GettingStarted.md)
 - [English and German builds, character encoding](docs/Languages.md)
 - [Current specification v0.2](docs/spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md)
 - [Build commands, verification and next steps](docs/Entwicklung.md)
@@ -25,6 +26,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
+- [Read-only target-claim comparison model and its limits](docs/BackupTarget.md)
 - [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
@@ -104,7 +106,11 @@ The [file-validation guide](docs/RescueBackupFile.md) describes the manual test
 and boundaries. A matching result never identifies an attached HDD or permits
 restoration. The HDD image needs no replacement or VDI conversion.
 
-Automated rescue checks cover 138 boots and 812 VGA/keyboard states across both
+The [target-comparison core](docs/BackupTarget.md) is exercised in a separate
+native model only; it adds no normal-UI action. Saved-file validation and fresh
+live-target comparison still need integration before a recovery procedure.
+
+Automated rescue checks cover 140 boots and 812 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## HDD builds and tests
@@ -129,7 +135,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 167 host tests.
+across both languages. There are 170 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,
