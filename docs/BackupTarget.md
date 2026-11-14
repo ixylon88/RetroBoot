@@ -1,14 +1,11 @@
-# Read-only target-claim comparison model
+# Read-only target-claim comparison core
 
 `rb_backup_match_target` compares the identity, capacity, geometry and canonical
 layout claimed by a backup header with independently acquired current metadata.
-It is linked only into **backup-target-model**, a native C/16 test variant.
-The normal rescue and HDD programs, images, keys and saved-file F4 behavior are
-unchanged. No manual VM test is required for this model increment.
-
-The next integration step still needs a freshly probed BIOS device and a
-read-only HDD adapter in the independent rescue program. This model uses an
-in-memory sector reader; it does not demonstrate that future BIOS integration.
+The native **backup-target-model** exercises it with an in-memory reader.
+The independent rescue program now also calls it from the [F5 comparison
+adapter](RescueTargetCheck.md), which supplies freshly validated file claims,
+fresh BIOS discovery and real read-only HDD access. The HDD program is unchanged.
 
 ## Inputs and boundaries
 
@@ -74,8 +71,8 @@ Backup descriptor addresses never enter the reader at all.
 
 ## Result codes
 
-These codes belong to the new model API. They are not F4 file-status codes and
-are not displayed by the normal rescue program.
+These codes belong to the core API. F5 displays them as detail/nested when
+its outer check code is `0004`. They are not F4 file-status codes.
 
 | Hex | Symbol | Meaning / detail |
 | --- | --- | --- |
@@ -111,8 +108,11 @@ The successful fixture emits its complete **542-read** sequence, two identical
 addresses, including both complete FATs and the final MBR reread. No program,
 journal payload or system-volume VBR is read. Three new host tests verify the
 seed records, oracle boundaries and rejection of incomplete/redirected traces.
-The full suite now has 170 host tests and 140 rescue boots / 812 UI states
-across both languages. Both rescue builds reproduce exactly.
+The F5 integration adds real floppy/HDD campaigns and five host tests. The
+current total is 175 host tests and 188 rescue boots / 1,244 UI states across
+both languages. Both rescue builds reproduce exactly. The live F5 fixture
+has larger FATs and therefore a separate 1,058-read oracle; the model
+retains its 542-read sequence.
 
 This establishes comparison behavior for the supported intact metadata, not
 unique physical-device identity. A disk clone with copied identifiers and the
@@ -129,5 +129,5 @@ backup coverage, ownership history or recoverability.
 Damaged or absent live MBR/FAT/identity metadata is rejected. A different,
 independently justified recovery path for those cases remains open; trusting a
 backup's sector addresses is not a fallback. Complete collection, provenance,
-rescue UI integration, targeted restore authorization and interruption testing
-remain required before disk writes.
+targeted restore authorization and interruption testing remain required before
+disk writes. The read-only rescue UI integration is now available through F5.

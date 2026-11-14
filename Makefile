@@ -97,3 +97,4 @@ rescue-check:
 
 rescue-test: rescue-check
 	$(PYTHON) tools/test_rescue.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE)

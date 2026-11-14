@@ -11,7 +11,11 @@ org 0
 ; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer, 9=zero capacity.
 ; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
     dw 0xAA55
-    db 1                       ; one 512-byte ROM block
+%if RB_ROM_MODE == 17
+    db 2                       ; extra block for the replacement backup header
+%else
+    db 1
+%endif
     jmp init
 init:
     pushf
@@ -102,6 +106,50 @@ handler:
     out 0xE9, al
     popad
 .trace_done:
+%if RB_ROM_MODE == 16 || RB_ROM_MODE == 17
+    ; After the second HDD discovery, alter the next backup header returned
+    ; by the BIOS. The physical floppy remains unchanged. LBA 372 is the
+    ; synthetic file's first cluster, not the rescue program's loader.
+    cmp byte [cs:change_pending - handler], 0
+    je .saved_done
+    cmp dl, 0
+    jne .saved_done
+    cmp ah, 2
+    jne .saved_done
+    cmp cx, 0x0A0D              ; cylinder 10, sector 13
+    jne .saved_done
+    cmp dh, 0
+    jne .saved_done
+    mov byte [cs:change_pending - handler], 0
+    popf
+    pushf
+    call far [cs:old13 - handler]
+    jc .saved_return
+%if RB_ROM_MODE == 16
+    xor byte [es:bx + 508], 1   ; invalid header CRC on the final file check
+%else
+    push ds
+    push si
+    push di
+    push cx
+    push cs
+    pop ds
+    mov si, replacement - handler
+    mov di, bx
+    mov cx, 256
+    cld
+    rep movsw                  ; valid new generation with a recalculated CRC
+    pop cx
+    pop di
+    pop si
+    pop ds
+%endif
+.saved_return:
+    pushf                      ; common return helpers expect the entry PUSHF
+    jc rejected
+    jmp accepted
+.saved_done:
+%endif
 %if RB_ROM_MODE >= 10 && RB_ROM_MODE <= 13
     cmp dl, 0
     jne .floppy_done
@@ -189,6 +237,25 @@ handler:
     jmp accepted
 %endif
 %endif
+%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 17
+    cmp ah, 0x48
+    jne chain
+    inc byte [cs:probe_count - handler]
+    cmp byte [cs:probe_count - handler], 2
+    jb chain
+    mov byte [cs:probe_count - handler], 0
+%if RB_ROM_MODE == 14
+    mov word [si], 26
+    mov dword [si + 16], 262145
+    mov dword [si + 20], 0
+    mov word [si + 24], 512
+    jmp accepted
+%elif RB_ROM_MODE == 15
+    jmp rejected
+%else
+    mov byte [cs:change_pending - handler], 1
+%endif
+%endif
 chain:
     popf
     jmp far [cs:old13 - handler]
@@ -233,6 +300,17 @@ hex:
 %if RB_ROM_MODE >= 10 && RB_ROM_MODE <= 13
 floppy_failures: db 0
 %endif
+%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 17
+probe_count: db 0
+change_pending: db 0
+%endif
+%if RB_ROM_MODE == 17
+replacement: incbin RB_RESEALED_HEADER
+%endif
 old13: dd 0                   ; populated in reserved RAM, never written in ROM
+%if RB_ROM_MODE == 17
+    times 1023 - ($ - $$) db 0
+%else
     times 511 - ($ - $$) db 0
+%endif
     db 0                       ; byte checksum, sealed by the host builder

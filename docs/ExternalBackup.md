@@ -143,7 +143,8 @@ format example. There is no command for creating a real disk backup yet.
 
 ## Verification
 
-`make check` now runs 167 host tests in total. The nine container tests include literal
+The file-validation increment brought `make check` to 167 host tests;
+[CI.md](CI.md) records the current suite including rescue F5. The nine container tests include literal
 wire-offset checks, a byte mutation at each of the 22,528 positions in the
 small example, resealed malformed metadata, all required roles, size/count
 limits, round trips, CLI output and unchanged input files.
