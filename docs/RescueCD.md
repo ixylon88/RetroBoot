@@ -58,9 +58,25 @@ checks the first HDD instead. These page-specific codes are unchanged.
 
 A useful manual report records the workflow run, exact ISO path, language,
 VirtualBox version, attached HDD, confirmation that the old floppy was ejected,
-and F4/F5/Enter/Esc results. Screenshots are optional. Manual VirtualBox and
-physical BIOS CD checks remain pending; earlier floppy results do not establish
-CD compatibility. EFI, USB boot and no-emulation CD boot are outside this path.
+and F4/F5/Enter/Esc results. Screenshots are optional. EFI, USB boot and
+no-emulation CD boot are outside this path.
+
+## Manual evidence
+
+An English VirtualBox CD boot was reported on 14 November 2026. F4 showed
+consistent saved FAT boot areas: all status/detail fields zero, two volumes
+(one FAT16, one FAT32), `0x0021` reserved sectors, one READY match and zero
+error/descriptor fields. F5 showed the green metadata match, all status/detail
+and error fields zero, disk ID `0x52425431`, layout CRC `0x6FF4FB5E`, media ID
+`A6 21 6F 34 5C D2 46 77 90 AB C0 13 7D 84 52 E9`, management bounds
+`0x0000007E / 0x0001F5C9`, capacity `0x0000000000040000`, EDD with zero
+heads/sectors and config/state generations `0x00000001 / 0x00000001`.
+
+Exact ISO/workflow revision, VirtualBox/BIOS version and ejection of the old
+floppy were not separately reported. Enter/Esc repetitions, no-HDD behavior,
+German CD startup and physical hardware remain unconfirmed manually. This
+records the reported CD use and visible page results, not proof of every VM
+attachment. The supplied images were discarded after retaining this text.
 
 ## Build and automated evidence
 
@@ -95,7 +111,7 @@ are fixed at 1980-01-01 UTC, including the library's freshly serialized PVD
 modification date. Independent raw-field checks cover catalog checksum,
 routing, image bounds and payload equality. Host tests also check directory
 mapping, dates, clock/timezone independence and rejection of damaged inputs.
-There are **181 host tests** in total.
+There were **181 host tests** at the CD-packaging baseline.
 
 Each language adds **19 CD boots / 171 keyboard and VGA states** in QEMU:
 ten with the BIOS-call observation ROM, then nine without that ROM. Both
@@ -115,11 +131,17 @@ its floppy addresses as expected values only. Evidence is in
 screenshots and read traces. Every result identifies the boot medium and
 whether the BIOS-call ROM was attached.
 
-These **38 boots / 342 states** supplement the existing floppy campaigns
-(188 boots / 1,244 states). Guest binaries, floppy/HDD images, validators,
-disk formats and UI catalogs are unchanged. A green comparison still means
+These **38 boots / 342 states** supplemented the 188 floppy boots / 1,244
+states at the CD-packaging baseline. That increment changed no guest binaries,
+floppy/HDD images, validators, disk formats or UI catalogs. The subsequent
+[capture-plan model](BackupCapturePlan.md) adds two floppy boots; the combined
+scope is now 228 boots / 1,586 states. A green comparison still means
 supported metadata correspondence only, not unique physical identity,
 snapshot provenance or permission to restore.
+
+QEMU screendumps can contain incomplete repaints. Complete raw VGA text and
+attribute dumps are checked independently; passing those checks does not
+assert pixel-perfect PNG captures. The reports retain both forms of evidence.
 
 Format references: Phoenix/IBM's
 [El Torito Bootable CD-ROM Format Specification 1.0](https://www.ardent-tool.com/storage/specscdrom.pdf)

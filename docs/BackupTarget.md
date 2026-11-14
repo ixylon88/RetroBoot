@@ -31,6 +31,15 @@ changes; success is not a lease for a later operation.
 
 ## Acquisition and comparison
 
+`rb_backup_observe_target` exposes the same two-acquisition observation without
+saved claims. Its optional `rb_backup_sources` result contains the validated
+partition scan and config A/B, state A/B addresses from the allocation audit.
+That result is cleared at entry and populated only after both acquisitions
+agree. Missing arguments or invalid devices cause no reads. It requires the
+same non-overlap, stable-source and non-reentrancy preconditions. The
+[preliminary capture planner](BackupCapturePlan.md) uses this observation;
+the existing F5 comparison retains its claim checks and exact read order.
+
 Invalid parameters, unequal capacities and unequal route/geometry are rejected
 before any disk read. The comparison is deliberately exact. EDD permits an
 unknown `0 / 0` geometry; otherwise heads must be `1..256` and sectors per

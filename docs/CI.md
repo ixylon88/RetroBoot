@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (188 boots / 1,244 states) and CDs (38 boots / 342 states) in both languages |
+| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (190 boots / 1,244 states) and CDs (38 boots / 342 states) in both languages |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -67,15 +67,19 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The base [external rescue campaign](ExternalRescue.md) has 70 boots per language,
-including 58 seven-state UI campaigns and twelve terminal model/failure boots.
+The base [external rescue campaign](ExternalRescue.md) has 71 boots per language,
+including 58 seven-state UI campaigns and thirteen terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 181 tests. The
+dependency and run 186 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
+The [capture-plan model](BackupCapturePlan.md) adds 343 native assertions and
+a 2,122-address oracle per language. Its standalone `backup-plan-model.img`
+is included under both language directories in the rescue artifact. It uses
+in-memory metadata and performs no actual HDD reads or writes.
 
 The separate [F5 campaign](RescueTargetCheck.md) adds 24 boots and 216 states
 per language. A successful comparison requires two live acquisitions totaling
@@ -84,7 +88,7 @@ The campaign checks discovery calls, exact reads, VGA/RAM, stale-field clearing,
 source hashes and zero guest writes. Two tests deliberately mutate disposable
 host fixtures after a first success; their reports distinguish those host
 changes from guest writes. `match-results.json` is written after all requested
-cases pass. The total is 94 boots / 622 states per language, 188 / 1,244 across
+cases pass. The total is 95 boots / 622 states per language, 190 / 1,244 across
 both. The [getting-started guide](GettingStarted.md) identifies the exact
 matching image pair and separates rescue F5 from HDD-menu F5/F10.
 
@@ -94,7 +98,7 @@ Both check actual optical startup, exact HDD reads, VGA/RAM and zero block
 writes; only the instrumented cases observe virtual-floppy BIOS calls.
 Published ISOs contain byte-identical existing floppies. Packaging repeats and
 host tests verify catalog routing, directory mapping and fixed timestamps.
-The combined rescue scope is 226 boots / 1,586 states. This reuses the ABI
+The combined rescue scope is 228 boots / 1,586 states. This reuses the ABI
 runner; no additional job or physical-hardware coverage is implied.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
