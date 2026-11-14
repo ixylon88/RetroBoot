@@ -56,6 +56,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           path: |
+            build/rescue/retroboot-rescue-demo.img
+            build/rescue-de/retroboot-rescue-demo.img
             build/rescue/retroboot-rescue.img
             build/rescue-de/retroboot-rescue.img
             build/rescue/*.bin

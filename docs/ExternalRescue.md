@@ -3,7 +3,8 @@
 The FAT12 floppy starts its own C program without executing the HDD MBR,
 management VBR, FAT16 bootstrap or Stage 2. Enter probes BIOS drive `80h`
 afresh and reads its MBR and bounded EBR chain. This first external increment
-is **read-only diagnosis**. Backup import, independently verified media identity,
+is **read-only diagnosis**. The [F4 file check](RescueBackupFile.md) now validates saved metadata from the
+boot floppy. Independently verified media identity,
 targeted restore, ISO boot and installation are still open.
 
 The [ABI floppy](ABI_Probe.md) remains a runtime test without FAT or HDD access.
@@ -36,7 +37,9 @@ contains these normal images:
    authorization. Capacity depends on the image and BIOS route.
 4. Press **Enter** again. With unchanged media, the observations remain equal.
    **Esc** clears the diagnosis; Enter performs new discovery and reads.
-   F4 and F9 have no action. There is no HDD handoff.
+   F4 checks `RBBACKUP.RBB` on the floppy; the separate
+   [demo procedure](RescueBackupFile.md) describes that path. F9 has no action.
+   There is no HDD handoff.
 5. Optionally repeat with the HDD detached while the VM is powered off.
    The floppy still starts. Enter then reports `0001 / 0000`, with no retained
    capacity, identity, CRC or partition-count fields.
@@ -88,8 +91,8 @@ The diagnostic scope is 38 boots and 217 keyboard/VGA states per language:
 model boot (`R=001C`, `RB RESCUE MODEL PASS`). The subsequent
 [container model](ExternalBackup.md), [saved-record model](BackupRecords.md)
 and [FAT boot-area model](BackupBootAreas.md) each add one test-only boot per
-language, bringing the current total to 82 boots and 434 states. Host checks
-now total 161 tests. Diagnostic coverage includes:
+language. The subsequent file model and 27 file campaigns per language bring
+the current total to 138 boots and 812 states. Host checks now total 167 tests. Diagnostic coverage includes:
 
 - Metadata-only HDDs with no executable boot path or filesystem contents,
   unrecognized boot code, erased MBRs, bad MBR/EBR signatures, unsupported
@@ -130,14 +133,14 @@ file, including FAT entries crossing a sector boundary. The format follows the
 The boot sector pins the layout, payload length and whole-file CRC32. It reads
 one floppy sector per call, with at most three attempts, checks the complete
 payload before jumping, then establishes its own C startup. This is not a
-general FAT12 loader: moving or replacing the file requires rebuilding the
+general FAT12 loader: moving or replacing `RBRESCUE.BIN` requires rebuilding the
 paired image. CRC detects corruption; it is not cryptographic authentication.
 The medium is defined for floppy A: (`00h`) and the first HDD (`80h`).
 Additional disks and alternate boot-drive numbering are not selected.
 
 Code/data/BSS/stack share segment `1000h`, with the existing 48 KiB file limit,
-guard at `E000h` and stack top `FFFEh`. Payload sizes are 8,410 bytes EN and
-8,478 bytes DE. Fresh BIOS discovery establishes only a reader context. An
+guard at `E000h` and stack top `FFFEh`. Current payload sizes are 22,158 bytes EN and
+22,296 bytes DE. Fresh BIOS discovery establishes only a reader context. An
 unavailable EDD read capability selects validated CHS geometry; EDD parameter
 failure does not silently fall back. Sector size must be 512 bytes.
 

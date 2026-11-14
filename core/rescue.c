@@ -1,21 +1,13 @@
 #include "rescue.h"
+#include "rescue_file.h"
 #include "bios_ui.h"
 #include "rescue_text.h"
 
-volatile rb_u16 rb_rescue_initialized = 0x5242;
-volatile rb_u8 rb_rescue_bss[32];
 static const char digits[] = "0123456789ABCDEF";
 static const char * const reasons[] = {
     RB_RS_OK, RB_RS_NO_DISK, RB_RS_PARAMS, RB_RS_GEOMETRY, RB_RS_IO, RB_RS_CHANGED
 };
 
-rb_u16 __cdecl rb_rescue_runtime(void)
-{
-    rb_u16 i, local = 0xA55A;
-    if (rb_rescue_initialized != 0x5242 || rb_check_context(&local)) { return 1; }
-    for (i = 0; i < sizeof(rb_rescue_bss); ++i) { if (rb_rescue_bss[i]) { return 1; } }
-    return 0;
-}
 static void clear(void *p, rb_u16 size)
 {
     rb_u8 *bytes = (rb_u8 *)p;
@@ -42,7 +34,7 @@ static void debug_hex(rb_u16 value)
     rb_u16 i = 4;
     while (i) { --i; rb_debug_putc(digits[(value >> (i * 4)) & 15]); }
 }
-static void draw(rb_u16 boot, rb_u16 view, const rb_rescue_device *d, const rb_rescue_result *r)
+static void frame(void)
 {
     rb_u16 row;
     rb_video_fill(0, 2000, 0x1720);
@@ -54,6 +46,10 @@ static void draw(rb_u16 boot, rb_u16 view, const rb_rescue_device *d, const rb_r
     rb_video_fill(1841, 1, 0x17C0); rb_video_fill(1918, 1, 0x17D9);
     text(2, 4, RB_RS_TITLE, 0x1F); text(2, 65, RB_RS_READ_ONLY, 0x1E);
     rb_video_fill(321, 78, 0x17C4);
+}
+static void draw(rb_u16 boot, rb_u16 view, const rb_rescue_device *d, const rb_rescue_result *r)
+{
+    frame();
     text(5, 4, RB_RS_SCOPE, 0x1F); text(6, 4, RB_RS_LIMIT, 0x17);
     text(8, 4, !view ? RB_RS_READY : r->status ? reasons[r->status]
         : r->layout ? RB_RS_BAD_LAYOUT : RB_RS_OK, view && !r->status && !r->layout ? 0x1A : 0x1E);
@@ -82,18 +78,55 @@ static void draw(rb_u16 boot, rb_u16 view, const rb_rescue_device *d, const rb_r
     text(21, 4, RB_RS_HELP, 0x17); text(22, 4, RB_RS_IDENTITY, 0x17);
 }
 
+static void draw_file(rb_u16 status, rb_u32 lba, const rb_backup_boot *r)
+{
+    const char *reason = status == RB_FILE_MISSING ? RB_RS_B_MISSING
+        : status == RB_FILE_IO ? RB_RS_B_IO : status ? RB_RS_B_FILE_BAD
+        : r->status ? RB_RS_B_BAD : RB_RS_B_OK;
+    frame();
+    text(5, 4, RB_RS_B_SCOPE, 0x1F); text(6, 4, RB_RS_B_LIMIT, 0x17);
+    text(8, 4, reason, !status && !r->status ? 0x1A : 0x1E);
+    text(9, 4, RB_RS_B_CODES, 0x17);
+    hex(9, 32, status, 4); text(9, 37, "/", 0x17); hex(9, 39, r->status, 4);
+    text(9, 44, "/", 0x17); hex(9, 46, r->detail, 4);
+    text(10, 4, RB_RS_B_NESTED, 0x17); hex(10, 32, r->record_detail, 4);
+    if (!status && !r->status) {
+        text(12, 4, RB_RS_B_COUNTS, 0x17);
+        hex(12, 32, r->volumes, 4); text(12, 37, "/", 0x17); hex(12, 39, r->fat16, 4);
+        text(12, 44, "/", 0x17); hex(12, 46, r->fat32, 4);
+        text(13, 4, RB_RS_B_SECTORS, 0x17); hex(13, 32, r->reserved_sectors, 4);
+        text(14, 4, RB_RS_B_READY, 0x17); hex(14, 32, r->ready_matches, 4);
+    }
+    text(16, 4, RB_RS_B_FILE_LBA, 0x17); hex(16, 32, lba, 8);
+    text(17, 4, RB_RS_B_DISK_LBA, 0x17); hex(17, 32, r->error_lba, 8);
+    text(18, 4, RB_RS_B_EXTENT, 0x17);
+    hex(18, 32, r->kind, 4); text(18, 37, "/", 0x17); hex(18, 39, r->index, 4);
+    text(21, 4, RB_RS_B_HELP, 0x17); text(22, 4, RB_RS_B_BOUNDARY, 0x17);
+}
+
 void __cdecl rb_rescue_run(rb_u16 boot)
 {
     rb_rescue_device device;
     rb_rescue_result result;
+    rb_backup_boot backup;
+    rb_u16 file_status = 0;
+    rb_u32 file_lba = 0;
     rb_u16 key, view = 0, serial = 0;
-    clear(&device, sizeof(device)); clear(&result, sizeof(result));
+    clear(&device, sizeof(device)); clear(&result, sizeof(result)); clear(&backup, sizeof(backup));
     rb_video_init(); draw(boot, view, &device, &result);
     debug("RB RESCUE UI " RB_RS_LANGUAGE " CP437\r\nRB RESCUE READY\r\n");
     for (;;) {
         key = rb_key_poll();
         if (key == 0xFFFF) { rb_idle(); continue; }
-        if ((key & 0xFF) == 13) {
+        if ((key >> 8) == 0x3E || ((key & 0xFF) == 13 && view == 2)) {
+            clear(&device, sizeof(device)); clear(&result, sizeof(result));
+            debug("RB FILE BEGIN\r\n");
+            rb_rescue_backup_check(boot, &file_status, &file_lba, &backup);
+            view = 2;
+            debug("RB FILE status="); debug_hex(file_status);
+            debug(" check="); debug_hex(backup.status); debug(" detail="); debug_hex(backup.detail);
+            debug(" nested="); debug_hex(backup.record_detail); debug("\r\n");
+        } else if ((key & 0xFF) == 13) {
             clear(&device, sizeof(device)); clear(&result, sizeof(result));
             debug("RB RESCUE BEGIN\r\n");
             result.status = rb_rescue_probe(&device);
@@ -102,9 +135,11 @@ void __cdecl rb_rescue_run(rb_u16 boot)
             debug("RB RESCUE status="); debug_hex(result.status);
             debug(" layout="); debug_hex(result.layout); debug("\r\n");
         } else if ((key & 0xFF) == 27) {
-            clear(&device, sizeof(device)); clear(&result, sizeof(result)); view = 0;
+            clear(&device, sizeof(device)); clear(&result, sizeof(result)); clear(&backup, sizeof(backup));
+            file_status = 0; file_lba = 0; view = 0;
         }
-        draw(boot, view, &device, &result);
+        if (view == 2) { draw_file(file_status, file_lba, &backup); }
+        else { draw(boot, view, &device, &result); }
         debug("RB RESCUE KEY "); debug_hex(++serial); debug(" view="); debug_hex(view); debug("\r\n");
     }
 }
