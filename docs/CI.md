@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then both rescue builds with 188 boots and 1,244 UI states total |
+| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (188 boots / 1,244 states) and CDs (38 boots / 342 states) in both languages |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -38,6 +38,10 @@ kein bestandener Test.
 Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
+- `retroboot-rescue-cd`: four normal/demo ISOs and manifests under `rescue-iso/`
+  and `rescue-iso-de/`; CD evidence under `rescue-iso-test/`,
+  `rescue-iso-test-de/`, `rescue-iso-test-bare/` and `rescue-iso-test-bare-de/`.
+  The matching HDD remains in `retroboot-rescue-diagnostics`.
 - `retroboot-rescue-diagnostics`: independent FAT12 floppies in `rescue/` and
   `rescue-de/`, with binaries, manifests and evidence in `rescue-test/` and
   `rescue-test-de/`. Both normal floppies, both synthetic demo floppies and the
@@ -68,7 +72,8 @@ including 58 seven-state UI campaigns and twelve terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
-no additional runner job. Both host jobs now run 175 tests. The
+no additional runner job. Both host jobs install the hash-pinned PyCdlib
+dependency and run 181 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 
@@ -82,6 +87,15 @@ changes from guest writes. `match-results.json` is written after all requested
 cases pass. The total is 94 boots / 622 states per language, 188 / 1,244 across
 both. The [getting-started guide](GettingStarted.md) identifies the exact
 matching image pair and separates rescue F5 from HDD-menu F5/F10.
+
+The [CD campaign](RescueCD.md) adds 19 boots / 171 states per language without
+an attached floppy: ten with BIOS-call instrumentation, nine without it.
+Both check actual optical startup, exact HDD reads, VGA/RAM and zero block
+writes; only the instrumented cases observe virtual-floppy BIOS calls.
+Published ISOs contain byte-identical existing floppies. Packaging repeats and
+host tests verify catalog routing, directory mapping and fixed timestamps.
+The combined rescue scope is 226 boots / 1,586 states. This reuses the ABI
+runner; no additional job or physical-hardware coverage is implied.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen
@@ -167,8 +181,10 @@ Auch T07 aus PR #10 wurde manuell bestätigt, ohne zusätzliche Plattformdaten.
 The F5 test from merged PR #11 was reported complete, without added coverage details.
 F6 and German/English F7 were subsequently confirmed, as were F9 and the
 F10 status. The PR #17 procedure was reported checked and confirmed without
-additional image/language or platform details. Manual confirmation of the
-new external floppy remains open.
+additional image/language or platform details. German external floppy
+diagnosis and F4 were subsequently confirmed. English F5 and then the German
+numeric/byte display were also confirmed; the linked rescue guides record
+their exact scope. Manual confirmation of the new CD boot remains open.
 
 Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
 privaten Schlüssel und verändern keine Branches. Sie lösen weder einen

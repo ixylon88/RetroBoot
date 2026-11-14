@@ -4,6 +4,15 @@ Updated: 14 November 2026.
 
 ## Saved baseline
 
+PR #25 (numeric values and byte sequences) is merged into `historical` at
+`c95289b9c4fabc1154b78df6c2d1117f0c1d6865`. All four PR checks passed.
+The German initial rescue page and successful F5 result were subsequently
+confirmed under VirtualBox on 14 November 2026, including the `0x` notation,
+spaced media-ID bytes and German text. The exact values match the
+[F5 table](RescueTargetCheck.md#manual-virtualbox-check). Workflow/image paths,
+BIOS version, repeat keys and HDD-menu formatting were not separately reported.
+The supplied screenshots were discarded after retaining this text evidence.
+
 PR #23 (target-comparison core and beginner guide) is merged into `historical`
 at `3e3063903c95b2327efaab583e53f75a2686d258`. All four PR checks passed,
 including HDD regression. That baseline has 170 host tests and 140 rescue
@@ -41,7 +50,31 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: explicit numeric/byte displays
+## Current increment: rescue CD
+
+Branch `codex/rescue-iso` packages the existing normal/demo rescue floppies
+as reproducible BIOS CDs in both languages. El Torito floppy emulation keeps
+the existing drive A: path without an attached floppy. No guest code, UI
+catalog, disk format, floppy or HDD image changes are introduced.
+The [CD guide](RescueCD.md) specifies the artifact, VirtualBox setup, expected
+F4/F5 results, build commands and limits. Manual CD confirmation remains open.
+
+The packaging library is pinned by version and download SHA-256. Fixed ISO
+dates, independent catalog/payload checks and repeat builds establish stable
+packages. Six new host tests bring the total to 181. Local CD verification
+passes 38 boots / 342 keyboard and VGA states, split between BIOS-call-ROM
+and bare-BIOS campaigns in both languages. The original F5 floppy regression
+also passes all 48 boots / 432 states. Exact HDD reads, VGA/RAM checks and
+zero guest writes remain required; bare CD runs do not claim observed floppy
+BIOS calls. Published artifacts and full CI evidence belong to the proposed PR.
+
+The new `retroboot-rescue-cd` artifact contains four ISOs and their manifests
+and evidence. The matching synthetic HDD stays in the existing
+`retroboot-rescue-diagnostics` artifact. The unchanged matching VDI from the
+earlier F5 check can remain attached; the old floppy must be ejected to verify
+optical startup. Real collection, provenance and restoration remain open.
+
+## Numeric/byte display and F5 baseline
 
 Merged PR #24 integrates the existing comparison core
 with the normal rescue program. F5 opens and fully validates `RBBACKUP.RBB`,
@@ -52,19 +85,18 @@ Every failure clears successful device/identity/layout/generation fields.
 Enter repeats; F4 selects the file-only check; Esc clears to diagnosis.
 There are no writes, restore actions or OS starts.
 
-Branch `codex/numeric-byte-display` displays hexadecimal numeric values with one `0x`
+Merged PR #25 displays hexadecimal numeric values with one `0x`
 prefix and opaque media IDs as sixteen space-separated byte pairs in stored
 order. Both normal HDD menus and rescue pages use this convention in English
 and German. Numeric 64-bit fields have one prefix for the complete value;
 decimal counters and ASCII debug markers retain their existing form. Status
 columns have been widened without changing codes, disk formats or checks.
 The [display conventions](Languages.md#numbers-and-byte-sequences) describe the
-number/byte distinction. Manual confirmation of the new formatting is pending.
+number/byte distinction. German rescue confirmation is recorded above.
 
 PR #24 is merged into `historical` at
 `5fa5c2ac155ca1e3ba908ad2373b3f8e02e16034`. All four checks passed for its
-F5 commit `ad6bbb60f96fc1b4d58809a127d54f5913680e79`. The presentation
-follow-up is a separate PR based on that merged tree.
+F5 commit `ad6bbb60f96fc1b4d58809a127d54f5913680e79`. PR #25 builds on that tree.
 
 The artifact adds `retroboot-rescue-target-hdd.img`, a nonbootable 128 MiB
 synthetic HDD paired with the existing demo backup. It is not the normal or
@@ -80,7 +112,7 @@ error LBAs zero. The screenshot did not separately establish the workflow
 revision, exact image paths, BIOS/version or Enter/F4/Esc results. Evidence
 is retained as text; the supplied image was discarded as requested.
 
-Verification: 175 host tests; both rescue builds reproduced; 188 rescue boots /
+Verification at the display baseline: 175 host tests; both rescue builds reproduced; 188 rescue boots /
 1,244 UI states. The new 24 nine-state campaigns per language include real EDD
 and CHS reads, damaged/missing file or HDD metadata, failed/changed reprobes,
 changed and correctly resealed saved content, and stale-result clearing after
@@ -152,8 +184,8 @@ floppy in English and German. It has its own CRC-pinned loader, C startup,
 BIOS discovery and MBR/EBR diagnostic page. No HDD code or filesystem is needed
 to start. Enter reads drive `80h`; Enter repeats; Esc clears. The observed disk
 ID is explicitly not an independently verified identity. That initial baseline had no backup
-file reader. F4 now supplies one; disk writes, restore, HDD handoff and ISO
-remain unavailable.
+file reader. F4 now supplies one; disk writes, restore and HDD handoff remain
+unavailable. The current increment adds ISO packaging of the same floppy.
 
 The [external rescue guide](ExternalRescue.md) contains the manual procedure,
 format, codes, trust boundary and evidence. CI publishes the two floppies as
@@ -164,13 +196,14 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 175 host tests plus the reference layout report, including file access, all three backup layers and live target-comparison boundaries.
+- 181 host tests plus the reference layout report, including file access, all three backup layers, live target-comparison boundaries and ISO packaging.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
   The additional checker models and file campaigns bring the current total to
-  188 boots and 1,244 UI states across both languages.
+  188 floppy boots and 1,244 UI states across both languages. CD campaigns add
+  38 boots / 342 states, bringing the combined scope to 226 / 1,586.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged except for explicitly recorded host mutations in two
@@ -206,7 +239,8 @@ The frozen specification v0.2 and archives are unchanged.
    with the target-comparison core. Unique physical identity and recovery
    authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
-   ISO boot remains open too.
+   The rescue ISO now has automated CD-boot coverage; manual VirtualBox and
+   physical BIOS compatibility remain open.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion
    writes with interruption tests after every step. The present observation
    is neither an atomic snapshot, a durable-history proof nor a write lease.

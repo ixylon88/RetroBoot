@@ -27,12 +27,18 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
       - name: Prepare verified toolchain
         run: make toolchain
+      - name: Install pinned ISO packaging dependency
+        run: make iso-deps
       - name: Reproduce binaries and boot positive/negative fixtures
         run: make boot-test
       - name: Reproduce and test independent English/German rescue floppies
         run: |
           make rescue-test RB_LANGUAGE=en
           make rescue-test RB_LANGUAGE=de
+      - name: Package and boot English/German rescue CDs
+        run: |
+          make rescue-iso-test RB_LANGUAGE=en
+          make rescue-iso-test RB_LANGUAGE=de
       - name: Upload probe and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -104,3 +110,22 @@ jobs:
             build/rescue-match-test-de/*.png
             build/rescue-match-test/*.bin
             build/rescue-match-test-de/*.bin
+      - name: Upload rescue CDs and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-rescue-cd
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            build/rescue-iso/*.iso
+            build/rescue-iso/manifest.json
+            build/rescue-iso-de/*.iso
+            build/rescue-iso-de/manifest.json
+            build/rescue-iso-test*/match-results.json
+            build/rescue-iso-test*/*.log
+            build/rescue-iso-test*/*.trace
+            build/rescue-iso-test*/*.conf
+            build/rescue-iso-test*/*.txt
+            build/rescue-iso-test*/*.png
+            build/rescue-iso-test*/*.bin

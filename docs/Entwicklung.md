@@ -1,6 +1,6 @@
 # Entwicklung – Hostprüfungen und erste Bootlader
 
-Updated: 13 November 2026.
+Updated: 14 November 2026.
 
 Die [BIOS-/ABI-Probe](ABI_Probe.md) ergänzt den Layoutprüfer um einen echten
 Real-Mode-Start mit Open-Watcom-C/16 und NASM. Die folgende Beschreibung des
@@ -48,7 +48,9 @@ keine Aussage über alle zulässigen fremden Partitionstabellen.
 ## Befehle
 
 Getestete lokale Werkzeuge: Python 3.12.14 und GNU Make 4.3 auf Linux.
-Es gibt keine pip-Abhängigkeiten. Der CI-Workflow prüft Python 3.12 zusätzlich
+ISO packaging and the host suite additionally require the hash-pinned
+dependency installed by `make iso-deps`; an isolated Python environment can
+be selected with `PYTHON=path/to/python`. Der CI-Workflow prüft Python 3.12 zusätzlich
 auf Ubuntu 24.04 und Windows Server 2022; Ergebnisse stehen am jeweiligen PR.
 Ein macOS-Lauf wurde noch nicht protokolliert.
 
@@ -81,6 +83,9 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make rescue` | Build the independent FAT12 diagnostic floppy; `RB_LANGUAGE=de` selects German |
 | `make rescue-check` | Repeat the rescue build and compare binaries, images and manifests |
 | `make rescue-test` | Repeat build, 94 boots and 622 VGA/keyboard states for the selected language |
+| `make iso-deps` | Install the pinned ISO packaging and host-test dependency |
+| `make rescue-iso` | Package existing verified rescue floppies as reproducible BIOS CDs |
+| `make rescue-iso-test` | Package and test 19 CD boots / 171 states for the selected language; no floppy attached |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -139,7 +144,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **175 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **181 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -260,8 +265,10 @@ Die nächsten Schritte sind:
    [F4 saved-file check](RescueBackupFile.md) have manual VirtualBox confirmation.
    The [F5 comparison](RescueTargetCheck.md) now integrates the target core with
    full saved-file validation and fresh BIOS discovery. Its English success page has
-   manual VirtualBox confirmation; repeat keys and the later numeric/byte
-   formatting remain unconfirmed manually. Real collection, provenance and
+   manual VirtualBox confirmation. The German initial/F5 pages subsequently
+   confirmed the numeric/byte notation; repeat keys and HDD-menu formatting
+   remain unconfirmed manually. The [rescue CD](RescueCD.md) has automated
+   boot evidence; its manual check is pending. Real collection, provenance and
    restore remain open. F7/F9 and the subsequent
    PR #17 procedure were reported confirmed; no original-OS authorization follows.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die

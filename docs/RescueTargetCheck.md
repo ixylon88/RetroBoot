@@ -86,6 +86,16 @@ Further text reports need the workflow run, exact two image paths, language,
 F5 codes and Enter/F4/Esc observations.
 The [beginner guide](GettingStarted.md) explains the other screens and keys.
 
+German VirtualBox screenshots on 14 November 2026 subsequently confirmed the
+initial rescue page and this successful F5 result with the new numeric/byte
+notation. All fields matched the table, including a single prefix on the
+64-bit capacity, spaced media-ID bytes, zero errors and correct German text
+including `schließen`. No workflow revision, exact image paths, BIOS/version,
+repeat-key results or HDD-menu formatting were separately established. This
+floppy evidence is retained as text; the supplied images were discarded.
+The [CD packaging](RescueCD.md) adds a separate boot path whose manual check
+remains pending.
+
 ## Composition and lifetime
 
 The synchronous adapter in [rescue_backup.c](../core/rescue_backup.c) performs:
@@ -145,7 +155,8 @@ on purpose, demonstrating independent discovery.
 
 `make rescue-test RB_LANGUAGE=en` and `RB_LANGUAGE=de` each add **24 boots and
 216 keyboard/VGA states** for F5. Together with the earlier campaigns, the
-rescue total is **188 boots / 1,244 states**; the host suite has **175 tests**.
+floppy total is **188 boots / 1,244 states**; the host suite has **181 tests**.
+CD boot adds 38 boots / 342 states using the same adapter and checkers.
 The unchanged native target model retains 178 assertions per language.
 
 The F5 campaigns cover EDD and CHS success, missing HDD/file, invalid saved
