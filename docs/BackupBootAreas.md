@@ -3,7 +3,8 @@
 `rb_backup_check_boot` checks saved FAT16/FAT32 reserved areas after the
 [container](ExternalBackup.md) and [record](BackupRecords.md) checks. It operates
 on file-relative sector reads. It does not read an attached HDD or authorize
-a restore. The normal rescue floppy and its menu remain unchanged.
+a restore. The rescue floppy now uses this API through its
+[read-only F4 file check](RescueBackupFile.md).
 
 ## Supported scope
 
@@ -82,26 +83,27 @@ but do not establish atomic acquisition or cryptographic authenticity.
 Six added host tests verify literal structures, valid outer/inner checksums in
 semantic counterexamples, sparse native-vector transfer, stale FSInfo hints,
 fault placement and the non-executable nature of the examples. There are
-161 host tests in total. The new native model has 65 scenarios / 325 assertions
+161 host tests at PR #21; the current file-access increment brings the total to 167. The new native model has 65 scenarios / 325 assertions
 per language (`D=0145`, `RB BACKUP BOOT PASS`), including reversed split extents,
 FAT16 reserved regions, absent/relocated FAT32 backups, late logical-volume
 failure, selected/older READY CRCs and reads/changes beyond 64 KiB.
 
-Native model payloads are 32,072 bytes EN / 32,140 bytes DE; BSS ends at
-42,226 / 42,294, below the 57,344 stack guard. Normal rescue payloads remain
+At PR #21, native model payloads were 32,072 bytes EN / 32,140 bytes DE; BSS ended at
+42,226 / 42,294, below the 57,344 stack guard. Normal rescue payloads then remained
 8,410 / 8,478 bytes. Compared with the published PR #20 artifacts, 40 of 43
-existing artifact digests per language are unchanged; only the three
+existing artifact digests per language were unchanged; only the three
 saved-record model artifacts differ for the internal handoff.
 
-Both languages are built twice. The complete rescue campaign now has 82 boots
+Both languages are built twice. The PR #21 rescue campaign had 82 boots
 and 434 UI states. Previous container, saved-record and diagnostic models remain
-covered. Only the saved-record model changes slightly for the internal context
-handoff; normal rescue/HDD/ABI implementations are unchanged. The new checker
-is linked only into `backup-boot-model`.
+covered. At that increment only the saved-record model changed for the internal context
+handoff. The subsequent F4 path also links the checkers into the normal rescue
+program; runtime initialization is separated from the menu for model builds.
 
 `synthetic-boot-areas.rbb` contains internally consistent test metadata, not a
 collected disk snapshot. Original-MBR provenance, boot-code/overlay identity,
 other filesystem boot formats, FAT/data/file allocation, snapshot collection,
-independent live-media/geometry binding, FAT12 import and confirmed targeted
+independent live-media/geometry binding and confirmed targeted
 restore remain open. An intact reserved region is not a filesystem or user-data
-backup. No additional manual VM test is required for this model increment.
+backup. The subsequent [file path](RescueBackupFile.md) supplies a separate demo image
+and manual test; these synthetic bytes still do not constitute a real backup.

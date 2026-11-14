@@ -2,9 +2,8 @@
 
 This increment defines version 1 of a bounded external metadata container and
 checks the same wire format in Python and native C/16. It is a foundation for
-external recovery, **not a completed backup or restore operation**. The normal
-rescue floppy remains the read-only diagnostic from PR #18; its bytes and menu
-are unchanged. No additional manual VM test is required for this increment.
+external recovery, **not a completed backup or restore operation**. The rescue floppy now reads and validates saved files through the
+[read-only F4 path](RescueBackupFile.md). It still has no restore action.
 
 The frozen specification v0.2 remains authoritative. Its complete external
 backup and independently confirmed restore requirements remain open.
@@ -31,10 +30,10 @@ configuration or state, prove that every required EBR/boot sector was captured,
 or establish which MBR was originally installed or last approved. Required role
 presence is not proof of a complete or consistent snapshot.
 
-Collection, stable-source revalidation, record semantics, file ownership,
-independent live-media binding, loading a backup file from rescue FAT12,
-selection of targeted restore bytes, explicit confirmation and interruption
-handling are subsequent steps. No disk writer or OS-start path is added.
+Record semantics and stable-source revalidation are supplied by the subsequent
+checker layers and F4 file reader. Real collection, management-file ownership,
+independent live-media binding, selection of targeted restore bytes, explicit
+confirmation and interruption handling remain open. No disk writer or OS-start path is added.
 An accepted descriptor list must never be treated as a write plan.
 
 ## Wire format, version 1
@@ -144,7 +143,7 @@ format example. There is no command for creating a real disk backup yet.
 
 ## Verification
 
-`make check` now runs 161 host tests in total. The nine container tests include literal
+`make check` now runs 167 host tests in total. The nine container tests include literal
 wire-offset checks, a byte mutation at each of the 22,528 positions in the
 small example, resealed malformed metadata, all required roles, size/count
 limits, round trips, CLI output and unchanged input files.
@@ -160,10 +159,10 @@ checks bounded sequential reads, result guards and cleared failure results.
 
 The container increment established 39 boots per language, with the same
 217 UI states: 78 boots and 434 states total. The subsequent saved-record
-and boot-area models add one boot each per language (82 boots / 434 states currently).
+and boot-area models add one boot each per language (82 boots / 434 states at PR #21). The subsequent F4 file path reaches
+138 boots / 812 states.
 Existing diagnostic, startup,
 BIOS-fault, unchanged-media and no-write checks remain. Both languages are
-built twice and their binaries/manifests compared. Normal EN/DE rescue images
-remain byte-identical to PR #18; backup code is linked only into the model
-variant. The HDD and ABI implementations are unchanged. The additional model
+built twice and their binaries/manifests compared. At PR #19, normal EN/DE rescue images remained byte-identical to PR #18.
+The subsequent F4 path also links the checkers into the normal rescue program. The HDD and ABI implementations are unchanged. The additional model
 has no language-specific behavior and is exercised in both build variants.

@@ -14,6 +14,7 @@ try:
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
     from .backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
 except ImportError:
@@ -22,6 +23,7 @@ except ImportError:
     from rescue_text import LANGUAGES, metadata, output_name, render_header
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
     from backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
 
@@ -108,10 +110,11 @@ def build(kind='rescue',language='en'):
     (destination/'backup_record_vectors.h').write_text(record_header(),encoding='ascii')
     (destination/'backup_boot_vectors.h').write_text(boot_header(),encoding='ascii')
     objects=[]
-    for name,source in (('rescue','core/rescue.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
+    for name,source in (('runtime','core/rescue_runtime.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
         if name!='model':objects.append(obj)
-    for name,source in (('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
+    for name,source in (('rescue-ui','core/rescue.c'),('rescue-file','core/rescue_file.c'),
+            ('rescue-file-tests','tests/rescue/file.c'),('rescue-backup','core/rescue_backup.c'),('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('saved-state','core/state.c'),('saved-record-io','core/record_io.c'),('saved-volume','core/volume.c')):
@@ -119,6 +122,7 @@ def build(kind='rescue',language='en'):
             '-fo='+str(destination/(name+'.obj')),source)
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
+    run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -128,7 +132,8 @@ def build(kind='rescue',language='en'):
     for name,defines in (('retroboot-rescue',[]),('rescue-bss-fault',['-DRB_RESCUE_BAD_BSS=1']),
             ('rescue-model',['-DRB_RESCUE_MODEL=1']),('backup-model',['-DRB_RESCUE_BACKUP_MODEL=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
-            ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1'])):
+            ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
+            ('rescue-file-model',['-DRB_RESCUE_FILE_MODEL=1'])):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
         extra=[destination/'model.obj'] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
@@ -136,6 +141,11 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-record-tests')]
         if name=='backup-boot-model':
             extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-boot-tests')]
+        if name=='rescue-file-model':
+            extra=[destination/(n+'.obj') for n in ('rescue-file','rescue-file-tests')]
+        if name in ('retroboot-rescue','rescue-bss-fault'):
+            extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
+                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -153,9 +163,12 @@ def build(kind='rescue',language='en'):
     original=(destination/'retroboot-rescue.img').read_bytes()
     for name,offset in (('rescue-crc-fault',PAYLOAD_LBA*512+40),('rescue-header-fault',PAYLOAD_LBA*512+20)):
         bad=bytearray(original);bad[offset]^=1;p=destination/(name+'.img');p.write_bytes(bad);remember(p)
+    for name in file_specs():
+        p=destination/(name+'.img');p.write_bytes(file_fixture(original,name));remember(p)
+    p=destination/'retroboot-rescue-demo.img';p.write_bytes(file_fixture(original,'file-demo'));remember(p)
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
-    for mode in range(12):
+    for mode in range(14):
         p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,
@@ -167,6 +180,7 @@ def build(kind='rescue',language='en'):
     manifest['backup_records_model']=dict(cases=record_cases(),assertions=4*len(record_cases()),
         scope='saved partition/record consistency only; no filesystem completeness, live media match or restore')
     example=destination/'synthetic-boot-areas.rbb';example.write_bytes(boot_fixture());remember(example)
+    manifest['backup_file_cases']=file_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')

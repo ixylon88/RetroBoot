@@ -94,12 +94,17 @@ without a working HDD MBR, FAT16 bootstrap or Stage 2. Enter probes the first
 HDD and reads its MBR/EBRs; Esc clears the diagnosis. There is no write,
 restore or OS-start action. Media identity and backup binding remain open.
 
-For the next manual test, attach either image as floppy A: in the existing
-BIOS VM, boot floppy first and press **Enter**. With the existing normal HDD
-fixture, expect `0000 / 0000` and boot/target `0000 / 0080`. The HDD image
-needs no replacement or VDI conversion for this increment. The
-[rescue guide](docs/ExternalRescue.md) includes the no-HDD test and limitations.
-Automated rescue checks add 76 boots and 434 VGA/keyboard states across both
+The new **F4** path checks `RBBACKUP.RBB` on the boot floppy. The artifact also
+contains `rescue/retroboot-rescue-demo.img` and its German counterpart under
+`rescue-de/`, with synthetic metadata. Booting a demo as floppy A: and pressing
+F4 should produce `0000 / 0000 / 0000`, volumes `0002 / 0001 / 0001`, reserved
+sectors `0021` and one READY VBR match. Enter repeats; Esc returns to HDD
+diagnosis. The normal image intentionally has no backup file (`0005 / 0000 / 0000`).
+The [file-validation guide](docs/RescueBackupFile.md) describes the manual test
+and boundaries. A matching result never identifies an attached HDD or permits
+restoration. The HDD image needs no replacement or VDI conversion.
+
+Automated rescue checks cover 138 boots and 812 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## HDD builds and tests
@@ -124,7 +129,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 161 host tests.
+across both languages. There are 167 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,

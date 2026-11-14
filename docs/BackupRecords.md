@@ -6,10 +6,10 @@ native C/16 consistency check after the [container validator](ExternalBackup.md)
 It reuses the existing partition scanner and configuration/state decoders and
 pair selectors. No second implementation of those formats is introduced.
 
-This increment runs in a separate model payload. The normal rescue UI and
-English/German floppy images remain byte-identical to PR #19. No additional
-manual VM test is required. The Python inspector still reports container
-integrity only; it does not perform the new native record check.
+PR #20 introduced this check in a separate model payload. The subsequent
+[F4 file path](RescueBackupFile.md) also uses it in the normal rescue program.
+The Python inspector still reports container integrity only; it does not
+perform the native record check.
 
 ## Accepted evidence
 
@@ -59,7 +59,7 @@ In particular:
 - The `RBM1` marker is not authentication or a complete boot-code/overlay check.
   Record descriptor LBAs are not verified file allocation or ownership evidence.
 - CRCs are not cryptographic authentication. Collection, stable snapshot
-  acquisition, independent live-media/geometry binding, FAT12 file import,
+  acquisition, independent live-media/geometry binding,
   explicit restore selection/confirmation and interruption handling remain open.
 
 The model deliberately accepts a record-consistent fixture with zero-filled
@@ -130,12 +130,13 @@ transfer. The native model executes 74 scenarios / 296 assertions per language
   sequences, failure-stop counts, diagnostics and cleared results are checked.
 
 This increment established 40 boots and 217 UI states per language.
-The subsequent boot-area model brings the total to 82 boots / 434 states. The earlier 216 container assertions and 28
+The boot-area increment reached 82 boots / 434 states; the subsequent F4
+file path brings the current total to 138 boots / 812 states. The earlier 216 container assertions and 28
 rescue assertions remain. BIOS write-attempt tracing, unchanged-image checks
 and absence of HDD/block writes remain part of the campaign.
 
 `synthetic-records.rbb` is published with the rescue CI evidence. It contains
 encoded test records, not a snapshot collected from a real disk. Native parser
-dependencies are linked only into the saved-record and boot-area models; neither the checker
-nor its model invokes the existing HDD record loader. Normal rescue, HDD and
-ABI binaries retain their previous behavior.
+dependencies are now also used by the [F4 file check](RescueBackupFile.md).
+Neither the checker nor its model invokes the existing HDD record loader.
+HDD and ABI implementations retain their previous behavior.

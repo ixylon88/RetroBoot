@@ -15,6 +15,7 @@ try:
     from .test_menu import Qmp, screen_rows, wait_marker
     from .test_hdd import check_bios_route
     from .backup_vectors import cases as backup_cases
+    from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .backup_boot_vectors import cases as boot_cases
     from .backup_record_vectors import cases as record_cases
 except ImportError:
@@ -23,11 +24,13 @@ except ImportError:
     from test_menu import Qmp, screen_rows, wait_marker
     from test_hdd import check_bios_route
     from backup_vectors import cases as backup_cases
+    from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from backup_boot_vectors import cases as boot_cases
     from backup_record_vectors import cases as record_cases
 
 REASONS=('OK','NO_DISK','PARAMS','GEOMETRY','IO','CHANGED')
-ACTIONS=((None,0),('ret',1),('ret',1),('f4',1),('f9',1),('esc',0),('ret',1))
+FILE_ACTIONS=((None,0),('f4',2),('ret',2),('esc',0),('ret',1),('f4',2),('esc',0))
+ACTIONS=((None,0),('ret',1),('ret',1),('f2',1),('f9',1),('esc',0),('ret',1))
 
 def expected_reads(spec,attempt):
     if spec.get('status') in (1,2,3):return []
@@ -41,9 +44,9 @@ def trace_reads(trace):
     if any(count!=1 for _,count in reads):raise ValueError('Rescue used a multi-sector HDD read')
     return [lba for lba,_ in reads]
 
-def check_memory(ram,payload,memory):
+def check_memory(ram,payload,memory,zero_bss=True):
     h=memory['header'];start,end=h['bss_begin'],h['bss_end']
-    if (len(ram)!=65536 or ram[:len(payload)]!=payload or any(ram[start:end])
+    if (len(ram)!=65536 or ram[:len(payload)]!=payload or (zero_bss and any(ram[start:end]))
             or ram[end:0xE000]!=b'\xa5'*(0xE000-end)
             or ram[0xE000:0xE002]!=b'\x5a\xa5'):
         raise ValueError('Rescue code/BSS/stack guard changed')
@@ -78,6 +81,33 @@ def check_screen(data,strings,view,spec,mode,capacity,geometry,mbr):
         if row!=4 and (data[(row*80+1)*2]!=0xB3 or data[(row*80+78)*2]!=0xB3):raise ValueError('Rescue overwrote frame')
     return rows
 
+def floppy_reads(text):
+    return [int(n,16) for n in re.findall(r'^%([0-9A-F]{4})$',text,re.M)]
+
+
+def check_file_screen(data,s,spec):
+    rows=screen_rows(data);status=spec['file'];check=spec['check'];detail=spec['detail']
+    reason='B_MISSING' if status==5 else 'B_IO' if status==1 else 'B_FILE_BAD' if status else 'B_BAD' if check else 'B_OK'
+    cells=[(2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['B_SCOPE']),(6,4,s['B_LIMIT']),
+        (8,4,s[reason]),(9,4,s['B_CODES']),(9,32,f'{status:04X} / {check:04X} / {detail:04X}'),
+        (10,4,s['B_NESTED']),(10,32,f'{spec['nested']:04X}'),
+        (16,4,s['B_FILE_LBA']),(16,32,f'{spec['file_lba']:08X}'),
+        (17,4,s['B_DISK_LBA']),(17,32,f'{spec.get('disk_lba',0):08X}'),
+        (18,4,s['B_EXTENT']),(18,32,f'{spec.get('kind',0):04X} / {spec.get('index',0):04X}'),
+        (21,4,s['B_HELP']),(22,4,s['B_BOUNDARY'])]
+    blank=[7,11,15,19,20]
+    if status or check:blank += [12,13,14]
+    else:cells += [(12,4,s['B_COUNTS']),(12,32,'0002 / 0001 / 0001'),
+        (13,4,s['B_SECTORS']),(13,32,f'{spec['reserved']:04X}'),(14,4,s['B_READY']),(14,32,'0001')]
+    for row,col,value in cells:
+        if rows[row][col:col+len(value)]!=value:raise ValueError(f'File VGA {row},{col}: expected {value!r}, got {rows[row]!r}')
+    if any(rows[row][4:78].strip() for row in blank):raise ValueError('File page retained stale fields')
+    if data[(8*80+4)*2+1]!=(0x1A if not status and not check else 0x1E):raise ValueError('Wrong file status color')
+    for row in range(2,23):
+        if row!=4 and (data[(row*80+1)*2]!=0xB3 or data[(row*80+78)*2]!=0xB3):raise ValueError('File page overwrote frame')
+    return rows
+
+
 def scenarios():
     cases=[dict(name=name+'-'+mode.lower(),fixture=name,spec=spec,mode=mode,rom=rom)
            for name,spec in HDD_CASES.items() for mode,rom in (('EDD',0),('CHS',1))]
@@ -88,12 +118,17 @@ def scenarios():
     cases += [dict(name='bare',fixture='metadata-only',spec=HDD_CASES['metadata-only'],mode='EDD',rom=None),
               dict(name='floppy-retry',fixture='metadata-only',spec=HDD_CASES['metadata-only'],mode='EDD',rom=10)]
     for image,marker in (('rescue-model','RB RESCUE MODEL PASS'),('backup-model','RB BACKUP MODEL PASS'),('rescue-bss-fault','RB RESCUE STARTUP ERROR'),
-            ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),
+            ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),('rescue-file-model','RB RESCUE FILE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
     cases.append(dict(name='floppy-io',fixture=None,rom=0,marker='RB RESCUE LOAD ERROR',floppy_fault=False))
     cases.append(dict(name='floppy-rejected',fixture=None,rom=11,marker='RB RESCUE LOAD ERROR'))
+    for name,spec in file_specs().items():
+        cases.append(dict(name=name,image=name,file_case=name,file_spec=spec,
+            fixture='metadata-only' if name=='file-demo-hdd' else None,
+            spec=HDD_CASES['metadata-only'] if name=='file-demo-hdd' else dict(status=1),mode='EDD',
+            rom=12 if name=='file-retry' else 13 if name=='file-root-io' else 0))
     return cases
 
 def main():
@@ -141,15 +176,17 @@ def main():
         if case['rom'] is not None:invocation += ['-option-rom',str(source/f'int13-{case["rom"]}.rom')]
         before={str(path):sha256(path) for path in images}
         if any(value!=manifest['artifacts'][Path(path).name]['sha256'] for path,value in before.items()):raise ValueError('Changed rescue fixture')
-        screens=[];expected=[];first_low=None;initial_trace=''
+        screens=[];expected=[];expected_floppy=[];file_attempt=0;first_low=None;previous_low=None;initial_trace=''
         with err.open('w') as errors,subprocess.Popen(invocation,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=errors,text=True,bufsize=1) as process:
             try:
                 qmp=Qmp(process);wait_marker(process,log,case.get('marker','RB RESCUE READY'))
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0
-                    for serial,(key,view) in enumerate(ACTIONS):
-                        if key=='ret':expected+=expected_reads(spec,attempt);attempt+=1
+                    for serial,(key,view) in enumerate(FILE_ACTIONS if 'file_case' in case else ACTIONS):
+                        if view==2 and key in ('f4','ret'):
+                            expected_floppy+=expected_file_reads(image.read_bytes(),case['file_case'],file_attempt);file_attempt+=1
+                        if key=='ret' and view==1:expected+=expected_reads(spec,attempt);attempt+=1
                         if key:
                             qmp.call('send-key',{'keys':[{'type':'qcode','data':key}],'hold-time':30});time.sleep(0.05)
                             wait_marker(process,log,f'RB RESCUE KEY {serial:04X} view={view:04X}')
@@ -159,13 +196,16 @@ def main():
                         qmp.call('stop');paths={k:out/f'{name}-{serial:02d}-{k}.bin' for k in ('ram','low','vga')}
                         for k,address,length in (('ram',0x10000,0x10000),('low',0,0x8000),('vga',0xB8000,4000)):
                             qmp.call('pmemsave',{'val':address,'size':length,'filename':str(paths[k])})
-                        ram,low,vga=(paths[k].read_bytes() for k in ('ram','low','vga'));check_memory(ram,payload,memory)
+                        ram,low,vga=(paths[k].read_bytes() for k in ('ram','low','vga'));check_memory(ram,payload,memory,zero_bss='file_case' not in case or serial==0)
                         if first_low is None:
                             first_low=low;initial_trace=trace.read_text()
                             if trace_reads(initial_trace):raise ValueError('HDD was read before Enter')
                         if low[0x7C00:0x7E00]!=first_low[0x7C00:0x7E00] or low[0x800:0x840]!=first_low[0x800:0x840]:raise ValueError('Rescue staged a HDD boot')
+                        if 'file_case' in case and serial==5 and previous_low[0x500:0x560]!=low[0x500:0x560]:raise ValueError('File reader changed HDD context')
+                        previous_low=low
+                        if floppy_reads(log.read_text())!=expected_floppy:raise ValueError('Unexpected floppy read sequence: '+name)
                         capacity=131072 if mode=='EDD' else 130032 # SeaBIOS exposes 129 * 16 * 63
-                        rows=check_screen(vga,strings,view,spec,mode,capacity,(0,0) if mode=='EDD' else (16,63),mbr)
+                        rows=check_file_screen(vga,strings,case['file_spec']) if view==2 else check_screen(vga,strings,view,spec,mode,capacity,(0,0) if mode=='EDD' else (16,63),mbr)
                         (out/f'{name}-{serial:02d}.txt').write_text('\n'.join(rows)+'\n',encoding='utf-8')
                         if serial in (0,1):qmp.call('screendump',{'filename':str(out/f'{name}-{serial:02d}.png'),'format':'png'})
                         if trace_reads(trace.read_text())!=expected:raise ValueError('Unexpected rescue HDD sector sequence: '+name)
@@ -176,17 +216,21 @@ def main():
                     if case['name']=='backup-model' and f'B={3*len(backup_cases()):04X}' not in log.read_text():raise ValueError('Missing native backup assertions')
                     if case['name']=='backup-records-model' and f'C={4*len(record_cases()):04X}' not in log.read_text():raise ValueError('Missing native saved-record assertions')
                     if case['name']=='backup-boot-model' and f'D={5*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')
+                    if case['name']=='rescue-file-model' and 'E=0020' not in log.read_text():raise ValueError('Missing native file assertions')
                 qmp.call('quit')
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:
                 if process.poll() is None:process.kill();process.wait(timeout=5)
         text=log.read_text();trace_text=trace.read_text();lbas=trace_reads(trace_text)
         if lbas!=expected or '!W' in text or 'ide_sector_write' in trace_text or 'blk_co_pwritev' in trace_text:raise ValueError('Unexpected rescue I/O or write attempt')
-        if text.count('!F')!={10:1,11:3}.get(case['rom'],0):raise ValueError('Wrong number of floppy retries')
+        if text.count('!F')!={10:1,11:3,12:1,13:9}.get(case['rom'],0):raise ValueError('Wrong number of floppy retries')
         if 'marker' not in case:
             status=case['spec'].get('status',0);layout_code=case['spec'].get('layout',0)
             marker=f'RB RESCUE status={status:04X} layout={layout_code:04X}'
-            if re.findall(r'RB RESCUE status=[^\r\n]+',text)!=[marker]*3:raise ValueError('Wrong rescue result markers')
+            if re.findall(r'RB RESCUE status=[^\r\n]+',text)!=[marker]*(1 if 'file_case' in case else 3):raise ValueError('Wrong rescue result markers')
+            if 'file_case' in case:
+                fs=case['file_spec'];marker=f'RB FILE status={fs["file"]:04X} check={fs["check"]:04X} detail={fs["detail"]:04X} nested={fs["nested"]:04X}'
+                if re.findall(r'RB FILE status=[^\r\n]+',text)!=[marker]*3:raise ValueError('Wrong file result markers')
             if case['rom'] is not None and status!=1:
                 for part in text.split('RB RESCUE BEGIN')[1:]:
                     calls=check_bios_route(part,case['mode'])
@@ -197,7 +241,7 @@ def main():
         if work_disk:
             if sha256(work_disk)!=before[str(disk)]:raise ValueError('Disposable HDD changed')
             work_disk.unlink()
-        results.append(dict(case=case,screens=screens,read_lbas=lbas,image_unchanged=True,block_writes=0,log=text))
+        results.append(dict(case=case,screens=screens,read_lbas=lbas,floppy_lbas=floppy_reads(text),image_unchanged=True,block_writes=0,log=text))
         print(f'{name}: {len(screens)} states; independent startup; unchanged media; no writes',flush=True)
     report.write_text(json.dumps(dict(ui=manifest['ui'],qemu_version=subprocess.check_output([str(qemu),'--version'],text=True).splitlines()[0],
         qemu_sha256=sha256(qemu),bios_sha256=sha256(bios),vga_bios_sha256=sha256(bios.with_name('vgabios-stdvga.bin')),

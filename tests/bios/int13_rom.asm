@@ -63,16 +63,59 @@ handler:
     out 0xE9, al
     pop ax
 .read_only:
-%if RB_ROM_MODE == 10 || RB_ROM_MODE == 11
+    ; File-reader attempts only: the loader uses a different destination.
+    cmp dl, 0
+    jne .trace_done
+    cmp ah, 2
+    jne .trace_done
+    cmp bx, 0x1000
+    jne .trace_done
+    push ax
+    mov ax, es
+    test ax, ax
+    pop ax
+    jnz .trace_done
+    pushad
+    mov al, ch
+    xor ah, ah
+    shl ax, 1
+    mov bl, dh
+    xor bh, bh
+    add ax, bx
+    mov bx, 18
+    mul bx
+    mov bl, cl
+    xor bh, bh
+    add ax, bx
+    dec ax
+    mov bx, ax
+    mov al, '%'
+    out 0xE9, al
+    mov cx, 4
+.trace_digit:
+    rol bx, 4
+    mov al, bl
+    and al, 15
+    call hex
+    loop .trace_digit
+    mov al, 10
+    out 0xE9, al
+    popad
+.trace_done:
+%if RB_ROM_MODE >= 10 && RB_ROM_MODE <= 13
     cmp dl, 0
     jne .floppy_done
     cmp ah, 2
     jne .floppy_done
+%if RB_ROM_MODE < 12
     cmp cx, 16                 ; LBA 33: cylinder 0, head 1, sector 16
+%else
+    cmp cx, 2                  ; LBA 19: root directory, only read by the file UI
+%endif
     jne .floppy_done
     cmp dh, 1
     jne .floppy_done
-%if RB_ROM_MODE == 10
+%if RB_ROM_MODE == 10 || RB_ROM_MODE == 12
     cmp byte [cs:floppy_failures - handler], 0
     jne .floppy_done
 %endif
@@ -187,7 +230,7 @@ hex:
 .out:
     out 0xE9, al
     ret
-%if RB_ROM_MODE == 10 || RB_ROM_MODE == 11
+%if RB_ROM_MODE >= 10 && RB_ROM_MODE <= 13
 floppy_failures: db 0
 %endif
 old13: dd 0                   ; populated in reserved RAM, never written in ROM

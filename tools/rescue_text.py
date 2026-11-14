@@ -9,9 +9,12 @@ except ImportError:
 
 KEYS = ('TITLE','READ_ONLY','SCOPE','LIMIT','READY','OK','BAD_LAYOUT','NO_DISK',
         'PARAMS','GEOMETRY','IO','CHANGED','CODES','DRIVES','ROUTE','CAPACITY',
-        'GEOMETRY_LABEL','DISK_ID','CRC','SIGNATURE','COUNTS','LBA','HELP','IDENTITY')
+        'GEOMETRY_LABEL','DISK_ID','CRC','SIGNATURE','COUNTS','LBA','HELP','IDENTITY',
+        'B_SCOPE','B_LIMIT','B_MISSING','B_IO','B_FILE_BAD','B_BAD','B_OK','B_CODES','B_NESTED','B_COUNTS','B_SECTORS','B_READY','B_FILE_LBA','B_DISK_LBA','B_EXTENT','B_HELP','B_BOUNDARY')
 WIDTHS = dict.fromkeys(KEYS,74)
 WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13)
+
+WIDTHS.update(dict.fromkeys(('B_CODES','B_NESTED','B_COUNTS','B_SECTORS','B_READY','B_FILE_LBA','B_DISK_LBA','B_EXTENT'),28))
 
 def catalog_path(language):
     if language not in LANGUAGES:raise ValueError('Unsupported rescue language')
