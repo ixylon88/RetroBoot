@@ -36,8 +36,13 @@ test headers rather than an OS boot program. It is unsuitable for restoration.
 4. The normal image, which has no `RBBACKUP.RBB`, reports file status `0005`
    and no successful volume counters. This is the expected missing-file result.
 
-No manual result for this new F4 path has been recorded yet. Earlier VirtualBox
-diagnosis observations remain in [ExternalRescue.md](ExternalRescue.md).
+The German demo's F4 result was manually confirmed under VirtualBox on
+14 November 2026: all codes and error locations zero, volumes `0002 / 0001 / 0001`,
+reserved sectors `0021` and READY matches `0001`. Enter-repeat and Esc-return
+were not separately reported. No English F4, physical-hardware or BIOS-version
+coverage follows from that observation. Earlier VirtualBox diagnosis observations
+remain in [ExternalRescue.md](ExternalRescue.md). The [getting-started guide](GettingStarted.md)
+provides download and image/key orientation.
 
 ## File access contract
 
@@ -105,7 +110,7 @@ error reports the physical root sector containing the rejected entry.
 
 ## Validation and remaining work
 
-There are 167 host tests. Six new tests verify fragmented packing, the 1 MiB
+The file increment brought the host suite to 167 tests. Six tests verify fragmented packing, the 1 MiB
 allocation bound, root/LFN fixtures, preserved executable payloads, exact
 physical-read expectations and rejection of stale success fields.
 
@@ -115,8 +120,8 @@ range rejection without I/O, context reuse after a missing file, changed
 metadata, final-sector recheck I/O failure, unchanged output on payload read
 failure, EOC variants, cleared maps and guard bytes.
 
-The complete EN/DE rescue campaign has 138 boots / 812 UI states. This includes
-27 new seven-state file campaigns per language, covering fragmented files,
+The file increment brought the EN/DE rescue campaign to 138 boots / 812 UI states.
+This includes 27 seven-state file campaigns per language, covering fragmented files,
 the odd FAT12 entry at byte 511, the last disk sector, a file over 64 KiB,
 the last root slot, malformed FATs/chains/directories/files, content errors,
 bounded BIOS retries, no-HDD operation and return to HDD diagnosis. Assertions
@@ -133,5 +138,7 @@ implementation sources remain unchanged.
 Original-MBR provenance, boot-code/overlay classification, other saved filesystem
 formats, management-file ownership, real snapshot collection, independent
 live-media/geometry binding and explicitly confirmed targeted restoration are
-still open. F4 provides the bounded file-read/validation path; it does not
+still open. A subsequent [target-comparison model](BackupTarget.md) tests the
+read-only core separately, bringing the suite to 170 host tests and 140 rescue
+boots with the same 812 UI states. It is not connected to F4. F4 provides the bounded file-read/validation path; it does not
 complete the external recovery requirement or enable disk writes.

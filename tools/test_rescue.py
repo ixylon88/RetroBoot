@@ -18,6 +18,7 @@ try:
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .backup_boot_vectors import cases as boot_cases
     from .backup_record_vectors import cases as record_cases
+    from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
@@ -27,6 +28,7 @@ except ImportError:
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from backup_boot_vectors import cases as boot_cases
     from backup_record_vectors import cases as record_cases
+    from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
 
 REASONS=('OK','NO_DISK','PARAMS','GEOMETRY','IO','CHANGED')
 FILE_ACTIONS=((None,0),('f4',2),('ret',2),('esc',0),('ret',1),('f4',2),('esc',0))
@@ -119,6 +121,7 @@ def scenarios():
               dict(name='floppy-retry',fixture='metadata-only',spec=HDD_CASES['metadata-only'],mode='EDD',rom=10)]
     for image,marker in (('rescue-model','RB RESCUE MODEL PASS'),('backup-model','RB BACKUP MODEL PASS'),('rescue-bss-fault','RB RESCUE STARTUP ERROR'),
             ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),('rescue-file-model','RB RESCUE FILE PASS'),
+            ('backup-target-model','RB BACKUP TARGET PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -217,6 +220,11 @@ def main():
                     if case['name']=='backup-records-model' and f'C={4*len(record_cases()):04X}' not in log.read_text():raise ValueError('Missing native saved-record assertions')
                     if case['name']=='backup-boot-model' and f'D={5*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')
                     if case['name']=='rescue-file-model' and 'E=0020' not in log.read_text():raise ValueError('Missing native file assertions')
+                    if case['name']=='backup-target-model':
+                        if f'F={TARGET_ASSERTIONS:04X}' not in log.read_text():raise ValueError('Missing native target assertions')
+                        match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
+                        if not match:raise ValueError('Missing target-model read evidence')
+                        check_target_reads([int(x,16) for x in match[1].split(',') if x])
                 qmp.call('quit')
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:

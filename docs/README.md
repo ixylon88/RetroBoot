@@ -4,12 +4,14 @@
 
 | Dokument | Bedeutung |
 | --- | --- |
+| [Getting started](GettingStarted.md) | Beginner guide: correct build, image, screen and key; VirtualBox demo check |
 | [Technische Spezifikation v0.2](spec/RetroBoot_Phase1_Technische_Spezifikation_v0.2.md) | Maßgebliche Architektur und Abnahmekriterien |
 | [Entwicklung](Entwicklung.md) | Ausführbare Befehle, aktueller Nachweisstand und nächste Schritte |
 | [BIOS-/ABI-Probe](ABI_Probe.md) | Werkzeugfixierung, Speichervertrag, Build und Emulatornachweise |
 | [External rescue diagnosis](ExternalRescue.md) | Independent FAT12 floppy, read-only HDD metadata checks and manual test |
 | [External backup container](ExternalBackup.md) | Bounded metadata format, host inspector and native integrity model; no restore |
 | [Rescue backup files](RescueBackupFile.md) | F4 file validation, bounded FAT12 access and synthetic demo procedure |
+| [Target-claim comparison model](BackupTarget.md) | Independent current metadata acquisition; native tests only, no UI or restore |
 | [Saved FAT boot areas](BackupBootAreas.md) | Complete reserved regions, FAT32 copies/FSInfo and selected READY VBR CRCs |
 | [Saved backup records](BackupRecords.md) | Native approved-layout, A/B record and installation-reference consistency |
 | [Festplattenstart](HDD_Boot.md) | EDD-/CHS-Ladeweg, C-Startvertrag, VirtualBox-Anleitung und Fehlerfälle |

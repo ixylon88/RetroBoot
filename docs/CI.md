@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then both rescue builds with 76 boots and 434 UI states total |
+| [BIOS ABI probe](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then both rescue builds with 140 boots and 812 UI states total |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -40,7 +40,7 @@ Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 - `retroboot-abi-probe`: Testdiskette, Binärdateien und Prüfnachweise.
 - `retroboot-rescue-diagnostics`: independent FAT12 floppies in `rescue/` and
   `rescue-de/`, with binaries, manifests and evidence in `rescue-test/` and
-  `rescue-test-de/`. Only the two normal floppy images are published.
+  `rescue-test-de/`. Both normal floppies and both synthetic demo floppies are published.
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
   Linkerkarten, Bootprotokolle und I/O-Traces; zusätzlich Menü-Screenshots,
   VGA-/RAM-Abzüge, `menu-results.json`, `scan-results.json`, `volume-results.json`,
@@ -60,12 +60,16 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The [external rescue campaign](ExternalRescue.md) has 69 boots per language,
-including 58 seven-state UI campaigns and eleven terminal model/failure boots.
+The [external rescue campaign](ExternalRescue.md) has 70 boots per language,
+including 58 seven-state UI campaigns and twelve terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
-no additional runner job. Both host jobs now run 167 tests.
+no additional runner job. Both host jobs now run 170 tests. The
+[target-comparison model](BackupTarget.md) adds 178 native assertions and an
+independently checked 542-address acquisition trace per language. It adds no
+manual UI action. The [getting-started guide](GettingStarted.md) distinguishes
+the available artifacts and test keys.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen

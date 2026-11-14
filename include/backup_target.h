@@ -1,0 +1,35 @@
+#ifndef RB_BACKUP_TARGET_H
+#define RB_BACKUP_TARGET_H
+
+#include "backup.h"
+#include "rescue.h"
+
+enum {
+    RB_BTARGET_OK, RB_BTARGET_PARAMS, RB_BTARGET_IO, RB_BTARGET_ALLOCATION,
+    RB_BTARGET_CONFIG, RB_BTARGET_STATE, RB_BTARGET_IDENTITY,
+    RB_BTARGET_CAPACITY, RB_BTARGET_GEOMETRY, RB_BTARGET_LAYOUT,
+    RB_BTARGET_CHANGED
+};
+
+typedef struct {
+    rb_u16 status, detail;
+    rb_u32 error_lba, disk_id, layout_crc, admin_start, admin_sectors;
+    rb_u8 media_id[16];
+    rb_u32 config_generation, state_generation;
+} rb_backup_target;
+
+typedef char rb_check_backup_target[(sizeof(rb_backup_target) == 48) ? 1 : -1];
+
+/* Read-only comparison with a freshly discovered BIOS device. All disk addresses
+   come from live MBR/EBR/FAT metadata, never from the backup's extent list.
+   The caller must validate the complete saved file separately. This API checks
+   only its identity/geometry claims against two live metadata acquisitions.
+   Matching copied identifiers cannot distinguish a cloned disk. Success is
+   neither a complete backup check, a physical-device identity nor restore or
+   boot authority. Stable sources and a non-reentrant call are required;
+   only status/detail/error_lba survive failure. No BIOS discovery is performed. */
+void rb_backup_match_target(rb_backup_target *result, const rb_backup *backup,
+    const rb_rescue_device *device, rb_sector_reader read, void *opaque);
+rb_u16 __cdecl rb_backup_target_selftest(void);
+
+#endif
