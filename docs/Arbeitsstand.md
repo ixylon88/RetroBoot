@@ -1,11 +1,17 @@
 # Project state and resumption
 
-Updated: 13 November 2026.
+Updated: 14 November 2026.
 
 ## Saved baseline
 
-PR #18 (independent read-only rescue diagnosis) is merged into `historical` at
-`b696df7e2665168289e51ac69b5ef2a42063a91d`. Its four PR checks passed.
+PR #19 (external container format and native validation) is merged into
+`historical` at `9d528180626422a1f46e33490069b3ee0cffa842`. All four PR checks
+passed, including the HDD regression workflow. Published rescue binaries,
+examples, VGA hashes and read sequences match local evidence. The container
+baseline has 149 host tests and 72 native scenarios / 216 assertions per
+language; no live backup collection or restore was introduced.
+
+PR #18 remains the independent read-only rescue baseline; its four checks passed.
 The German rescue floppy was manually confirmed under VirtualBox with the
 64 MiB compact fixture, 128 MiB handoff fixture, no HDD and an unrelated 2 GiB
 HDD. The initial page was also shown. Exact observations and coverage limits
@@ -26,7 +32,27 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: external metadata container
+## Current increment: saved partition and record consistency
+
+Branch `codex/backup-record-consistency` adds a native checker after container
+integrity validation. It reuses the existing partition/configuration/state
+parsers to check the approved-MBR view, exact EBR coverage, boot-area owners,
+volume-start coverage, all four record bindings, A/B selection and selected
+installation references. Semantic rereads recheck the container payload CRC;
+failures retain diagnostics only. Older copies must also match the media ID.
+
+The [saved-record contract](BackupRecords.md) documents the exact boundary.
+Original-MBR provenance, saved filesystem/boot-area completeness, file
+allocation ownership, live media binding and confirmed restore remain open.
+The checker is linked only into a separate native model; normal rescue images
+and menus are unchanged. No additional manual VM check is required.
+
+Verification adds six host tests (155 total) and 74 native scenarios with
+296 assertions (`C=0128`, `RB BACKUP RECORDS PASS`) per language, including
+checksumming-correct but inconsistent records and failures/changes at every
+semantic reread. The current rescue campaign has 80 boots / 434 UI states.
+
+## External container baseline
 
 Branch `codex/external-backup-format` defines a bounded sector-based container,
 a Python encoder/inspector and a streaming native C/16 validator. Its header
@@ -67,13 +93,13 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 149 host tests plus the reference layout report, including the container tests.
+- 155 host tests plus the reference layout report, including both backup layers.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
-  The additional backup-model boot brings the current total to 78 boots and
-  434 UI states across both languages.
+  The container and saved-record model boots bring the current total to 80
+  boots and 434 UI states across both languages.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged. Independent host vectors decode FAT12 packing
@@ -98,8 +124,9 @@ The frozen specification v0.2 and archives are unchanged.
 ## Open work
 
 1. Complete independent external recovery before the first write tests:
-   collect and import a semantically complete backup using the new bounded
-   container, with independent media/geometry binding and
+   validate saved filesystem/boot metadata and original-MBR provenance; collect
+   and import a complete backup using the bounded container and saved-record
+   checker, with independent media/geometry binding and
    all required MBR/EBR/VBR metadata, including FAT32 backup headers and
    configuration/state. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.

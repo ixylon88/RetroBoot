@@ -9,6 +9,11 @@ are unchanged. No additional manual VM test is required for this increment.
 The frozen specification v0.2 remains authoritative. Its complete external
 backup and independently confirmed restore requirements remain open.
 
+The subsequent [saved-record check](BackupRecords.md) adds native approved-view
+partition and configuration/state consistency checks. It is a separate layer;
+the wire-format validator and Python inspector described here retain their
+container-only boundary.
+
 ## Validation boundary
 
 Successful validation establishes framing, canonical descriptor order, bounded
@@ -138,7 +143,7 @@ format example. There is no command for creating a real disk backup yet.
 
 ## Verification
 
-`make check` runs 149 host tests in total. The nine new tests include literal
+`make check` now runs 155 host tests in total. The nine container tests include literal
 wire-offset checks, a byte mutation at each of the 22,528 positions in the
 small example, resealed malformed metadata, all required roles, size/count
 limits, round trips, CLI output and unchanged input files.
@@ -152,8 +157,10 @@ resealed malformed fields, CRC damage, overlapping ranges, missing roles,
 and read failures including the last sector of the largest file. Every call
 checks bounded sequential reads, result guards and cleared failure results.
 
-The existing rescue campaign now runs 39 boots per language, with the same
-217 UI states: 78 boots and 434 states total. Existing diagnostic, startup,
+The container increment established 39 boots per language, with the same
+217 UI states: 78 boots and 434 states total. The subsequent saved-record
+model adds one boot per language (80 boots / 434 states currently).
+Existing diagnostic, startup,
 BIOS-fault, unchanged-media and no-write checks remain. Both languages are
 built twice and their binaries/manifests compared. Normal EN/DE rescue images
 remain byte-identical to PR #18; backup code is linked only into the model

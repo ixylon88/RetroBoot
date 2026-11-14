@@ -9,6 +9,7 @@
 | [BIOS-/ABI-Probe](ABI_Probe.md) | Werkzeugfixierung, Speichervertrag, Build und Emulatornachweise |
 | [External rescue diagnosis](ExternalRescue.md) | Independent FAT12 floppy, read-only HDD metadata checks and manual test |
 | [External backup container](ExternalBackup.md) | Bounded metadata format, host inspector and native integrity model; no restore |
+| [Saved backup records](BackupRecords.md) | Native approved-layout, A/B record and installation-reference consistency |
 | [Festplattenstart](HDD_Boot.md) | EDD-/CHS-Ladeweg, C-Startvertrag, VirtualBox-Anleitung und Fehlerfälle |
 | [English/German builds](Languages.md) | Sprachwahl, CP437, Umlaute und Eszett; englische Anleitung |
 | [Textmenü](Menue.md) | Bedienung, Informationsseiten und Tastatur-/Bildschirmnachweise |

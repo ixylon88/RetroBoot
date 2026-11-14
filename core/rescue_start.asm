@@ -13,6 +13,10 @@ extern _rb_rescue_selftest
 extern _rb_backup_selftest
 %define RB_RESCUE_ANY_MODEL 1
 %endif
+%ifdef RB_RESCUE_RECORD_MODEL
+extern _rb_backup_records_selftest
+%define RB_RESCUE_ANY_MODEL 1
+%endif
 
     jmp short rb_entry
     db 'RBRS'
@@ -46,7 +50,9 @@ rb_entry:
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
     jne failed
 %ifdef RB_RESCUE_ANY_MODEL
-%ifdef RB_RESCUE_BACKUP_MODEL
+%ifdef RB_RESCUE_RECORD_MODEL
+    call _rb_backup_records_selftest
+%elifdef RB_RESCUE_BACKUP_MODEL
     call _rb_backup_selftest
 %else
     call _rb_rescue_selftest
@@ -91,7 +97,9 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_BACKUP_MODEL
+%ifdef RB_RESCUE_RECORD_MODEL
+model_pass db 'RB BACKUP RECORDS PASS', 13, 10, 0
+%elifdef RB_RESCUE_BACKUP_MODEL
 model_pass db 'RB BACKUP MODEL PASS', 13, 10, 0
 %elifdef RB_RESCUE_MODEL
 model_pass db 'RB RESCUE MODEL PASS', 13, 10, 0
