@@ -129,7 +129,7 @@ check exact floppy/HDD reads, unchanged program/guard bytes, VGA, source hashes,
 HDD context preservation and absence of BIOS/block writes. Both languages build
 twice identically; all earlier native checker models remain exercised.
 
-Normal rescue payloads are 22,158 bytes EN / 22,296 bytes DE, with BSS ending at
+At the file-only increment, normal rescue payloads were 22,158 bytes EN / 22,296 bytes DE, with BSS ending at
 37,762 / 37,900, below the 57,344 stack guard. Runtime initialization is now a
 separate compilation unit so checker models do not need the menu and complete
 file-validation stack. Model binaries therefore change too. HDD and ABI
@@ -138,7 +138,10 @@ implementation sources remain unchanged.
 Original-MBR provenance, boot-code/overlay classification, other saved filesystem
 formats, management-file ownership, real snapshot collection, independent
 live-media/geometry binding and explicitly confirmed targeted restoration are
-still open. A subsequent [target-comparison model](BackupTarget.md) tests the
-read-only core separately, bringing the suite to 170 host tests and 140 rescue
-boots with the same 812 UI states. It is not connected to F4. F4 provides the bounded file-read/validation path; it does not
-complete the external recovery requirement or enable disk writes.
+still open. The [target-comparison core](BackupTarget.md) retains its native
+model tests and is now integrated through a separate [F5 path](RescueTargetCheck.md).
+F5 validates the complete file before and after fresh live HDD comparison;
+F4 remains file-only. The current total is 175 host tests and 188 rescue boots /
+1,244 UI states. Current sizes and the matching synthetic image pair are in the
+F5 guide. Neither path completes the external recovery requirement or enables
+disk writes.

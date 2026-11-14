@@ -80,7 +80,7 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make journal-test` | Build once and check fresh F8/Enter journal diagnosis |
 | `make rescue` | Build the independent FAT12 diagnostic floppy; `RB_LANGUAGE=de` selects German |
 | `make rescue-check` | Repeat the rescue build and compare binaries, images and manifests |
-| `make rescue-test` | Repeat build, 70 boots and 406 VGA/keyboard states for the selected language |
+| `make rescue-test` | Repeat build, 94 boots and 622 VGA/keyboard states for the selected language |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1
@@ -139,7 +139,7 @@ das Minimum; eine größere gültige FAT wird nicht stillschweigend verkleinert.
 
 ## Nachweisstand und nächste Schritte
 
-Lokal bestanden: **170 Hosttests** einschließlich fester Referenzwerte,
+Lokal bestanden: **175 Hosttests** einschließlich fester Referenzwerte,
 FAT-Typgrenzen, Überlappungen, Überläufen, EBR-Kollisionen, ungültiger Geometrie,
 fehlerhaften Eingaben und zweier bytegleicher JSON-Berichte. Die CLI-Tests
 prüfen außerdem, dass der Layoutprüfer im Arbeitsverzeichnis keine Dateien
@@ -258,8 +258,9 @@ Die nächsten Schritte sind:
 1. Complete backup/media binding and targeted external restore before write
    tests. The [independent rescue floppy](ExternalRescue.md) and German
    [F4 saved-file check](RescueBackupFile.md) have manual VirtualBox confirmation.
-   The [target-comparison core](BackupTarget.md) is tested only as a native model;
-   fresh BIOS discovery and UI integration remain open. F7/F9 and the subsequent
+   The [F5 comparison](RescueTargetCheck.md) now integrates the target core with
+   full saved-file validation and fresh BIOS discovery. Its manual test is
+   pending; real collection, provenance and restore remain open. F7/F9 and the subsequent
    PR #17 procedure were reported confirmed; no original-OS authorization follows.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.

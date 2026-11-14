@@ -131,7 +131,8 @@ transfer. The native model executes 74 scenarios / 296 assertions per language
 
 This increment established 40 boots and 217 UI states per language.
 The boot-area increment reached 82 boots / 434 states; the subsequent F4
-file path brings the current total to 138 boots / 812 states. The earlier 216 container assertions and 28
+file path reached 138 boots / 812 states. Current totals, including rescue F5,
+are recorded in [CI.md](CI.md). The earlier 216 container assertions and 28
 rescue assertions remain. BIOS write-attempt tracing, unchanged-image checks
 and absence of HDD/block writes remain part of the campaign.
 

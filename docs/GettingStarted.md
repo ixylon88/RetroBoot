@@ -41,8 +41,7 @@ does not establish a successful build.
 | `rescue-de/retroboot-rescue.img` | German | Program without a backup file |
 
 For this first check, the filename ends in **`-demo.img`**. Every image in this
-table is a 1,474,560-byte floppy image. The example is not a backup of an
-attached HDD and cannot be used to restore one.
+table is a 1,474,560-byte floppy image. The example is synthetic and cannot be used to restore a disk.
 
 ### 2. Attach the floppy in VirtualBox
 
@@ -82,6 +81,24 @@ page. Enter on that initial page checks an attached HDD instead; without one,
 the expected diagnosis is **BIOS reports no HDD**. F4 still checks the floppy
 file without an HDD.
 
+## Next check: compare with the matching HDD
+
+The new **F5** page compares the saved file with an attached HDD. This needs
+an additional file from the **same successful build**:
+`rescue/retroboot-rescue-target-hdd.img`. Its copy under `rescue-de/` is identical.
+The ordinary HDD and handoff images are different test fixtures.
+
+The [F5 setup guide](RescueTargetCheck.md#manual-virtualbox-check) gives the
+complete procedure: convert this new 128 MiB image into a new VDI, attach it
+as the first IDE HDD, and boot the demo floppy as A:. From **RetroBoot Rescue**,
+press **F5**. Expected: a green match message and check/detail/nested
+`0000 / 0000 / 0000`. **Enter** repeats, **F4** returns to the saved-file check,
+and **Esc** returns to diagnosis. With the HDD detached, F5 instead reports
+`0003 / 0001 / 0000`; successful identity fields must be blank.
+
+This pair contains synthetic test metadata. A green match confirms only the
+supported comparison; no installation, restoration or OS start follows.
+
 ## Which image and which key?
 
 The following routes remain separate. The image names and screen titles identify
@@ -91,6 +108,7 @@ the test even when a chat message or screenshot is no longer nearby.
 | --- | --- | --- |
 | `retroboot-rescue-demo.img`, **RetroBoot Rescue** | **F4** | Check the example backup file; the table above applies |
 | `retroboot-rescue.img`, **RetroBoot Rescue** | **F4** | Expected missing-file result `0005 / 0000 / 0000` |
+| Demo rescue floppy plus `retroboot-rescue-target-hdd.img`, **RetroBoot Rescue** | **F5** | Compare saved/current metadata; expected `0000 / 0000 / 0000` |
 | Either rescue image, initial diagnosis page | **Enter** | Read the first HDD's partition metadata; outcome depends on the attached HDD |
 | `retroboot-hdd.img` or `retroboot-handoff.img`, **RetroBoot** menu | **F10** | Audit allocation of the eight management files; expected `0000 / 0000` |
 | Either HDD image, **RetroBoot** menu | **F8**, then **Enter** | Read the transaction journal; see [journal diagnosis](JournalDiagnosis.md) |
@@ -103,9 +121,9 @@ has no handoff action. Detailed HDD setup, including conversion to a new VDI,
 is in [HDD_Boot.md](HDD_Boot.md). Its images come from **HDD BIOS boot →
 retroboot-hdd-bios**, under `hdd/` for English and `hdd-de/` for German.
 
-**The backup-target comparison increment has no new screen or key.** Its core
-is exercised in automated native tests only. F4 continues to check saved
-content; it does not yet compare the file with an attached HDD.
+**F4 checks the saved file; F5 compares it with current HDD metadata.**
+Both belong to the rescue floppy. HDD-menu F5 instead selects start-profile
+configuration; the image and screen title remain essential.
 
 ## When the result differs
 
@@ -113,6 +131,9 @@ content; it does not yet compare the file with an attached HDD.
 | --- | --- |
 | The title is **RetroBoot**, although a rescue test was intended | The HDD probably booted; check floppy attachment and boot priority |
 | F4 reports `0005 / 0000 / 0000` | The normal rescue image intentionally has no backup; select `-demo.img` for the example |
+| F5 reports `0001 / 0005 / 0000` | The backup file is absent; use the demo floppy |
+| F5 reports `0003 / 0001 / 0000` | No HDD was found; check the target VDI attachment |
+| F5 reports a capacity or identity difference | Confirm the matching target HDD image and a newly converted VDI |
 | Enter reports no HDD | This is expected with no HDD attached; F4 remains available |
 | An HDD check still shows an older result or file count | Confirm the artifact run and replace any VDI converted from an older image |
 | A key has no effect | Check the current screen, then click inside the VM to give it keyboard focus |

@@ -24,6 +24,11 @@ typedef char rb_check_backup_boot[(sizeof(rb_backup_boot) == 24) ? 1 : -1];
    authority. Only diagnostics survive failure. */
 void rb_backup_check_boot(rb_backup_boot *result, rb_sector_reader read,
     void *opaque, rb_u32 file_sectors);
+/* Same complete check; claims are available only on success and until the
+   next saved-record/boot check. The returned private context must not escape
+   a synchronous operation or be treated as persistent authority. */
+const rb_backup *rb_backup_open_boot(rb_backup_boot *result, rb_sector_reader read,
+    void *opaque, rb_u32 file_sectors);
 rb_u16 __cdecl rb_backup_boot_selftest(void);
 
 #endif

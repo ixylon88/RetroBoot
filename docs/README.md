@@ -11,7 +11,8 @@
 | [External rescue diagnosis](ExternalRescue.md) | Independent FAT12 floppy, read-only HDD metadata checks and manual test |
 | [External backup container](ExternalBackup.md) | Bounded metadata format, host inspector and native integrity model; no restore |
 | [Rescue backup files](RescueBackupFile.md) | F4 file validation, bounded FAT12 access and synthetic demo procedure |
-| [Target-claim comparison model](BackupTarget.md) | Independent current metadata acquisition; native tests only, no UI or restore |
+| [Rescue target comparison](RescueTargetCheck.md) | F5 file/HDD comparison, matching synthetic image pair and manual setup |
+| [Target-claim comparison core](BackupTarget.md) | Independent current metadata acquisition, comparison codes and limits |
 | [Saved FAT boot areas](BackupBootAreas.md) | Complete reserved regions, FAT32 copies/FSInfo and selected READY VBR CRCs |
 | [Saved backup records](BackupRecords.md) | Native approved-layout, A/B record and installation-reference consistency |
 | [Festplattenstart](HDD_Boot.md) | EDD-/CHS-Ladeweg, C-Startvertrag, VirtualBox-Anleitung und Fehlerfälle |

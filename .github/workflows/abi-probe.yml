@@ -60,6 +60,8 @@ jobs:
             build/rescue-de/retroboot-rescue-demo.img
             build/rescue/retroboot-rescue.img
             build/rescue-de/retroboot-rescue.img
+            build/rescue/retroboot-rescue-target-hdd.img
+            build/rescue-de/retroboot-rescue-target-hdd.img
             build/rescue/*.bin
             build/rescue-de/*.bin
             build/rescue/*.map
@@ -88,3 +90,17 @@ jobs:
             build/rescue-test-de/*.png
             build/rescue-test/*.bin
             build/rescue-test-de/*.bin
+            build/rescue-match-test/*.json
+            build/rescue-match-test-de/*.json
+            build/rescue-match-test/*.log
+            build/rescue-match-test-de/*.log
+            build/rescue-match-test/*.trace
+            build/rescue-match-test-de/*.trace
+            build/rescue-match-test/*.conf
+            build/rescue-match-test-de/*.conf
+            build/rescue-match-test/*.txt
+            build/rescue-match-test-de/*.txt
+            build/rescue-match-test/*.png
+            build/rescue-match-test-de/*.png
+            build/rescue-match-test/*.bin
+            build/rescue-match-test-de/*.bin

@@ -26,7 +26,8 @@ checks the real-mode transition in an explicitly selected test image.
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
-- [Read-only target-claim comparison model and its limits](docs/BackupTarget.md)
+- [F5 rescue file/HDD comparison and matching-image setup](docs/RescueTargetCheck.md)
+- [Read-only target-claim comparison core and its limits](docs/BackupTarget.md)
 - [HDD boot, memory contract and QEMU/VirtualBox instructions](docs/HDD_Boot.md)
 - [Menu operation and verification](docs/Menue.md)
 - [MBR/EBR checks and their limits](docs/Partitionen.md)
@@ -94,9 +95,10 @@ contains `rescue/retroboot-rescue.img` and `rescue-de/retroboot-rescue.img`.
 Both are FAT12 floppies with an independent loader and C startup. They boot
 without a working HDD MBR, FAT16 bootstrap or Stage 2. Enter probes the first
 HDD and reads its MBR/EBRs; Esc clears the diagnosis. There is no write,
-restore or OS-start action. Media identity and backup binding remain open.
+restore or OS-start action. The separate F5 path compares supported saved and
+live metadata; unique physical identity and recovery authorization remain open.
 
-The new **F4** path checks `RBBACKUP.RBB` on the boot floppy. The artifact also
+The **F4** path checks `RBBACKUP.RBB` on the boot floppy. The artifact also
 contains `rescue/retroboot-rescue-demo.img` and its German counterpart under
 `rescue-de/`, with synthetic metadata. Booting a demo as floppy A: and pressing
 F4 should produce `0000 / 0000 / 0000`, volumes `0002 / 0001 / 0001`, reserved
@@ -104,13 +106,17 @@ sectors `0021` and one READY VBR match. Enter repeats; Esc returns to HDD
 diagnosis. The normal image intentionally has no backup file (`0005 / 0000 / 0000`).
 The [file-validation guide](docs/RescueBackupFile.md) describes the manual test
 and boundaries. A matching result never identifies an attached HDD or permits
-restoration. The HDD image needs no replacement or VDI conversion.
+restoration. F4 alone needs no HDD.
 
-The [target-comparison core](docs/BackupTarget.md) is exercised in a separate
-native model only; it adds no normal-UI action. Saved-file validation and fresh
-live-target comparison still need integration before a recovery procedure.
+**F5 in RetroBoot Rescue** now compares the saved file with freshly discovered
+HDD metadata. The same artifact includes `retroboot-rescue-target-hdd.img`
+under both language directories: identical synthetic 128 MiB HDDs matching
+the demo backup. The [F5 guide](docs/RescueTargetCheck.md) gives the exact pair,
+new-VDI setup, codes and limits. Expected success is `0000 / 0000 / 0000`;
+Enter repeats, F4 selects the file-only check, and Esc clears the comparison.
+This HDD is nonbootable and is not the ordinary HDD/handoff fixture.
 
-Automated rescue checks cover 140 boots and 812 VGA/keyboard states across both
+Automated rescue checks cover 188 boots and 1,244 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## HDD builds and tests
@@ -135,7 +141,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 170 host tests.
+across both languages. There are 175 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,

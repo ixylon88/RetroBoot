@@ -4,14 +4,17 @@ Updated: 14 November 2026.
 
 ## Saved baseline
 
-PR #22 (backup files on the rescue floppy) is merged into `historical` at
-`d0348f359bd48ce42d8a4c54bb98e9c25b1f0b43`. All four checks passed, including
-the HDD regression workflow. That baseline has 167 host tests and 138 rescue
-boots / 812 UI states. The German demo's F4 result was manually confirmed under
-VirtualBox on 14 November 2026: codes and error locations zero, volumes
-`0002 / 0001 / 0001`, reserved sectors `0021`, READY matches `0001`.
-Enter-repeat and Esc-return were not separately reported. No English F4,
-physical-hardware or BIOS-version coverage is implied.
+PR #23 (target-comparison core and beginner guide) is merged into `historical`
+at `3e3063903c95b2327efaab583e53f75a2686d258`. All four PR checks passed,
+including HDD regression. That baseline has 170 host tests and 140 rescue
+boots / 812 UI states. Its native target model has 178 assertions per language
+and a 542-read oracle; it introduced no normal-UI action.
+
+PR #22 remains the saved-file baseline. The German demo's F4 result was
+manually confirmed under VirtualBox on 14 November 2026: codes and error
+locations zero, volumes `0002 / 0001 / 0001`, reserved sectors `0021`, READY
+matches `0001`. Enter-repeat and Esc-return were not separately reported.
+No English F4, physical-hardware or BIOS-version coverage is implied.
 
 PR #21 remains the saved FAT boot-area baseline (65 scenarios / 325 assertions),
 PR #20 the saved-record baseline (74 / 296), and PR #19 the container baseline
@@ -38,28 +41,38 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: target-comparison model and beginner guide
+## Current increment: fresh file/HDD comparison on rescue F5
 
-Branch `codex/backup-target-check` adds `rb_backup_match_target`, linked only
-into a native test model. It independently discovers current MBR/EBR/FAT
-metadata and all four configuration/state files, then compares observed
-identity, layout, capacity and geometry with supplied backup claims. Backup
-addresses never steer physical reads. Two complete acquisitions detect tested
-changes, including correctly resealed record changes. No normal UI or BIOS
-adapter integration is claimed.
+Branch `codex/rescue-target-check` integrates the existing comparison core
+with the normal rescue program. F5 opens and fully validates `RBBACKUP.RBB`,
+rediscovers the first HDD, performs two independent live-metadata acquisitions,
+reprobes the device and revalidates the complete saved file before success.
+Ordered half-sector fingerprints also reject tested correctly resealed changes.
+Every failure clears successful device/identity/layout/generation fields.
+Enter repeats; F4 selects the file-only check; Esc clears to diagnosis.
+There are no writes, restore actions or OS starts.
 
-Verification: 170 host tests; both rescue builds reproduced; 140 rescue boots /
-812 UI states. The new model runs 178 assertions (`F=00B2`) per language, with
-an independently checked 542-read sequence. All 68 previously published
-rescue binary/image/ROM/example files are byte-identical to PR #22. Normal
-rescue payloads remain 22,158 / 22,296 bytes (EN/DE). HDD and ABI implementation
+The artifact adds `retroboot-rescue-target-hdd.img`, a nonbootable 128 MiB
+synthetic HDD paired with the existing demo backup. It is not the normal or
+handoff HDD image. The [F5 guide](RescueTargetCheck.md) gives the exact two-file
+setup, new-VDI conversion, expected values and boundaries. Manual F5 testing
+remains pending; earlier F4 confirmation does not establish this new path.
+
+Verification: 175 host tests; both rescue builds reproduced; 188 rescue boots /
+1,244 UI states. The new 24 nine-state campaigns per language include real EDD
+and CHS reads, damaged/missing file or HDD metadata, failed/changed reprobes,
+changed and correctly resealed saved content, and stale-result clearing after
+an initially successful operation. An independent oracle checks 1,058 HDD and
+267 floppy reads for each successful EDD comparison. Native target assertions
+and all earlier models remain exercised. Test ROM modes 0..13 are byte-identical
+to PR #23. Normal payloads are 29,638 / 29,856 bytes (EN/DE), with BSS ending at
+50,392 / 50,610, below the 57,344 stack guard. HDD and ABI implementation
 sources are unchanged. CI results remain attached to the proposed PR.
 
-The [model contract](BackupTarget.md) records failure codes and limitations.
-The [getting-started guide](GettingStarted.md) explains downloads, VirtualBox,
-images, screens, keys and expected results without assuming hardware expertise.
-No new manual VM test is required for this model. In particular, rescue F4
-still checks only the saved file; HDD F10 still audits management allocation.
+The [core contract](BackupTarget.md) records comparison codes and limitations.
+The [getting-started guide](GettingStarted.md) now distinguishes rescue F4,
+rescue F5 and HDD F10, including the new matching HDD fixture. Cloned identity,
+non-atomic observation and original-MBR provenance remain explicit limitations.
 
 ## Backup-file baseline on the rescue floppy
 
@@ -99,8 +112,8 @@ The [container contract](ExternalBackup.md) specifies the wire format, status
 codes, host command and exact trust boundary. Structural validity does not
 prove snapshot completeness, record semantics, provenance, live-media identity
 or permission to restore. Only synthetic format examples are generated. Real
-collection, independently checked target binding and
-restore remain open. The subsequent F4 path loads and validates the file; it does not restore it.
+collection and restore remain open. The later F5 path compares supported
+current metadata, without proving unique physical identity or provenance. The subsequent F4 path loads and validates the file; it does not restore it.
 
 Verification adds nine host tests (149 total) and 72 native scenarios with
 216 assertions (`B=00D8`, `RB BACKUP MODEL PASS`) per build language. The model
@@ -128,17 +141,18 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 170 host tests plus the reference layout report, including file access, all three backup layers and target-model boundaries.
+- 175 host tests plus the reference layout report, including file access, all three backup layers and live target-comparison boundaries.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
   The additional checker models and file campaigns bring the current total to
-  140 boots and 812 UI states across both languages.
+  188 boots and 1,244 UI states across both languages.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
-  copies remain unchanged. Independent host vectors decode FAT12 packing
-  and file allocation. Current payload sizes: 22,158 bytes EN / 22,296 bytes DE.
+  copies remain unchanged except for explicitly recorded host mutations in two
+  F5 cases; no guest writes occur. Independent host vectors decode FAT12 packing
+  and file allocation. Current payload sizes: 29,638 bytes EN / 29,856 bytes DE.
 - Existing HDD scope remains 104 boot cases, 47 identical EDD/CHS sector
   sequence pairs and 7,362 UI states across both languages. Native models
   retain 126 journal, 42 journal-reader, 80 allocation, 26 menu, 51 partition,
@@ -165,9 +179,9 @@ The frozen specification v0.2 and archives are unchanged.
    all required MBR/EBR/VBR metadata, including FAT32 backup headers and
    configuration/state. The F4 file-validation path is available, but does not
    establish provenance, live target binding or recovery completeness. The
-   target-comparison core is model-tested; integration with fresh rescue BIOS
-   discovery and file validation remains open. Add
-   verified, explicitly confirmed targeted restore
+   read-only F5 path integrates fresh rescue BIOS discovery and file validation
+   with the target-comparison core. Unique physical identity and recovery
+   authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
    ISO boot remains open too.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion

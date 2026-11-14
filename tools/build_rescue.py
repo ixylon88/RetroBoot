@@ -19,6 +19,7 @@ try:
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from .journal_records import io_model_header
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
+    from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
@@ -30,6 +31,7 @@ except ImportError:
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from journal_records import io_model_header
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
+    from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
 
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
@@ -156,7 +158,7 @@ def build(kind='rescue',language='en'):
                 'saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
-                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot')]
+                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -177,10 +179,17 @@ def build(kind='rescue',language='en'):
     for name in file_specs():
         p=destination/(name+'.img');p.write_bytes(file_fixture(original,name));remember(p)
     p=destination/'retroboot-rescue-demo.img';p.write_bytes(file_fixture(original,'file-demo'));remember(p)
+    for name,spec in match_specs().items():
+        p=destination/('match-'+name+'.img');p.write_bytes(match_floppy(original,spec));remember(p)
+    for kind in sorted({s['kind'] for s in match_specs().values()}):
+        size,extents=match_disk(kind);p=destination/('disk-match-'+kind+'.img');write_fixture(p,size,extents);remember(p)
+    size,extents=match_disk();p=destination/'retroboot-rescue-target-hdd.img';write_fixture(p,size,extents);remember(p)
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
-    for mode in range(14):
-        p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),'tests/bios/int13_rom.asm','-o',p)
+    changed_header=destination/'resealed-backup-header.raw';changed_header.write_bytes(match_backup(generation=2)[:512])
+    for mode in range(18):
+        extra=['-DRB_RESEALED_HEADER="'+str(changed_header)+'"'] if mode==17 else []
+        p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,
         host_executable_sha256=dict(nasm=sha256(nasm),wcc=sha256(wcc),wlink=sha256(wlink)),memory=memory,artifacts=artifacts,hdd_cases=HDD_CASES)
@@ -194,6 +203,7 @@ def build(kind='rescue',language='en'):
     manifest['backup_file_cases']=file_specs()
     manifest['backup_target_model']=dict(assertions=TARGET_ASSERTIONS,read_lbas=target_reads(),
         scope='two live metadata acquisitions compared with supplied claims; model only, no file import or restore')
+    manifest['rescue_match_cases']=match_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')

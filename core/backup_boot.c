@@ -77,7 +77,7 @@ static rb_u16 fsinfo(rb_u32 clusters)
     return 0;
 }
 
-void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque, rb_u32 size)
+const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque, rb_u32 size)
 {
     rb_backup_records records;
     rb_volume_probe volume;
@@ -91,23 +91,23 @@ void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque
     s = rb_backup_open_records(&records, read, opaque, size);
     if (!s) {
         fail(r, RB_BBOOT_RECORDS, records.status, records.index, records.error_lba);
-        r->kind = records.kind; r->record_detail = records.detail; return;
+        r->kind = records.kind; r->record_detail = records.detail; return (const rb_backup *)0;
     }
     for (i = 0; i < s->scan.count; ++i) {
         p = &s->scan.entries[i];
         if (!p->type || p->type == 5 || p->type == 15) { continue; }
         start = find(s, p->start, p->start); /* Checked by the record layer. */
-        if (read_sector(r, s, start, 0)) { return; }
+        if (read_sector(r, s, start, 0)) { return (const rb_backup *)0; }
         copy(first, sector);
         code = rb_probe_volume(&volume, p, read_first, (void *)p,
             s->container.capacity_low, s->container.capacity_high);
-        if (code) { fail(r, RB_BBOOT_VOLUME, code, start->index, p->start); return; }
+        if (code) { fail(r, RB_BBOOT_VOLUME, code, start->index, p->start); return (const rb_backup *)0; }
         reserved = word(first + 14); backup = 0;
         if (volume.fat_bits == 32) {
             backup = word(first + 50);
             if (word(first + 48) != 1 || reserved < 3
                     || (backup && (backup < 3 || (rb_u32)backup + 3 > reserved))) {
-                fail(r, RB_BBOOT_FAT32_LAYOUT, 0, start->index, p->start); return;
+                fail(r, RB_BBOOT_FAT32_LAYOUT, 0, start->index, p->start); return (const rb_backup *)0;
             }
         }
         /* Non-overlap and owner identity were checked earlier. Reject extras
@@ -116,13 +116,13 @@ void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque
             e = &s->container.entries[j];
             if (e->kind == RB_BACKUP_BOOT && e->owner_start == p->start
                     && (e->lba - p->start >= reserved || e->sectors > reserved - (e->lba - p->start))) {
-                fail(r, RB_BBOOT_COVERAGE, 2, e->index, e->lba); return;
+                fail(r, RB_BBOOT_COVERAGE, 2, e->index, e->lba); return (const rb_backup *)0;
             }
         }
         cursor = p->start;
         while (cursor - p->start < reserved) {
             e = find(s, cursor, p->start);
-            if (!e) { fail(r, RB_BBOOT_COVERAGE, 1, RB_CONFIG_NONE, cursor); return; }
+            if (!e) { fail(r, RB_BBOOT_COVERAGE, 1, RB_CONFIG_NONE, cursor); return (const rb_backup *)0; }
             cursor += e->sectors;
         }
         cursor = p->start;
@@ -132,25 +132,25 @@ void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque
             for (offset = 0; offset < e->sectors; ++offset) {
                 relative = cursor + offset - p->start;
                 if (!relative) { copy(sector, first); }
-                else if (read_sector(r, s, e, offset)) { return; }
+                else if (read_sector(r, s, e, offset)) { return (const rb_backup *)0; }
                 crc = crc_update(crc, sector);
                 if (volume.fat_bits != 32) { continue; }
                 if (relative == 1 || (backup && relative == (rb_u32)backup + 1)) {
                     code = fsinfo(volume.clusters);
-                    if (code) { fail(r, RB_BBOOT_FSINFO, code, e->index, cursor + offset); return; }
+                    if (code) { fail(r, RB_BBOOT_FSINFO, code, e->index, cursor + offset); return (const rb_backup *)0; }
                 } else if (relative == 2) {
                     if (word(sector + 510) != 0xAA55) {
-                        fail(r, RB_BBOOT_COPY, 3, e->index, cursor + offset); return;
+                        fail(r, RB_BBOOT_COPY, 3, e->index, cursor + offset); return (const rb_backup *)0;
                     }
                     copy(continuation, sector);
                 } else if (backup && (relative == backup || relative == (rb_u32)backup + 2)) {
                     if (!equal(sector, relative == backup ? first : continuation)) {
-                        fail(r, RB_BBOOT_COPY, relative == backup ? 1 : 2, e->index, cursor + offset); return;
+                        fail(r, RB_BBOOT_COPY, relative == backup ? 1 : 2, e->index, cursor + offset); return (const rb_backup *)0;
                     }
                 }
             }
             if ((crc ^ 0xFFFFFFFFUL) != e->crc) {
-                fail(r, RB_BBOOT_CHANGED, 0, e->index, e->lba); return;
+                fail(r, RB_BBOOT_CHANGED, 0, e->index, e->lba); return (const rb_backup *)0;
             }
             cursor += e->sectors;
         }
@@ -159,7 +159,7 @@ void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque
             installation = &s->state.state.entries[j];
             if (installation->phase == RB_INSTALL_READY && installation->start == p->start) {
                 if (installation->vbr_crc != vbr_crc) {
-                    fail(r, RB_BBOOT_READY, j, start->index, p->start); return;
+                    fail(r, RB_BBOOT_READY, j, start->index, p->start); return (const rb_backup *)0;
                 }
                 ++ready;
             }
@@ -169,4 +169,10 @@ void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque
     }
     r->volumes = volumes; r->fat16 = fat16; r->fat32 = fat32;
     r->reserved_sectors = total; r->ready_matches = ready;
+    return &s->container;
+}
+
+void rb_backup_check_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque, rb_u32 size)
+{
+    (void)rb_backup_open_boot(r, read, opaque, size);
 }
