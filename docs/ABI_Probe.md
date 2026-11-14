@@ -7,13 +7,18 @@ verwendet inzwischen denselben Vertrag und dieselben Helfer aus `runtime/`.
 ## Bauen und starten
 
 Referenz-Buildhost: **Linux x86_64, Ubuntu 24.04**, Python 3.12, GCC und GNU
-Make. Unter Windows ist dafür eine entsprechende WSL-Umgebung möglich;
+Make. The host checks additionally need the isolated Python environment and
+pinned ISO dependency from the [root setup](../README.md#host-checks).
+Unter Windows ist dafür eine entsprechende WSL-Umgebung möglich;
 ein nativer Windows-/macOS-Build der Bootkomponenten ist noch nicht geprüft.
 Die bisherigen Python-Hosttests laufen weiterhin auch nativ unter Windows.
 
 ```sh
 sudo apt-get update
-sudo apt-get install --no-install-recommends -y build-essential python3 qemu-system-x86
+sudo apt-get install --no-install-recommends -y build-essential python3 python3-venv qemu-system-x86
+python3 -m venv build/host-venv
+. build/host-venv/bin/activate
+make iso-deps
 make toolchain
 make check
 make boot-test

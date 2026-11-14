@@ -52,12 +52,17 @@ the conventions are recorded in [AGENTS.md](AGENTS.md).
 ## Host checks
 
 The host suite requires Python 3.12 and the pinned ISO packaging library.
-With GNU Make (optionally inside an activated Python virtual environment):
+With GNU Make on Linux, create an isolated Python environment first:
 
 ```sh
+python3.12 -m venv build/host-venv
+. build/host-venv/bin/activate
 make iso-deps
 make check
 ```
+
+Ubuntu's system Python may require the `python3-venv` package for this setup.
+The environment keeps the dependency separate from OS-managed Python packages.
 
 Without Make, for example on Windows:
 

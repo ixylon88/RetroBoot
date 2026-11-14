@@ -60,6 +60,8 @@ Python 3.12 additionally needs the hash-pinned dependency in
 [`tools/requirements-iso.txt`](../tools/requirements-iso.txt):
 
 ```sh
+python3.12 -m venv build/host-venv
+. build/host-venv/bin/activate
 make iso-deps
 make toolchain
 make rescue-check RB_LANGUAGE=en
@@ -68,7 +70,8 @@ make rescue-iso-test RB_LANGUAGE=en
 make rescue-iso-test RB_LANGUAGE=de
 ```
 
-An isolated Python environment can be selected with `PYTHON=path/to/python`.
+Ubuntu's system Python may require `python3-venv` first. Alternatively, an
+existing isolated environment can be selected with `PYTHON=path/to/python`.
 `make rescue-iso` packages existing verified rescue images without rebuilding
 them; it requires their current language manifest and checks their SHA-256
 values. Output is under `build/rescue-iso/` and `build/rescue-iso-de/`.
