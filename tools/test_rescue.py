@@ -19,6 +19,7 @@ try:
     from .backup_boot_vectors import cases as boot_cases
     from .backup_record_vectors import cases as record_cases
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
+    from .backup_plan_vectors import assertions as plan_assertions, check_reads as check_plan_reads
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
@@ -29,6 +30,7 @@ except ImportError:
     from backup_boot_vectors import cases as boot_cases
     from backup_record_vectors import cases as record_cases
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
+    from backup_plan_vectors import assertions as plan_assertions, check_reads as check_plan_reads
 
 REASONS=('OK','NO_DISK','PARAMS','GEOMETRY','IO','CHANGED')
 FILE_ACTIONS=((None,0),('f4',2),('ret',2),('esc',0),('ret',1),('f4',2),('esc',0))
@@ -122,6 +124,7 @@ def scenarios():
     for image,marker in (('rescue-model','RB RESCUE MODEL PASS'),('backup-model','RB BACKUP MODEL PASS'),('rescue-bss-fault','RB RESCUE STARTUP ERROR'),
             ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),('rescue-file-model','RB RESCUE FILE PASS'),
             ('backup-target-model','RB BACKUP TARGET PASS'),
+            ('backup-plan-model','RB BACKUP PLAN PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -225,6 +228,11 @@ def main():
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
                         if not match:raise ValueError('Missing target-model read evidence')
                         check_target_reads([int(x,16) for x in match[1].split(',') if x])
+                    if case['name']=='backup-plan-model':
+                        if f'G={plan_assertions():04X}' not in log.read_text():raise ValueError('Missing native capture-plan assertions')
+                        match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
+                        if not match:raise ValueError('Missing capture-plan read evidence')
+                        check_plan_reads([int(x,16) for x in match[1].split(',') if x])
                 qmp.call('quit')
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:

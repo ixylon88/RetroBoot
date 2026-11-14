@@ -133,11 +133,38 @@ static rb_u16 geometry(rb_u16 route, rb_u16 heads, rb_u16 spt, rb_u32 low, rb_u3
     return route == 1 || (!high && low <= (rb_u32)heads * spt * 1024UL);
 }
 
-void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
+void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     const rb_rescue_device *d, rb_sector_reader read, void *opaque)
 {
     rb_u32 digest[2];
-    rb_u16 reads, route;
+    rb_u16 reads, i;
+    clear(&work, sizeof(work)); fail(r, RB_BTARGET_PARAMS, 0, 0);
+    if (sources) { clear(sources, sizeof(*sources)); }
+    if (!d || !read) { return; }
+    if (d->drive != 0x80 || d->mode > 1
+            || !geometry(d->mode ? 1 : 2, d->heads, d->sectors_per_track, d->capacity_low, d->capacity_high)) {
+        r->detail = 2; return;
+    }
+    work.read = read; work.opaque = opaque; work.device = d;
+    acquire(r);
+    if (!r->status) {
+        digest[0] = work.digest[0]; digest[1] = work.digest[1]; reads = work.reads;
+        acquire(r);
+        if (!r->status && (work.digest[0] != digest[0] || work.digest[1] != digest[1] || work.reads != reads)) {
+            fail(r, RB_BTARGET_CHANGED, 0, 0);
+        }
+    }
+    if (!r->status && sources) {
+        sources->scan = work.audit.scan;
+        for (i = 0; i < 4; ++i) { sources->record_lba[i] = work.audit.files[i + 2].first_lba; }
+    }
+    clear(&work, sizeof(work));
+}
+
+void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque)
+{
+    rb_u16 route;
     clear(&work, sizeof(work)); fail(r, RB_BTARGET_PARAMS, 0, 0);
     if (!b || !d || !read) { return; }
     route = d->mode ? 1 : 2;
@@ -157,15 +184,7 @@ void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
     if (b->route != route || b->heads != d->heads || b->sectors_per_track != d->sectors_per_track) {
         fail(r, RB_BTARGET_GEOMETRY, 0, 0); return;
     }
-    work.read = read; work.opaque = opaque; work.device = d;
-    acquire(r);
-    if (!r->status) {
-        digest[0] = work.digest[0]; digest[1] = work.digest[1]; reads = work.reads;
-        acquire(r);
-        if (!r->status && (work.digest[0] != digest[0] || work.digest[1] != digest[1] || work.reads != reads)) {
-            fail(r, RB_BTARGET_CHANGED, 0, 0);
-        }
-    }
+    rb_backup_observe_target(r, (rb_backup_sources *)0, d, read, opaque);
     if (!r->status) {
         if (r->disk_id != b->disk_id || !same(r->media_id, b->media_id, 16)) {
             fail(r, RB_BTARGET_IDENTITY, 4, 0);
@@ -173,5 +192,4 @@ void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
             fail(r, RB_BTARGET_LAYOUT, 0, 0);
         }
     }
-    clear(&work, sizeof(work));
 }

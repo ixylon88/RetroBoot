@@ -20,6 +20,18 @@ typedef struct {
 
 typedef char rb_check_backup_target[(sizeof(rb_backup_target) == 48) ? 1 : -1];
 
+typedef struct {
+    rb_partition_scan scan;
+    rb_u32 record_lba[4]; /* Config A/B, state A/B, from the audited allocation. */
+} rb_backup_sources;
+
+/* Independent observation, without saved identity claims. Performs the same
+   two acquisitions as the comparison below. Optional sources are published
+   only on success and cleared on failure. Result, sources and inputs must not
+   overlap; result is required. No boot-area contents or MBR provenance check. */
+void rb_backup_observe_target(rb_backup_target *result, rb_backup_sources *sources,
+    const rb_rescue_device *device, rb_sector_reader read, void *opaque);
+
 /* Read-only comparison with a freshly discovered BIOS device. All disk addresses
    come from live MBR/EBR/FAT metadata, never from the backup's extent list.
    The caller must validate the complete saved file separately. This API checks

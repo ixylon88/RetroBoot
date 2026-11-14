@@ -19,6 +19,7 @@ try:
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from .journal_records import io_model_header
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
+    from .backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
@@ -31,6 +32,7 @@ except ImportError:
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from journal_records import io_model_header
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
+    from backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
 
 IMAGE_BYTES = 1474560
@@ -116,6 +118,7 @@ def build(kind='rescue',language='en'):
     (destination/'backup_record_vectors.h').write_text(record_header(),encoding='ascii')
     (destination/'backup_boot_vectors.h').write_text(boot_header(),encoding='ascii')
     (destination/'journal_io_fixture.h').write_text(io_model_header(),encoding='ascii')
+    (destination/'backup_plan_vectors.h').write_text(plan_header(),encoding='ascii')
     objects=[]
     for name,source in (('runtime','core/rescue_runtime.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
@@ -125,6 +128,7 @@ def build(kind='rescue',language='en'):
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('backup-target','core/backup_target.c'),('backup-target-tests','tests/backup/target.c'),
+            ('backup-plan','core/backup_plan.c'),('backup-plan-tests','tests/backup/plan.c'),
             ('target-audit','core/admin_audit.c'),
             ('saved-state','core/state.c'),('saved-record-io','core/record_io.c'),('saved-volume','core/volume.c')):
         run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),
@@ -143,6 +147,7 @@ def build(kind='rescue',language='en'):
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
+            ('backup-plan-model',['-DRB_RESCUE_PLAN_MODEL=1']),
             ('rescue-file-model',['-DRB_RESCUE_FILE_MODEL=1'])):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
@@ -156,6 +161,9 @@ def build(kind='rescue',language='en'):
         if name=='backup-target-model':
             extra=[destination/(n+'.obj') for n in ('backup-target','backup-target-tests','target-audit',
                 'saved-state','saved-record-io','saved-volume')]
+        if name=='backup-plan-model':
+            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target',
+                'target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit')]
@@ -203,6 +211,8 @@ def build(kind='rescue',language='en'):
     manifest['backup_file_cases']=file_specs()
     manifest['backup_target_model']=dict(assertions=TARGET_ASSERTIONS,read_lbas=target_reads(),
         scope='two live metadata acquisitions compared with supplied claims; model only, no file import or restore')
+    manifest['backup_plan_model']=dict(assertions=plan_assertions(),read_lbas=plan_reads(),
+        cases=plan_cases(),scope='preliminary live read ranges and size only; model only, no capture, MBR approval or restore')
     manifest['rescue_match_cases']=match_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')

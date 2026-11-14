@@ -268,7 +268,9 @@ Die nächsten Schritte sind:
    manual VirtualBox confirmation. The German initial/F5 pages subsequently
    confirmed the numeric/byte notation; repeat keys and HDD-menu formatting
    remain unconfirmed manually. The [rescue CD](RescueCD.md) has automated
-   boot evidence; its manual check is pending. Real collection, provenance and
+   boot evidence and reported English F4/F5 CD success, with the attachment and
+   revision limits recorded in its guide. The [capture-plan model](BackupCapturePlan.md)
+   now covers preliminary live ranges and size. Real collection, provenance and
    restore remain open. F7/F9 and the subsequent
    PR #17 procedure were reported confirmed; no original-OS authorization follows.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
