@@ -66,6 +66,8 @@ jobs:
             build/rescue-de/*.rom
             build/rescue/synthetic-container.rbb
             build/rescue-de/synthetic-container.rbb
+            build/rescue/synthetic-boot-areas.rbb
+            build/rescue-de/synthetic-boot-areas.rbb
             build/rescue/synthetic-records.rbb
             build/rescue-de/synthetic-records.rbb
             build/rescue/manifest.json

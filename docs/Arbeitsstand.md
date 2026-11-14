@@ -4,12 +4,13 @@ Updated: 14 November 2026.
 
 ## Saved baseline
 
-PR #19 (external container format and native validation) is merged into
-`historical` at `9d528180626422a1f46e33490069b3ee0cffa842`. All four PR checks
-passed, including the HDD regression workflow. Published rescue binaries,
-examples, VGA hashes and read sequences match local evidence. The container
-baseline has 149 host tests and 72 native scenarios / 216 assertions per
-language; no live backup collection or restore was introduced.
+PR #20 (saved partition and record consistency) is merged into `historical`
+at `339b5373df7620e264c7b7401971d543200b9c75`. All four checks passed,
+including the HDD regression workflow. Published rescue binaries, examples,
+VGA hashes and read sequences match local evidence. That baseline has 155 host
+tests and 74 saved-record scenarios / 296 assertions per language.
+PR #19 remains the container baseline with 72 scenarios / 216 assertions.
+Neither increment introduced live backup collection or restore.
 
 PR #18 remains the independent read-only rescue baseline; its four checks passed.
 The German rescue floppy was manually confirmed under VirtualBox with the
@@ -32,25 +33,27 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: saved partition and record consistency
+## Current increment: saved FAT boot areas
 
-Branch `codex/backup-record-consistency` adds a native checker after container
-integrity validation. It reuses the existing partition/configuration/state
-parsers to check the approved-MBR view, exact EBR coverage, boot-area owners,
-volume-start coverage, all four record bindings, A/B selection and selected
-installation references. Semantic rereads recheck the container payload CRC;
-failures retain diagnostics only. Older copies must also match the media ID.
+Branch `codex/backup-boot-areas` adds the [saved boot-area check](BackupBootAreas.md)
+after container and record validation. Every supported data volume must have a
+valid FAT16/FAT32 BPB and its complete reserved region, including supported FAT32
+FSInfo/backup records. Split extents are streamed in disk order and their CRCs
+rechecked. Stale FSInfo hints are permitted; inconsistent boot copies, missing
+sectors and selected READY VBR CRC mismatches are rejected. Type 07h and
+unsupported FAT32 arrangements do not receive boot-area success.
 
-The [saved-record contract](BackupRecords.md) documents the exact boundary.
-Original-MBR provenance, saved filesystem/boot-area completeness, file
-allocation ownership, live media binding and confirmed restore remain open.
-The checker is linked only into a separate native model; normal rescue images
-and menus are unchanged. No additional manual VM check is required.
+Original-MBR provenance, other filesystem formats, file allocation ownership,
+collection/import, live-media binding and confirmed restore remain open.
+Only an additional native model uses the new checker. The record model gains
+an internal successful-context handoff with unchanged parsing behavior. Normal
+rescue images and menus are unchanged; no additional manual VM test is required.
 
-Verification adds six host tests (155 total) and 74 native scenarios with
-296 assertions (`C=0128`, `RB BACKUP RECORDS PASS`) per language, including
-checksumming-correct but inconsistent records and failures/changes at every
-semantic reread. The current rescue campaign has 80 boots / 434 UI states.
+Verification adds six host tests (161 total) and 65 native scenarios with
+325 assertions (`D=0145`, `RB BACKUP BOOT PASS`) per language. The current
+rescue campaign has 82 boots / 434 UI states. Tests include full regions over
+64 KiB, reversed split extents, FSInfo hint differences, late failures and
+checksumming-correct semantic counterexamples.
 
 ## External container baseline
 
@@ -93,12 +96,12 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 155 host tests plus the reference layout report, including both backup layers.
+- 161 host tests plus the reference layout report, including all three backup layers.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
-  The container and saved-record model boots bring the current total to 80
+  The container, saved-record and boot-area model boots bring the current total to 82
   boots and 434 UI states across both languages.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
@@ -124,9 +127,9 @@ The frozen specification v0.2 and archives are unchanged.
 ## Open work
 
 1. Complete independent external recovery before the first write tests:
-   validate saved filesystem/boot metadata and original-MBR provenance; collect
-   and import a complete backup using the bounded container and saved-record
-   checker, with independent media/geometry binding and
+   extend supported saved boot formats and validate original-MBR provenance; collect
+   and import a complete backup using the bounded container, saved-record and FAT boot-area
+   checkers, with independent media/geometry binding and
    all required MBR/EBR/VBR metadata, including FAT32 backup headers and
    configuration/state. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.

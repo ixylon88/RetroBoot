@@ -60,12 +60,12 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The [external rescue campaign](ExternalRescue.md) has 38 boots per language,
-including 31 seven-state UI campaigns and seven terminal model/failure boots.
+The [external rescue campaign](ExternalRescue.md) has 41 boots per language,
+including 31 seven-state UI campaigns and ten terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
-no additional runner job. Both host jobs now run 140 tests.
+no additional runner job. Both host jobs now run 161 tests.
 
 Die Artefakte werden 30 Tage aufgehoben. Weil der Upload auch nach einem
 Fehler versucht wird, beweist ein vorhandenes Artefakt allein keinen grünen

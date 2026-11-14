@@ -1,17 +1,6 @@
-#include "backup_records.h"
+#include "backup_saved.h"
 
-typedef struct {
-    rb_backup container;
-    rb_partition_scan scan;
-    rb_config_result config;
-    rb_state_result state;
-    rb_sector_reader read;
-    void *opaque;
-    rb_u8 mbr[512], a[512], b[512];
-    rb_u16 read_status, kind, index;
-    rb_u32 lba;
-} saved_context;
-static saved_context saved;
+static rb_backup_saved saved;
 
 static void clear(void *p, rb_u16 n)
 {
@@ -195,4 +184,11 @@ void rb_backup_check_records(rb_backup_records *r, rb_sector_reader read,
     r->partitions = saved.scan.count; r->ebrs = ebrs; r->boot_areas = boots;
     r->config_source = saved.config.source; r->state_source = saved.state.source;
     r->config_generation = saved.config.config.generation; r->state_generation = saved.state.state.generation;
+}
+
+const rb_backup_saved *rb_backup_open_records(rb_backup_records *r,
+    rb_sector_reader read, void *opaque, rb_u32 size)
+{
+    rb_backup_check_records(r, read, opaque, size);
+    return r->status ? (const rb_backup_saved *)0 : &saved;
 }
