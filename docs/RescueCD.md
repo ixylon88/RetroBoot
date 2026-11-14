@@ -5,6 +5,15 @@ presents an unchanged embedded diskette as drive A:, so Enter, F4 and F5 keep
 their existing meanings. A physical or virtual floppy drive is not required.
 This adds a boot medium, not backup creation or restoration.
 
+## BIOS CD boot modes
+
+El Torito supports three BIOS CD-boot modes:
+
+- **Floppy emulation:** A floppy image appears as drive A:. RetroBoot uses this mode.
+- **Hard disk emulation:** A disk image is presented as a hard disk.
+- **No emulation:** The BIOS loads a startup program directly from the CD,
+  without creating a virtual diskette.
+
 ## Download and VirtualBox check
 
 From a successful **BIOS ABI probe** run for the intended PR or revision,
