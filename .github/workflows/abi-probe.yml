@@ -112,6 +112,13 @@ jobs:
             build/rescue-match-test-de/*.png
             build/rescue-match-test/*.bin
             build/rescue-match-test-de/*.bin
+            build/rescue-plan-test*/*.json
+            build/rescue-plan-test*/*.log
+            build/rescue-plan-test*/*.trace
+            build/rescue-plan-test*/*.conf
+            build/rescue-plan-test*/*.txt
+            build/rescue-plan-test*/*.png
+            build/rescue-plan-test*/*.bin
       - name: Upload rescue CDs and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -131,3 +138,10 @@ jobs:
             build/rescue-iso-test*/*.txt
             build/rescue-iso-test*/*.png
             build/rescue-iso-test*/*.bin
+            build/rescue-plan-iso-test*/*.json
+            build/rescue-plan-iso-test*/*.log
+            build/rescue-plan-iso-test*/*.trace
+            build/rescue-plan-iso-test*/*.conf
+            build/rescue-plan-iso-test*/*.txt
+            build/rescue-plan-iso-test*/*.png
+            build/rescue-plan-iso-test*/*.bin

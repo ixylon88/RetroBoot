@@ -21,6 +21,7 @@ try:
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from .backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
+    from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
@@ -34,6 +35,7 @@ except ImportError:
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
+    from rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
@@ -123,7 +125,7 @@ def build(kind='rescue',language='en'):
     for name,source in (('runtime','core/rescue_runtime.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
         if name!='model':objects.append(obj)
-    for name,source in (('rescue-ui','core/rescue.c'),('rescue-file','core/rescue_file.c'),
+    for name,source in (('rescue-ui','core/rescue.c'),('rescue-plan','core/rescue_plan.c'),('rescue-file','core/rescue_file.c'),
             ('rescue-file-tests','tests/rescue/file.c'),('rescue-backup','core/rescue_backup.c'),('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
@@ -166,7 +168,8 @@ def build(kind='rescue',language='en'):
                 'target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
-                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit')]
+                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
+                'backup-plan','rescue-plan')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -191,7 +194,9 @@ def build(kind='rescue',language='en'):
         p=destination/('match-'+name+'.img');p.write_bytes(match_floppy(original,spec));remember(p)
     for kind in sorted({s['kind'] for s in match_specs().values()}):
         size,extents=match_disk(kind);p=destination/('disk-match-'+kind+'.img');write_fixture(p,size,extents);remember(p)
-    size,extents=match_disk();p=destination/'retroboot-rescue-target-hdd.img';write_fixture(p,size,extents);remember(p)
+    for kind in sorted({s['kind'] for s in plan_specs().values()}):
+        size,extents=plan_disk(kind);p=destination/('disk-plan-'+kind+'.img');write_fixture(p,size,extents);remember(p)
+    size,extents=plan_disk();p=destination/'retroboot-rescue-target-hdd.img';write_fixture(p,size,extents);remember(p)
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
     changed_header=destination/'resealed-backup-header.raw';changed_header.write_bytes(match_backup(generation=2)[:512])
@@ -214,6 +219,7 @@ def build(kind='rescue',language='en'):
     manifest['backup_plan_model']=dict(assertions=plan_assertions(),read_lbas=plan_reads(),
         cases=plan_cases(),scope='preliminary live read ranges and size only; model only, no capture, MBR approval or restore')
     manifest['rescue_match_cases']=match_specs()
+    manifest['rescue_plan_cases']=plan_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')

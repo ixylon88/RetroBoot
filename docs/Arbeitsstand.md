@@ -4,6 +4,15 @@ Updated: 14 November 2026.
 
 ## Saved baseline
 
+PR #28 (preliminary capture-plan core) is merged into `historical` at
+`d5e01296fad319ac43210ee3a5eb77a895497f3a`. All four PR checks passed;
+its rescue binaries/fixtures, four ISOs and case/read/VGA results matched the
+local build. The model's `G=0157` and `RB BACKUP PLAN PASS` were subsequently
+reported from VirtualBox on 14 November 2026. The long visible address trace
+caused confusion. Exact artifact revision, attached drives and VM/BIOS version
+were not separately reported. The [plan guide](BackupCapturePlan.md) retains
+that text evidence; the supplied screenshot was discarded.
+
 PR #27 (short BIOS CD-mode explanations) is merged into `historical` at
 `e353caf22a54c0534f0ba3cd866c3fd1496b13a8`. PR #26 (rescue ISO) was merged at
 `6968062d68cead1678fcf75d24f43165901445e0`; all four PR #26 checks passed.
@@ -60,37 +69,44 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: preliminary capture plan
+## Current increment: live rescue F6 preview
 
-Branch `codex/backup-capture-plan` adds an internal read-only range/size planner
-for a future metadata backup. The independent two-acquisition target observer
-now exposes its audited scan and four record addresses; F5 reuses that observer
-without changing its checks or read order. The planner adds first-VBR probes,
-lists complete FAT reserved areas and compares two complete planning passes.
-Current-MBR kind zero deliberately conveys no original/approved-MBR provenance.
-Failure clears the complete plan; no file is created and no writes are added.
+Branch `codex/rescue-capture-preview` integrates the existing read-only planner
+with **F6 in RetroBoot Rescue**. A fresh BIOS probe precedes every plan and a
+second probe must agree before success. No saved file or F5 result is reused.
+The page shows diagnostics, estimated size and five ranges at a time;
+Left/Right pages without I/O, Enter/F6 starts over and Esc clears the result.
+Failed probes/plans clear all ranges and size. The 908-byte result is on the
+existing guarded stack; planner scratch remains private and non-reentrant.
 
-The [capture-plan guide](BackupCapturePlan.md) records the API, diagnostic codes,
-limits and optional standalone floppy check. Normal rescue menus have no new
-key. `backup-plan-model.img` is included in both language directories of the
-existing rescue artifact; expected output is `G=0157` and `RB BACKUP PLAN PASS`.
-The model uses synthetic memory metadata without an attached HDD.
+Both normal/demo floppies and CDs support the action. The published target HDD
+adds the complete synthetic FAT32 reserved area while preserving its earlier
+F5 metadata. A new VDI conversion is required for F6; an old F5 fixture lacks
+the system VBR and is correctly rejected. The [beginner guide](GettingStarted.md)
+and [F6 procedure](BackupCapturePlan.md#manual-virtualbox-check) identify the
+exact files, key sequence and expected eight ranges / two pages / 23,040 bytes.
+This is only a preliminary plan: full capture, original-MBR provenance,
+current-MBR approval, a writable export destination and restoration remain open.
 
-Evidence: 67 scenarios / 343 native assertions per language, an independently
-checked 2,122-read success trace and five new host tests (186 total). Both rescue
-languages reproduce; full floppy/CD regression covers 228 boots / 1,586 states.
-The unchanged target model retains all 178 assertions and its 542-read trace.
-Normal rescue payloads are 29,888 / 30,110 bytes, BSS ends at 50,642 / 50,864,
-and the planner model ends below 34 KiB, all below the 57,344 stack guard.
-The planner is linked only into its model image. No UI catalog, disk format,
-HDD implementation or frozen specification changes are included. Published
-checks and artifact verification belong to the proposed PR.
+The standalone model retains 67 scenarios / 343 assertions and the exact
+2,122-read oracle. Its long trace now goes only to the debug port; VGA shows
+`G=0157` and `RB BACKUP PLAN PASS`, checked independently by the test harness.
+The unchanged target model retains 178 assertions and its 542-read trace.
 
-The merged CD baseline provides four reproducible normal/demo ISOs and
-38 CD boots / 342 states, with and without BIOS-call instrumentation. Raw VGA
-text/attribute dumps are checked independently of potentially incomplete QEMU
-PNG repaints. Its matching synthetic HDD remains in the rescue artifact.
-Real collection, provenance, writable export and restoration remain open.
+The live F6 campaign adds 19 floppy boots / 194 states per language, plus four
+instrumented and three uninstrumented CD boots / 78 states per language.
+It checks paging, fresh repeats, F4/F5 transitions, absent/damaged HDDs,
+EDD/CHS, failed/changed discovery, read failures and stale-result clearing
+following a host mutation. An unread damaged FSInfo sector deliberately still
+allows a preliminary plan, testing its stated limit. Four new host tests bring
+the total to 190. Full rescue coverage is 280 boots / 2,130 UI states.
+
+Both rescue languages reproduce. Payloads are 33,332 / 33,606 bytes; BSS ends
+at 55,646 / 55,920, below the 57,344 stack guard. The German build leaves
+1,424 bytes before that guard; the separate 8 KiB stack remains guarded in
+every UI state. Disk formats, HDD implementation and frozen specification
+are unchanged. Published checks and artifact verification belong to the PR.
+Manual confirmation of the new live F6 path is still pending.
 
 ## Numeric/byte display and F5 baseline
 
@@ -214,19 +230,20 @@ remain the HDD baseline.
 
 Verification scope:
 
-- 186 host tests plus the reference layout report, including file access, all three backup layers, target comparison, capture planning and ISO packaging.
+- 190 host tests plus the reference layout report, including file access, all three backup layers, target comparison, capture planning and ISO packaging.
 - Rescue: both languages built twice, 38 boots and 217 UI states each
   (76 boots, 434 states total), including absent/damaged HDDs, EDD/CHS,
   BIOS faults, read retries and rejected floppy/C-startup variants.
   Each native rescue model executes 28 assertions (`R=001C`).
   The additional checker models and file campaigns bring the current total to
-  190 floppy boots and 1,244 UI states across both languages. CD campaigns add
-  38 boots / 342 states, bringing the combined scope to 228 / 1,586.
+  190 floppy boots and 1,244 UI states across both languages before F6.
+  F6 adds 38 floppy boots / 388 states. All CD campaigns total 52 boots /
+  498 states, bringing the combined scope to 280 / 2,130.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged except for explicitly recorded host mutations in two
-  F5 cases; no guest writes occur. Independent host vectors decode FAT12 packing
-  and file allocation. Current payload sizes: 29,888 bytes EN / 30,110 bytes DE.
+  F5 cases and one F6 case per language; no guest writes occur. Independent host vectors decode FAT12 packing
+  and file allocation. Current payload sizes: 33,332 bytes EN / 33,606 bytes DE.
 - Existing HDD scope remains 104 boot cases, 47 identical EDD/CHS sector
   sequence pairs and 7,362 UI states across both languages. Native models
   retain 126 journal, 42 journal-reader, 80 allocation, 26 menu, 51 partition,
@@ -257,8 +274,8 @@ The frozen specification v0.2 and archives are unchanged.
    with the target-comparison core. Unique physical identity and recovery
    authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
-   The preliminary range/size plan is model-tested; complete source capture and
-   provenance remain open. The rescue ISO has automated CD-boot coverage and
+   The preliminary range/size plan now has a live rescue F6 path; complete
+   source capture and provenance remain open. The rescue ISO has automated CD-boot coverage and
    reported English VirtualBox F4/F5 success; broader manual and physical BIOS
    compatibility remain open.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion
