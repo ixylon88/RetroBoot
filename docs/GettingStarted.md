@@ -101,6 +101,14 @@ supported comparison; no installation, restoration or OS start follows.
 
 ## Which image and which key?
 
+An optical drive can now replace the rescue floppy. The **retroboot-rescue-cd**
+artifact contains English and German `retroboot-rescue-demo.iso` files. Attach
+the ISO directly as a BIOS CD/DVD, eject the old floppy and place Optical first
+in the boot order. No VDI conversion is needed for an ISO. The
+[CD guide](RescueCD.md) gives the exact paths and short check. The same screen,
+F4/F5 results and matching HDD apply; references to floppy A: describe BIOS
+emulation from the CD.
+
 The following routes remain separate. The image names and screen titles identify
 the test even when a chat message or screenshot is no longer nearby.
 
@@ -108,6 +116,7 @@ the test even when a chat message or screenshot is no longer nearby.
 | --- | --- | --- |
 | `retroboot-rescue-demo.img`, **RetroBoot Rescue** | **F4** | Check the example backup file; the table above applies |
 | `retroboot-rescue.img`, **RetroBoot Rescue** | **F4** | Expected missing-file result `0x0005 / 0x0000 / 0x0000` |
+| `retroboot-rescue-demo.iso`, **RetroBoot Rescue** | **F4**, then **F5** with the matching HDD | Same saved-file and target checks, booted from CD |
 | Demo rescue floppy plus `retroboot-rescue-target-hdd.img`, **RetroBoot Rescue** | **F5** | Compare saved/current metadata; expected `0x0000 / 0x0000 / 0x0000` |
 | Either rescue image, initial diagnosis page | **Enter** | Read the first HDD's partition metadata; outcome depends on the attached HDD |
 | `retroboot-hdd.img` or `retroboot-handoff.img`, **RetroBoot** menu | **F10** | Audit allocation of the eight management files; expected `0x0000 / 0x0000` |
@@ -122,14 +131,14 @@ is in [HDD_Boot.md](HDD_Boot.md). Its images come from **HDD BIOS boot →
 retroboot-hdd-bios**, under `hdd/` for English and `hdd-de/` for German.
 
 **F4 checks the saved file; F5 compares it with current HDD metadata.**
-Both belong to the rescue floppy. HDD-menu F5 instead selects start-profile
+Both belong to the rescue program, on floppy or CD. HDD-menu F5 instead selects start-profile
 configuration; the image and screen title remain essential.
 
 ## When the result differs
 
 | Observation | First check |
 | --- | --- |
-| The title is **RetroBoot**, although a rescue test was intended | The HDD probably booted; check floppy attachment and boot priority |
+| The title is **RetroBoot**, although a rescue test was intended | The HDD probably booted; check rescue floppy/CD attachment and boot priority |
 | F4 reports `0x0005 / 0x0000 / 0x0000` | The normal rescue image intentionally has no backup; select `-demo.img` for the example |
 | F5 reports `0x0001 / 0x0005 / 0x0000` | The backup file is absent; use the demo floppy |
 | F5 reports `0x0003 / 0x0001 / 0x0000` | No HDD was found; check the target VDI attachment |
@@ -168,6 +177,7 @@ decimal. Older screenshots omit the prefix but show the same values.
 | Term | Plain meaning |
 | --- | --- |
 | Image / `.img` | A file containing the bytes of an entire virtual diskette or disk |
+| ISO / `.iso` | A CD/DVD image; the rescue ISO emulates the embedded diskette through the BIOS |
 | VM | A virtual PC, such as a VirtualBox machine |
 | BIOS | Firmware that starts this classic PC before an operating system runs |
 | MBR / EBR | Tables describing where disk partitions begin and end |

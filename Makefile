@@ -2,7 +2,7 @@ PYTHON ?= python3
 RB_LANGUAGE ?= en
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test rescue rescue-check rescue-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test rescue rescue-check rescue-test iso-deps rescue-iso rescue-iso-test
 
 all: check
 
@@ -98,3 +98,13 @@ rescue-check:
 rescue-test: rescue-check
 	$(PYTHON) tools/test_rescue.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE)
+
+iso-deps:
+	$(PYTHON) -m pip install --require-hashes -r tools/requirements-iso.txt
+
+rescue-iso:
+	$(PYTHON) tools/build_rescue_iso.py --language $(RB_LANGUAGE) --repeat
+
+rescue-iso-test: rescue-iso
+	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE) --cdrom
+	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE) --cdrom --bare

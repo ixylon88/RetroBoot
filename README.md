@@ -4,7 +4,7 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only HDD checks and independent rescue-floppy diagnosis.**
+**Current stage: read-only HDD checks and independent rescue-floppy/CD diagnosis.**
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
@@ -24,6 +24,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Build commands, verification and next steps](docs/Entwicklung.md)
 - [BIOS/ABI test floppy](docs/ABI_Probe.md)
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
+- [Bootable rescue CD: ISO download, VirtualBox and verification](docs/RescueCD.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
 - [F5 rescue file/HDD comparison and matching-image setup](docs/RescueTargetCheck.md)
@@ -50,15 +51,18 @@ the conventions are recorded in [AGENTS.md](AGENTS.md).
 
 ## Host checks
 
-The host tools require Python 3.12 and its standard library. With GNU Make:
+The host suite requires Python 3.12 and the pinned ISO packaging library.
+With GNU Make (optionally inside an activated Python virtual environment):
 
 ```sh
+make iso-deps
 make check
 ```
 
 Without Make, for example on Windows:
 
 ```powershell
+py -3.12 -m pip install --require-hashes -r tools/requirements-iso.txt
 py -3.12 -m unittest discover -s tests -v
 py -3.12 tools/retroboot_layout.py profiles/rb-8g-chs255.json
 ```
@@ -124,6 +128,18 @@ markers keep their existing form.
 Automated rescue checks cover 188 boots and 1,244 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
+## Rescue CD
+
+The same workflow also publishes **retroboot-rescue-cd**. Its
+`rescue-iso/retroboot-rescue-demo.iso` and German counterpart under
+`rescue-iso-de/` start the unchanged rescue program from an optical drive.
+The BIOS emulates floppy A: from the CD, so F4/F5 and their expected results
+remain the same. Normal ISOs without the example backup are included too.
+The [CD guide](docs/RescueCD.md) covers direct ISO attachment in VirtualBox,
+the matching HDD and the build commands. No ISO-to-VDI conversion is needed.
+CD tests add 38 boots and 342 states, including starts without a test ROM.
+Manual CD compatibility remains pending.
+
 ## HDD builds and tests
 
 ```sh
@@ -146,7 +162,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 175 host tests.
+across both languages. There are 181 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,

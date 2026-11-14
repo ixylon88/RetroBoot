@@ -9,6 +9,7 @@
 | [Entwicklung](Entwicklung.md) | Ausführbare Befehle, aktueller Nachweisstand und nächste Schritte |
 | [BIOS-/ABI-Probe](ABI_Probe.md) | Werkzeugfixierung, Speichervertrag, Build und Emulatornachweise |
 | [External rescue diagnosis](ExternalRescue.md) | Independent FAT12 floppy, read-only HDD metadata checks and manual test |
+| [Rescue CD](RescueCD.md) | Bootable ISO with unchanged rescue floppy, VirtualBox setup and CD evidence |
 | [External backup container](ExternalBackup.md) | Bounded metadata format, host inspector and native integrity model; no restore |
 | [Rescue backup files](RescueBackupFile.md) | F4 file validation, bounded FAT12 access and synthetic demo procedure |
 | [Rescue target comparison](RescueTargetCheck.md) | F5 file/HDD comparison, matching synthetic image pair and manual setup |

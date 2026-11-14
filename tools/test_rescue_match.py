@@ -25,6 +25,8 @@ except ImportError:
     from test_menu import Qmp, screen_rows, wait_marker
 
 ACTIONS = ((None,0),('f5',3),('ret',3),('f4',2),('f5',3),('esc',0),('ret',1),('f5',3),('esc',0))
+CD_CASES = ('match','chs','no-hdd','missing-backup','bad-backup','bad-saved-boot',
+            'capacity','identity','mbr-io','record-io')
 
 
 def check_discovery_calls(text,spec):
@@ -76,31 +78,58 @@ def check_match_screen(data,s,spec):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--language',choices=LANGUAGES,default='en')
-    p.add_argument('--qemu',default='qemu-system-i386');p.add_argument('--bios',type=Path);p.add_argument('--case',action='append');args=p.parse_args()
+    p.add_argument('--qemu',default='qemu-system-i386');p.add_argument('--bios',type=Path);p.add_argument('--case',action='append')
+    p.add_argument('--cdrom',action='store_true',help='Boot an El Torito CD with no attached floppy drive')
+    p.add_argument('--bare',action='store_true',help='Use the unmodified BIOS for supported CD cases')
+    args=p.parse_args()
+    if args.bare and not args.cdrom:raise ValueError('--bare requires --cdrom')
     found=shutil.which(args.qemu)
     if not found:raise ValueError('QEMU not found')
     qemu=Path(found).resolve();bios=(args.bios or qemu.parent.parent/'share/seabios/bios-256k.bin').resolve()
     source=ROOT/'build'/output_name('rescue',args.language)
-    out=ROOT/'build'/('rescue-match-test'+('-de' if args.language=='de' else ''));prepare_output(out)
+    kind='rescue-iso-test'+('-bare' if args.bare else '') if args.cdrom else 'rescue-match-test'
+    out=ROOT/'build'/(kind+('-de' if args.language=='de' else ''));prepare_output(out)
     report=out/'match-results.json';report.unlink(missing_ok=True)
     manifest=json.loads((source/'manifest.json').read_text());s=load_catalog(args.language)
     if manifest['ui']!=metadata(args.language) or manifest['rescue_match_cases']!=specs():raise ValueError('Stale rescue match build')
     cases=specs()
+    if args.cdrom:
+        cases={k:v for k,v in cases.items() if k in CD_CASES and (not args.bare or k!='chs')}
     if args.case:
         if set(args.case)-cases.keys():raise ValueError('Unknown match case')
         cases={k:v for k,v in cases.items() if k in args.case}
     events=out/'events.txt';events.write_text('ide_sector_read\nide_sector_write\nblk_co_pwritev\n')
     command=[str(qemu),'-L',str(bios.parent),'-bios',str(bios),'-machine','pc-i440fx-8.2,accel=tcg','-cpu','486','-m','16',
-        '-nodefaults','-vga','std','-boot','a','-display','none','-monitor','none','-serial','none','-nic','none','-no-reboot',
+        '-nodefaults','-vga','std','-boot','d' if args.cdrom else 'a','-display','none','-monitor','none','-serial','none','-nic','none','-no-reboot',
         '-global','isa-debugcon.iobase=0xe9','-qmp','stdio']
     results=[]
     for name,original in cases.items():
-        spec=dict(original);image=source/('match-'+name+'.img');images=[image]
+        spec=dict(original);image=source/('match-'+name+'.img')
+        if args.cdrom and name in ('match','missing-backup'):
+            image=source/('retroboot-rescue-demo.img' if name=='match' else 'retroboot-rescue.img')
+        images=[image]
         log,trace,err=(out/(name+suffix) for suffix in ('.log','.trace','-stderr.log'))
         log.unlink(missing_ok=True);trace.unlink(missing_ok=True)
         floppy=out/(name+'-floppy.img');shutil.copyfile(image,floppy)
         work=None;expected_work=None;expected_image=sha256(floppy)
-        invocation=command+['-drive',f'file={floppy},format=raw,if=floppy,readonly=on','-debugcon','file:'+str(log),
+        medium=floppy
+        if args.cdrom:
+            try:
+                from .build_rescue_iso import package, inspect_iso
+            except ImportError:
+                from build_rescue_iso import package, inspect_iso
+            medium=out/(name+'.iso');medium.write_bytes(package(floppy.read_bytes()))
+            inspect_iso(medium.read_bytes(),floppy.read_bytes())
+            # Both successful and missing-file cases boot the exact published ISO.
+            if name in ('match','missing-backup'):
+                cd_source=ROOT/'build'/('rescue-iso'+('-de' if args.language=='de' else ''))
+                published=cd_source/('retroboot-rescue-demo.iso' if name=='match' else 'retroboot-rescue.iso')
+                if medium.read_bytes()!=published.read_bytes():raise ValueError('CD test differs from published ISO')
+            medium_hash=sha256(medium)
+            media_args=['-drive',f'file={medium},format=raw,if=none,id=rbcd,media=cdrom,readonly=on',
+                        '-device','ide-cd,drive=rbcd,bus=ide.1,unit=0']
+        else:media_args=['-drive',f'file={floppy},format=raw,if=floppy,readonly=on']
+        invocation=command+media_args+['-debugcon','file:'+str(log),
                             '-trace',f'events={events},file={trace}']
         if not spec.get('absent'):
             disk=source/('disk-match-'+spec['kind']+'.img');images.append(disk)
@@ -110,7 +139,8 @@ def main():
                 drive=f'blkdebug:{conf}:{work}'
             invocation+=['-drive',f'file={drive},format=raw,if=none,id=rb,rerror=report',
                 '-device','ide-hd,drive=rb,bus=ide.0,unit=0,cyls=260,heads=16,secs=63,lcyls=260,lheads=16,lsecs=63']
-        rom=1 if spec.get('chs') else spec['rom'];invocation+=['-option-rom',str(source/f'int13-{rom}.rom')]
+        rom=1 if spec.get('chs') else spec['rom']
+        if not args.bare:invocation+=['-option-rom',str(source/f'int13-{rom}.rom')]
         before={str(path):sha256(path) for path in images}
         if any(h!=manifest['artifacts'][Path(path).name]['sha256'] for path,h in before.items()):raise ValueError('Changed match source fixture')
         screens=[];expected=[];floppy_expected=[];markers=[];first_low=None;previous_low=None
@@ -149,7 +179,7 @@ def main():
                     previous_low=low
                     if view==3:
                         rows=check_match_screen(vga,s,spec)
-                        check_discovery_calls(log.read_text().rsplit('RB MATCH BEGIN',1)[1],spec)
+                        if not args.bare:check_discovery_calls(log.read_text().rsplit('RB MATCH BEGIN',1)[1],spec)
                     elif view==2:rows=check_file_screen(vga,s,file_specs()[file_case])
                     else:
                         mbr=bytes(512)
@@ -160,7 +190,7 @@ def main():
                     (out/f'{name}-{serial:02d}.txt').write_text('\n'.join(rows)+'\n',encoding='utf-8')
                     actual=trace_reads(trace.read_text());floppy_actual=floppy_reads(log.read_text())
                     if actual!=expected:raise ValueError(f'HDD read sequence differs: {name}, state {serial}, {len(actual)} / {len(expected)}')
-                    if floppy_actual!=floppy_expected:raise ValueError(f'Floppy read sequence differs: {name}, state {serial}, {len(floppy_actual)} / {len(floppy_expected)}')
+                    if not args.bare and floppy_actual!=floppy_expected:raise ValueError(f'Floppy read sequence differs: {name}, state {serial}, {len(floppy_actual)} / {len(floppy_expected)}')
                     screens.append(dict(key=key,view=view,vga_sha256=sha256(paths['vga']),status=spec['status']))
                     if serial==1 and spec.get('mutation'):
                         if spec['mutation']=='hdd':
@@ -179,8 +209,15 @@ def main():
         if '!W' in text or 'ide_sector_write' in trace_text or 'blk_co_pwritev' in trace_text:raise ValueError('Guest attempted a disk write')
         if any(sha256(Path(path))!=h for path,h in before.items()):raise ValueError('Source image changed')
         if sha256(floppy)!=expected_image or (work and sha256(work)!=expected_work):raise ValueError('Guest changed test media')
+        if args.cdrom and sha256(medium)!=medium_hash:raise ValueError('Guest changed CD image')
         results.append(dict(name=name,spec=original,screens=screens,read_lbas=expected,floppy_lbas=floppy_expected,
             log=text,source_unchanged=True,block_writes=0,host_mutation=original.get('mutation')))
+        if args.cdrom:
+            results[-1].update(boot_medium='cdrom',iso_sha256=medium_hash,floppy_attached=False,
+                              instrumented_bios=not args.bare,floppy_reads_observed=not args.bare)
+            if args.bare:
+                results[-1]['expected_floppy_lbas']=results[-1].pop('floppy_lbas')
+            medium.unlink()
         floppy.unlink()
         if work:work.unlink()
         print(f'{name}: {len(screens)} states; fresh file/device checks; exact reads; no guest writes',flush=True)

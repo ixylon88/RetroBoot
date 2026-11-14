@@ -5,8 +5,9 @@ management VBR, FAT16 bootstrap or Stage 2. Enter probes BIOS drive `80h`
 afresh and reads its MBR and bounded EBR chain. This first external increment
 is **read-only diagnosis**. The [F4 file check](RescueBackupFile.md) now validates saved metadata from the
 boot floppy. [F5](RescueTargetCheck.md) compares that saved content with fresh
-HDD metadata. Unique physical identity, targeted restore, ISO boot and
-installation are still open.
+HDD metadata. The [rescue CD](RescueCD.md) packages the unchanged floppy for
+BIOS optical boot. Unique physical identity, targeted restore and installation
+are still open.
 
 The [ABI floppy](ABI_Probe.md) remains a runtime test without FAT or HDD access.
 The [HDD F8 page](JournalDiagnosis.md) depends on a working HDD loader.
@@ -98,7 +99,8 @@ and [FAT boot-area model](BackupBootAreas.md) each add one test-only boot per
 language. The subsequent file model and 27 file campaigns per language bring
 that earlier total to 138 boots and 812 states. The target model adds one boot
 per language; the F5 integration adds 24 boots and 216 states per language.
-The current total is 188 boots / 1,244 states and 175 host tests. The initial
+The floppy total is 188 boots / 1,244 states. CD tests add 38 boots / 342 states;
+the host suite has 181 tests. The initial
 diagnostic coverage includes:
 
 - Metadata-only HDDs with no executable boot path or filesystem contents,
