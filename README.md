@@ -124,7 +124,7 @@ runs 75 general menu states, 204 scanner/error/paging states and 318 volume
 header states, 185 handoff states, 678 configuration states, 650 installation-state states
 and 370 visibility states, plus 336 checked-profile, 370 allocation-audit and 495 journal-diagnosis states, through
 emulated keyboard input with VGA, memory and disk-write checks: 7,362 states
-across both languages. There are 140 host tests.
+across both languages. There are 161 host tests.
 
 The compact 64 MiB image opens an 80×25 text menu after the startup checks.
 Arrow keys select, Enter opens a page, Esc returns, F2 scans MBR/EBR tables,

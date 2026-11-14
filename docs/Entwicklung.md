@@ -80,7 +80,7 @@ Ein macOS-Lauf wurde noch nicht protokolliert.
 | `make journal-test` | Build once and check fresh F8/Enter journal diagnosis |
 | `make rescue` | Build the independent FAT12 diagnostic floppy; `RB_LANGUAGE=de` selects German |
 | `make rescue-check` | Repeat the rescue build and compare binaries, images and manifests |
-| `make rescue-test` | Repeat build, 38 boots and 217 VGA/keyboard states for the selected language |
+| `make rescue-test` | Repeat build, 41 boots and 217 VGA/keyboard states for the selected language |
 
 Unter Windows können die direkten Python-Aufrufe mit `py -3.12` erfolgen.
 Alle Befehle werden im Repository-Stamm ausgeführt. Fehler liefern Exitcode 1

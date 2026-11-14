@@ -12,7 +12,8 @@ backup and independently confirmed restore requirements remain open.
 The subsequent [saved-record check](BackupRecords.md) adds native approved-view
 partition and configuration/state consistency checks. It is a separate layer;
 the wire-format validator and Python inspector described here retain their
-container-only boundary.
+container-only boundary. The [FAT boot-area layer](BackupBootAreas.md) follows
+the record checks and validates supported saved reserved regions.
 
 ## Validation boundary
 
@@ -143,7 +144,7 @@ format example. There is no command for creating a real disk backup yet.
 
 ## Verification
 
-`make check` now runs 155 host tests in total. The nine container tests include literal
+`make check` now runs 161 host tests in total. The nine container tests include literal
 wire-offset checks, a byte mutation at each of the 22,528 positions in the
 small example, resealed malformed metadata, all required roles, size/count
 limits, round trips, CLI output and unchanged input files.
@@ -159,7 +160,7 @@ checks bounded sequential reads, result guards and cleared failure results.
 
 The container increment established 39 boots per language, with the same
 217 UI states: 78 boots and 434 states total. The subsequent saved-record
-model adds one boot per language (80 boots / 434 states currently).
+and boot-area models add one boot each per language (82 boots / 434 states currently).
 Existing diagnostic, startup,
 BIOS-fault, unchanged-media and no-write checks remain. Both languages are
 built twice and their binaries/manifests compared. Normal EN/DE rescue images

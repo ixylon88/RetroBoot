@@ -53,8 +53,9 @@ In particular:
   provenance, historical partition layout and suitability for a later targeted
   restore are not inferred from the approved view.
 - Boot-area ownership and coverage of each start sector are checked, but boot
-  bytes are not yet interpreted. FAT BPBs, all required FAT32 reserved/backup
-  sectors, saved VBR CRCs and other filesystem boot metadata still need checks.
+  bytes are not interpreted by this API. The subsequent
+  [FAT boot-area layer](BackupBootAreas.md) adds BPB, reserved-area/copy and
+  selected READY VBR CRC checks. Other filesystem formats remain open.
 - The `RBM1` marker is not authentication or a complete boot-code/overlay check.
   Record descriptor LBAs are not verified file allocation or ownership evidence.
 - CRCs are not cryptographic authentication. Collection, stable snapshot
@@ -112,7 +113,7 @@ make rescue-test RB_LANGUAGE=en
 make rescue-test RB_LANGUAGE=de
 ```
 
-There are 155 host tests, including six new tests that check literal partition
+This increment established 155 host tests, including six tests that check literal partition
 and record fields, golden layout CRCs, valid outer/inner checksums on semantic
 counterexamples, generation expectations and exact host-to-native vector
 transfer. The native model executes 74 scenarios / 296 assertions per language
@@ -128,13 +129,13 @@ transfer. The native model executes 74 scenarios / 296 assertions per language
   reread, plus changes at each reread. Bounds, guards, exact positive read
   sequences, failure-stop counts, diagnostics and cleared results are checked.
 
-The complete rescue campaign now has 40 boots and 217 UI states per language:
-80 boots and 434 states total. The earlier 216 container assertions and 28
+This increment established 40 boots and 217 UI states per language.
+The subsequent boot-area model brings the total to 82 boots / 434 states. The earlier 216 container assertions and 28
 rescue assertions remain. BIOS write-attempt tracing, unchanged-image checks
 and absence of HDD/block writes remain part of the campaign.
 
 `synthetic-records.rbb` is published with the rescue CI evidence. It contains
 encoded test records, not a snapshot collected from a real disk. Native parser
-dependencies are linked only into `backup-records-model`; neither the checker
+dependencies are linked only into the saved-record and boot-area models; neither the checker
 nor its model invokes the existing HDD record loader. Normal rescue, HDD and
 ABI binaries retain their previous behavior.
