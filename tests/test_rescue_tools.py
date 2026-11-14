@@ -105,8 +105,8 @@ class RescueToolsTests(unittest.TestCase):
             if row!=4:
                 data[2*(row*80+1)]=0xB3;data[2*(row*80+78)]=0xB3
         for row,col,value in ((2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['SCOPE']),
-                (6,4,s['LIMIT']),(8,4,s['NO_DISK']),(9,4,s['CODES']),(9,32,'0001 / 0000'),
-                (11,4,s['DRIVES']),(11,32,'0000 / 0080'),(19,4,s['LBA']),(19,32,'00000000'),
+                (6,4,s['LIMIT']),(8,4,s['NO_DISK']),(9,4,s['CODES']),(9,32,'0x0001 / 0x0000'),
+                (11,4,s['DRIVES']),(11,32,'0x0000 / 0x0080'),(19,4,s['LBA']),(19,32,'0x00000000'),
                 (21,4,s['HELP']),(22,4,s['IDENTITY'])):put(row,col,value)
         data[2*(8*80+4)+1]=0x1E
         def check(d):check_screen(d,s,1,dict(status=1),'EDD',0,(0,0),bytes(512))

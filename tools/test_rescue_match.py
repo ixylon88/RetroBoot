@@ -48,23 +48,23 @@ def check_match_screen(data,s,spec):
     elif status==4:reason={7:'T_CAPACITY',8:'T_GEOMETRY',6:'T_IDENTITY',9:'T_LAYOUT',10:'T_CHANGED'}.get(detail,'T_BAD')
     elif status==5:reason='T_CHANGED'
     cells=[(2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['T_SCOPE']),(6,4,s['T_LIMIT']),
-           (8,4,s[reason]),(9,4,s['T_CODES']),(9,32,f'{status:04X} / {detail:04X} / {nested:04X}'),
-           (10,4,s['B_NESTED']),(10,32,f'{spec["record"]:04X}'),
-           (18,4,s['B_FILE_LBA']),(18,32,f'{spec["file_lba"]:08X}'),
-           (19,4,s['T_LBA']),(19,32,f'{spec["disk_lba"]:08X}'),
+           (8,4,s[reason]),(9,4,s['T_CODES']),(9,32,f'0x{status:04X} / 0x{detail:04X} / 0x{nested:04X}'),
+           (10,4,s['B_NESTED']),(10,32,f'0x{spec["record"]:04X}'),
+           (18,4,s['B_FILE_LBA']),(18,32,f'0x{spec["file_lba"]:08X}'),
+           (19,4,s['T_LBA']),(19,32,f'0x{spec["disk_lba"]:08X}'),
            (21,4,s['T_HELP']),(22,4,s['T_BOUNDARY'])]
     blank=[7,20]
     if status:blank+=list(range(11,18))
     else:
         o=observed(spec)
         for row,key,value in (
-            (11,'DISK_ID',f'{o["disk_id"]:08X}'),(12,'T_MEDIA',o['media_id']),
-            (13,'T_CRC',f'{o["layout_crc"]:08X}'),
-            (14,'T_ADMIN',f'{o["admin_start"]:08X} / {o["admin_sectors"]:08X}'),
-            (15,'CAPACITY',f'{o["capacity"]:016X}'),
-            (16,'T_ROUTE',f'{o["route"]} / {o["heads"]:04X} / {o["spt"]:04X}'),
-            (17,'T_GENERATIONS',f'{o["config_generation"]:08X} / {o["state_generation"]:08X}')):
-            cells += [(row,4,s[key]),(row,32,value)]
+            (11,'DISK_ID',f'0x{o["disk_id"]:08X}'),(12,'T_MEDIA',bytes.fromhex(o['media_id']).hex(' ').upper()),
+            (13,'T_CRC',f'0x{o["layout_crc"]:08X}'),
+            (14,'T_ADMIN',f'0x{o["admin_start"]:08X} / 0x{o["admin_sectors"]:08X}'),
+            (15,'CAPACITY',f'0x{o["capacity"]:016X}'),
+            (16,'T_ROUTE',f'{o["route"]} / 0x{o["heads"]:04X} / 0x{o["spt"]:04X}'),
+            (17,'T_GENERATIONS',f'0x{o["config_generation"]:08X} / 0x{o["state_generation"]:08X}')):
+            cells += [(row,4,s[key]),(row,29 if key=='T_MEDIA' else 32,value)]
     for row,col,value in cells:
         if rows[row][col:col+len(value)]!=value:raise ValueError(f'Match VGA {row},{col}: expected {value!r}, got {rows[row]!r}')
     if any(rows[r][4:78].strip() for r in blank):raise ValueError('Match page retained stale fields')

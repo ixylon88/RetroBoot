@@ -19,6 +19,8 @@ WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13
 WIDTHS.update(dict.fromkeys(('B_CODES','B_NESTED','B_COUNTS','B_SECTORS','B_READY','B_FILE_LBA','B_DISK_LBA','B_EXTENT'),28))
 WIDTHS.update(dict.fromkeys(('T_CODES','T_MEDIA','T_CRC','T_ADMIN','T_ROUTE','T_GENERATIONS','T_LBA'),28))
 
+WIDTHS['T_MEDIA'] = 24
+
 def catalog_path(language):
     if language not in LANGUAGES:raise ValueError('Unsupported rescue language')
     return ROOT/'ui/rescue'/(language+'.json')

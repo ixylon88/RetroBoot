@@ -75,10 +75,10 @@ class AuditToolsTests(unittest.TestCase):
                     (8,4,'AUDIT_COPIES'),(9,4,'AUDIT_CODES'),(11,4,'LBA_HEX'),
                     (13,4,'AUDIT_ERROR_FILE'),(20,4,'AUDIT_REVIEW'),(7,4,'AUDIT_LIMIT'),
                     (21,4,'KEY_HELP'),(22,4,'FUNCTION_HELP')): text(row,col,strings[key])
-            text(9,32,'0007 / 0000'); text(11,32,'0000017A'); text(13,32,'0000 / 0000')
+            text(9,32,'0x0007 / 0x0000'); text(11,32,'0x0000017A'); text(13,32,'0x0000 / 0x0000')
             data[(8*80+4)*2+1] = 0x1E
             spec = AUDIT_CASES['audit-padding']; check_audit_screen(data,strings,spec,[])
-            for row,col,value in ((12,4,'RBBOOT.SYS'),(17,41,'00003203'),(18,38,'7D2B'),(2,78,'X')):
+            for row,col,value in ((12,4,'RBBOOT.SYS'),(17,41,'0x00003203'),(18,38,'0x7D2B'),(2,78,'X')):
                 good = data[:]; text(row,col,value)
                 with self.subTest(language=language,row=row), self.assertRaises(ValueError):
                     check_audit_screen(data,strings,spec,[])

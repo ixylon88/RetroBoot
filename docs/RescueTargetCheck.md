@@ -51,30 +51,39 @@ are different fixtures and are not the matching HDD for this saved example.
    still show the familiar saved-file success. **F5** performs a new HDD
    comparison. **Esc** returns to the initial diagnosis page.
 6. Optionally power off, detach the HDD and repeat F5. The expected result is
-   `0003 / 0001 / 0000` (no HDD), with no retained successful identity fields.
+   `0x0003 / 0x0001 / 0x0000` (no HDD), with no retained successful identity fields.
 
 | F5 field | Expected value for the published pair |
 | --- | --- |
-| Check / detail / nested | `0000 / 0000 / 0000` |
-| Nested record detail | `0000` |
-| Disk ID | `52425431` |
-| Media ID | `A6216F345CD2467790ABC0137D8452E9` |
-| Canonical layout CRC32 | `6FF4FB5E` |
-| Management start / sectors | `0000007E / 0001F5C9` |
-| Reachable sectors | `0000000000040000` |
-| Route / heads / sectors | `EDD / 0000 / 0000` |
-| Config / state generation | `00000001 / 00000001` |
-| Floppy / disk error LBA | Both `00000000` |
+| Check / detail / nested | `0x0000 / 0x0000 / 0x0000` |
+| Nested record detail | `0x0000` |
+| Disk ID | `0x52425431` |
+| Media ID | `A6 21 6F 34 5C D2 46 77 90 AB C0 13 7D 84 52 E9` |
+| Canonical layout CRC32 | `0x6FF4FB5E` |
+| Management start / sectors | `0x0000007E / 0x0001F5C9` |
+| Reachable sectors | `0x0000000000040000` |
+| Route / heads / sectors | `EDD / 0x0000 / 0x0000` |
+| Config / state generation | `0x00000001 / 0x00000001` |
+| Floppy / disk error LBA | Both `0x00000000` |
 
 The published saved claims describe EDD and exactly 128 MiB. A BIOS that
 provides CHS only or exposes a different capacity is rejected explicitly;
 the automated CHS case uses a separate matching fixture. F5 on the normal
-floppy, without `RBBACKUP.RBB`, reports `0001 / 0005 / 0000` before any HDD
+floppy, without `RBBACKUP.RBB`, reports `0x0001 / 0x0005 / 0x0000` before any HDD
 probe or read. This is a different page and code sequence from F4's
-`0005 / 0000 / 0000` missing-file result.
+`0x0005 / 0x0000 / 0x0000` missing-file result.
 
-No manual F5 result has been recorded yet. A text report needs the workflow
-run, exact two image paths, language, F5 codes and Enter/F4/Esc observations.
+The English F5 success page was manually confirmed under VirtualBox on
+14 November 2026. The screenshot showed the green metadata-match message,
+the values in the table above in the earlier unprefixed notation, an
+unsplit media identity, and zero record/error fields. The report did
+not separately identify the workflow run, image paths, VirtualBox/BIOS
+version, or Enter/F4/Esc results. It confirms this displayed result only;
+physical-hardware, repeat-key and no-HDD coverage are not implied. The image
+was discarded after recording this text evidence.
+
+Further text reports need the workflow run, exact two image paths, language,
+F5 codes and Enter/F4/Esc observations.
 The [beginner guide](GettingStarted.md) explains the other screens and keys.
 
 ## Composition and lifetime
@@ -113,15 +122,15 @@ refers to an actual HDD read. Zero can also mean LBA 0 or no specific location.
 
 | Check, hex | Layer | Detail / nested |
 | --- | --- | --- |
-| `0000` | Success | Both zero; supported metadata correspondence only |
-| `0001` | Floppy file access | [File status](RescueBackupFile.md); nested zero |
-| `0002` | Saved content | [Boot-area status/detail](BackupBootAreas.md), with separate record detail |
-| `0003` | Fresh BIOS discovery | [Probe status](ExternalRescue.md); nested zero |
-| `0004` | Live target comparison | [Target status/detail](BackupTarget.md) |
-| `0005` | Changed observation | `0001`: device changed on reprobe; `0002`: final saved-content fingerprint differs |
+| `0x0000` | Success | Both zero; supported metadata correspondence only |
+| `0x0001` | Floppy file access | [File status](RescueBackupFile.md); nested zero |
+| `0x0002` | Saved content | [Boot-area status/detail](BackupBootAreas.md), with separate record detail |
+| `0x0003` | Fresh BIOS discovery | [Probe status](ExternalRescue.md); nested zero |
+| `0x0004` | Live target comparison | [Target status/detail](BackupTarget.md) |
+| `0x0005` | Changed observation | `0x0001`: device changed on reprobe; `0x0002`: final saved-content fingerprint differs |
 
-For example, `0004 / 0007 / 0000` means a capacity mismatch and
-`0004 / 0006 / 0004` means an observed identity differs from saved claims.
+For example, `0x0004 / 0x0007 / 0x0000` means a capacity mismatch and
+`0x0004 / 0x0006 / 0x0004` means an observed identity differs from saved claims.
 An unsupported or damaged live MBR/FAT/identity is rejected; the backup's
 addresses are never a fallback access path.
 
@@ -156,10 +165,11 @@ media hashes and zero BIOS/block writes are checked. Evidence is published in
 `rescue-match-test/` and `rescue-match-test-de/`; `match-results.json` is written
 only after all requested campaigns pass.
 
-Both language builds reproduce. Payloads are 29,638 / 29,856 bytes (EN/DE),
-with BSS ending at 50,392 / 50,610 below the 57,344 stack guard. Old test ROM
+Both language builds reproduce. Payloads are 29,686 / 29,908 bytes (EN/DE),
+with BSS ending at 50,440 / 50,662 below the 57,344 stack guard. Old test ROM
 modes 0..13 remain byte-identical; modes 14..17 inject only test faults.
-HDD and ABI implementation sources are unchanged.
+The display convention also applies to the HDD menu. Disk formats, BIOS
+adapters and validators are unchanged by that presentation adjustment.
 
 Real backup collection, original-MBR provenance, broader boot-format support,
 complete recovery authorization and interruption-tested restoration remain

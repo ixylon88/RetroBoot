@@ -5,7 +5,9 @@ layout claimed by a backup header with independently acquired current metadata.
 The native **backup-target-model** exercises it with an in-memory reader.
 The independent rescue program now also calls it from the [F5 comparison
 adapter](RescueTargetCheck.md), which supplies freshly validated file claims,
-fresh BIOS discovery and real read-only HDD access. The HDD program is unchanged.
+fresh BIOS discovery and real read-only HDD access. The HDD menu now also uses
+the [numeric and byte display convention](Languages.md#numbers-and-byte-sequences);
+its disk-access and validation behavior is unchanged by that presentation update.
 
 ## Inputs and boundaries
 

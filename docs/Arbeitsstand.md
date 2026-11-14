@@ -41,9 +41,9 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: fresh file/HDD comparison on rescue F5
+## Current increment: explicit numeric/byte displays
 
-Branch `codex/rescue-target-check` integrates the existing comparison core
+Merged PR #24 integrates the existing comparison core
 with the normal rescue program. F5 opens and fully validates `RBBACKUP.RBB`,
 rediscovers the first HDD, performs two independent live-metadata acquisitions,
 reprobes the device and revalidates the complete saved file before success.
@@ -52,11 +52,33 @@ Every failure clears successful device/identity/layout/generation fields.
 Enter repeats; F4 selects the file-only check; Esc clears to diagnosis.
 There are no writes, restore actions or OS starts.
 
+Branch `codex/numeric-byte-display` displays hexadecimal numeric values with one `0x`
+prefix and opaque media IDs as sixteen space-separated byte pairs in stored
+order. Both normal HDD menus and rescue pages use this convention in English
+and German. Numeric 64-bit fields have one prefix for the complete value;
+decimal counters and ASCII debug markers retain their existing form. Status
+columns have been widened without changing codes, disk formats or checks.
+The [display conventions](Languages.md#numbers-and-byte-sequences) describe the
+number/byte distinction. Manual confirmation of the new formatting is pending.
+
+PR #24 is merged into `historical` at
+`5fa5c2ac155ca1e3ba908ad2373b3f8e02e16034`. All four checks passed for its
+F5 commit `ad6bbb60f96fc1b4d58809a127d54f5913680e79`. The presentation
+follow-up is a separate PR based on that merged tree.
+
 The artifact adds `retroboot-rescue-target-hdd.img`, a nonbootable 128 MiB
 synthetic HDD paired with the existing demo backup. It is not the normal or
 handoff HDD image. The [F5 guide](RescueTargetCheck.md) gives the exact two-file
-setup, new-VDI conversion, expected values and boundaries. Manual F5 testing
-remains pending; earlier F4 confirmation does not establish this new path.
+setup, new-VDI conversion, expected values and boundaries.
+
+The English F5 success page was manually confirmed under VirtualBox on
+14 November 2026: green match, check/detail/nested and record detail zero,
+disk ID `52425431`, media ID `A6216F345CD2467790ABC0137D8452E9`, layout CRC
+`6FF4FB5E`, management `0000007E / 0001F5C9`, capacity `0000000000040000`,
+EDD with zero heads/sectors, generations `00000001 / 00000001` and both
+error LBAs zero. The screenshot did not separately establish the workflow
+revision, exact image paths, BIOS/version or Enter/F4/Esc results. Evidence
+is retained as text; the supplied image was discarded as requested.
 
 Verification: 175 host tests; both rescue builds reproduced; 188 rescue boots /
 1,244 UI states. The new 24 nine-state campaigns per language include real EDD
@@ -65,9 +87,10 @@ changed and correctly resealed saved content, and stale-result clearing after
 an initially successful operation. An independent oracle checks 1,058 HDD and
 267 floppy reads for each successful EDD comparison. Native target assertions
 and all earlier models remain exercised. Test ROM modes 0..13 are byte-identical
-to PR #23. Normal payloads are 29,638 / 29,856 bytes (EN/DE), with BSS ending at
-50,392 / 50,610, below the 57,344 stack guard. HDD and ABI implementation
-sources are unchanged. CI results remain attached to the proposed PR.
+to PR #23. Normal payloads are 29,686 / 29,908 bytes (EN/DE), with BSS ending at
+50,440 / 50,662, below the 57,344 stack guard. The HDD menu changes only
+presentation; BIOS adapters, validators, disk formats and ABI implementation
+sources remain unchanged. CI results remain attached to the proposed PR.
 
 The [core contract](BackupTarget.md) records comparison codes and limitations.
 The [getting-started guide](GettingStarted.md) now distinguishes rescue F4,
@@ -152,14 +175,14 @@ Verification scope:
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged except for explicitly recorded host mutations in two
   F5 cases; no guest writes occur. Independent host vectors decode FAT12 packing
-  and file allocation. Current payload sizes: 29,638 bytes EN / 29,856 bytes DE.
+  and file allocation. Current payload sizes: 29,686 bytes EN / 29,908 bytes DE.
 - Existing HDD scope remains 104 boot cases, 47 identical EDD/CHS sector
   sequence pairs and 7,362 UI states across both languages. Native models
   retain 126 journal, 42 journal-reader, 80 allocation, 26 menu, 51 partition,
   114 volume/arithmetic, 29 handoff, 84 configuration, 86 state, 52 visibility
   and 60 profile assertions. The ABI floppy retains three boot cases.
-- Normal HDD Stage 2 remains 38,124 bytes EN / 38,732 bytes DE; handoff
-  remains 42,482 / 43,150 bytes. The 48 KiB file and 8 KiB stack budgets remain.
+- Normal HDD Stage 2 remains 38,000 bytes EN / 38,610 bytes DE; handoff
+  remains 42,342 / 43,012 bytes. The 48 KiB file and 8 KiB stack budgets remain.
 
 Local native tests use QEMU 10.0.13/SeaBIOS with `pc-i440fx-8.2`, CPU `486`
 and 16 MiB RAM; CI records its own versions and ROM hashes. PR checks/artifacts

@@ -59,7 +59,7 @@ class ProfileTestToolsTests(unittest.TestCase):
                                (8,4,'PROFILE_TEST_REASON'),(14,4,'LBA_HEX'),(17,4,'NO_CHANGES'),
                                (19,4,'PROFILE_TEST_REVIEW'),(21,4,'KEY_HELP'),(22,4,'FUNCTION_HELP')):
                 text(row,col,strings[key])
-            text(10,4,'0001 / 0000 / 0000');text(14,23,'00000000');data[(6*80+4)*2+1]=0x1E
+            text(10,4,'0x0001 / 0x0000 / 0x0000');text(14,23,'0x00000000');data[(6*80+4)*2+1]=0x1E
             check_rejection(data,strings,1,{})
             for row,col,value in ((7,4,'old profile'),(11,17,'06'),(15,30,'01'),
                                   (20,4,strings['PROFILE_TEST_HELP']),(2,78,'X')):

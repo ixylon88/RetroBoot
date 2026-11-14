@@ -159,7 +159,7 @@ def main():
                                       VOLUME_KEYS[spec['detail']] if spec['status'] == 3 else
                                       'HANDOFF_TARGET' if spec['status'] == 1 else 'HANDOFF_CODE')
                             for row, text in ((5, strings['HANDOFF_FAILED']), (6, strings[reason]), (8, strings['HANDOFF_REASON']),
-                                              (10, f'{spec["status"]:04X} / {spec["detail"]:04X}'),
+                                              (10, f'0x{spec["status"]:04X} / 0x{spec["detail"]:04X}'),
                                               (13, strings['NO_CHANGES']), (18, strings['HANDOFF_RETRY'])):
                                 if rows[row][4:4 + len(text)] != text: raise ValueError('Wrong handoff rejection page')
                         elif view == 4:

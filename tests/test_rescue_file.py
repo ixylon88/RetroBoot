@@ -88,9 +88,9 @@ class RescueFileTests(unittest.TestCase):
         for row in range(2,23):
             if row!=4:data[2*(row*80+1)]=data[2*(row*80+78)]=0xB3
         for row,col,value in ((2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['B_SCOPE']),
-                (6,4,s['B_LIMIT']),(8,4,s['B_MISSING']),(9,4,s['B_CODES']),(9,32,'0005 / 0000 / 0000'),
-                (10,4,s['B_NESTED']),(10,32,'0000'),(16,4,s['B_FILE_LBA']),(16,32,'00000000'),
-                (17,4,s['B_DISK_LBA']),(17,32,'00000000'),(18,4,s['B_EXTENT']),(18,32,'0000 / 0000'),
+                (6,4,s['B_LIMIT']),(8,4,s['B_MISSING']),(9,4,s['B_CODES']),(9,32,'0x0005 / 0x0000 / 0x0000'),
+                (10,4,s['B_NESTED']),(10,32,'0x0000'),(16,4,s['B_FILE_LBA']),(16,32,'0x00000000'),
+                (17,4,s['B_DISK_LBA']),(17,32,'0x00000000'),(18,4,s['B_EXTENT']),(18,32,'0x0000 / 0x0000'),
                 (21,4,s['B_HELP']),(22,4,s['B_BOUNDARY'])):put(row,col,value)
         data[2*(8*80+4)+1]=0x1E
         check_file_screen(data,s,spec)

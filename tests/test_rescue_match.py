@@ -98,9 +98,9 @@ class RescueMatchTests(unittest.TestCase):
         for row in range(2,23):
             if row!=4:data[2*(row*80+1)]=data[2*(row*80+78)]=0xB3
         for row,col,value in ((2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['T_SCOPE']),
-            (6,4,s['T_LIMIT']),(8,4,s['B_MISSING']),(9,4,s['T_CODES']),(9,32,'0001 / 0005 / 0000'),
-            (10,4,s['B_NESTED']),(10,32,'0000'),(18,4,s['B_FILE_LBA']),(18,32,'00000000'),
-            (19,4,s['T_LBA']),(19,32,'00000000'),(21,4,s['T_HELP']),(22,4,s['T_BOUNDARY'])):put(row,col,value)
+            (6,4,s['T_LIMIT']),(8,4,s['B_MISSING']),(9,4,s['T_CODES']),(9,32,'0x0001 / 0x0005 / 0x0000'),
+            (10,4,s['B_NESTED']),(10,32,'0x0000'),(18,4,s['B_FILE_LBA']),(18,32,'0x00000000'),
+            (19,4,s['T_LBA']),(19,32,'0x00000000'),(21,4,s['T_HELP']),(22,4,s['T_BOUNDARY'])):put(row,col,value)
         data[2*(8*80+4)+1]=0x1E;check_match_screen(data,s,spec)
         for row in range(11,18):
             bad=bytearray(data);bad[2*(row*80+32)]=ord('1')

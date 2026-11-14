@@ -61,19 +61,19 @@ def check_screen(data,strings,view,spec,mode,capacity,geometry,mbr):
     blank=[]
     if not view:blank=list(range(9,20))
     else:
-        cells += [(9,4,strings['CODES']),(9,32,f'{status:04X} / {layout:04X}'),(11,4,strings['DRIVES']),
-            (11,32,'0000 / 0080'),(19,4,strings['LBA']),(19,32,f'{spec.get("error_lba",0):08X}')]
+        cells += [(9,4,strings['CODES']),(9,32,f'0x{status:04X} / 0x{layout:04X}'),(11,4,strings['DRIVES']),
+            (11,32,'0x0000 / 0x0080'),(19,4,strings['LBA']),(19,32,f'0x{spec.get("error_lba",0):08X}')]
         if status in (1,2,3):blank += [12,13,14]
         else:
-            cells += [(12,4,strings['ROUTE']),(12,32,mode),(13,4,strings['CAPACITY']),(13,32,f'{capacity:016X}'),
-                (14,4,strings['GEOMETRY_LABEL']),(14,32,f'{geometry[0]:04X} / {geometry[1]:04X}')]
+            cells += [(12,4,strings['ROUTE']),(12,32,mode),(13,4,strings['CAPACITY']),(13,32,f'0x{capacity:016X}'),
+                (14,4,strings['GEOMETRY_LABEL']),(14,32,f'0x{geometry[0]:04X} / 0x{geometry[1]:04X}')]
         if status:blank += [15,16,17,18]
         else:
             import zlib
-            cells += [(15,4,strings['DISK_ID']),(15,32,f'{struct.unpack_from("<I",mbr,440)[0]:08X}'),
-                (16,4,strings['CRC']),(16,32,f'{zlib.crc32(mbr):08X}'),(17,4,strings['SIGNATURE']),
-                (17,32,f'{spec.get("signature",0xAA55):04X} / {spec.get("marker",0):04X}'),
-                (18,4,strings['COUNTS']),(18,32,f'{spec.get("entries",0):04X} / {spec.get("ebrs",0):04X}')]
+            cells += [(15,4,strings['DISK_ID']),(15,32,f'0x{struct.unpack_from("<I",mbr,440)[0]:08X}'),
+                (16,4,strings['CRC']),(16,32,f'0x{zlib.crc32(mbr):08X}'),(17,4,strings['SIGNATURE']),
+                (17,32,f'0x{spec.get("signature",0xAA55):04X} / 0x{spec.get("marker",0):04X}'),
+                (18,4,strings['COUNTS']),(18,32,f'0x{spec.get("entries",0):04X} / 0x{spec.get("ebrs",0):04X}')]
     for row,col,value in cells:
         if rows[row][col:col+len(value)]!=value:raise ValueError(f'Rescue VGA {row},{col}: expected {value!r}, got {rows[row]!r}')
     if any(rows[row][4:78].strip() for row in blank):raise ValueError('Rescue retained stale diagnosis fields')
@@ -91,16 +91,16 @@ def check_file_screen(data,s,spec):
     rows=screen_rows(data);status=spec['file'];check=spec['check'];detail=spec['detail']
     reason='B_MISSING' if status==5 else 'B_IO' if status==1 else 'B_FILE_BAD' if status else 'B_BAD' if check else 'B_OK'
     cells=[(2,4,s['TITLE']),(2,65,s['READ_ONLY']),(5,4,s['B_SCOPE']),(6,4,s['B_LIMIT']),
-        (8,4,s[reason]),(9,4,s['B_CODES']),(9,32,f'{status:04X} / {check:04X} / {detail:04X}'),
-        (10,4,s['B_NESTED']),(10,32,f'{spec['nested']:04X}'),
-        (16,4,s['B_FILE_LBA']),(16,32,f'{spec['file_lba']:08X}'),
-        (17,4,s['B_DISK_LBA']),(17,32,f'{spec.get('disk_lba',0):08X}'),
-        (18,4,s['B_EXTENT']),(18,32,f'{spec.get('kind',0):04X} / {spec.get('index',0):04X}'),
+        (8,4,s[reason]),(9,4,s['B_CODES']),(9,32,f'0x{status:04X} / 0x{check:04X} / 0x{detail:04X}'),
+        (10,4,s['B_NESTED']),(10,32,f'0x{spec['nested']:04X}'),
+        (16,4,s['B_FILE_LBA']),(16,32,f'0x{spec['file_lba']:08X}'),
+        (17,4,s['B_DISK_LBA']),(17,32,f'0x{spec.get('disk_lba',0):08X}'),
+        (18,4,s['B_EXTENT']),(18,32,f'0x{spec.get('kind',0):04X} / 0x{spec.get('index',0):04X}'),
         (21,4,s['B_HELP']),(22,4,s['B_BOUNDARY'])]
     blank=[7,11,15,19,20]
     if status or check:blank += [12,13,14]
-    else:cells += [(12,4,s['B_COUNTS']),(12,32,'0002 / 0001 / 0001'),
-        (13,4,s['B_SECTORS']),(13,32,f'{spec['reserved']:04X}'),(14,4,s['B_READY']),(14,32,'0001')]
+    else:cells += [(12,4,s['B_COUNTS']),(12,32,'0x0002 / 0x0001 / 0x0001'),
+        (13,4,s['B_SECTORS']),(13,32,f'0x{spec['reserved']:04X}'),(14,4,s['B_READY']),(14,32,'0x0001')]
     for row,col,value in cells:
         if rows[row][col:col+len(value)]!=value:raise ValueError(f'File VGA {row},{col}: expected {value!r}, got {rows[row]!r}')
     if any(rows[row][4:78].strip() for row in blank):raise ValueError('File page retained stale fields')
