@@ -94,7 +94,7 @@ class ConfigurationToolsTests(unittest.TestCase):
                               (8,4,'CONFIG_COPIES'), (9,4,'CONFIG_CRC'), (11,4,'LBA_HEX'),
                               (12,4,'CONFIG_DETAIL'), (19,4,'CONFIG_HELP'),
                               (21,4,'KEY_HELP'), (22,4,'FUNCTION_HELP')): text(row,col,strings[key])
-        text(8,29,'0004 / 0004'); text(11,23,'00000000'); text(12,29,'0000')
+        text(8,29,'0x0004 / 0x0004'); text(11,23,'0x00000000'); text(12,29,'0x0000')
         spec = {'status':4,'copies':[4,4]}
         check_config_screen(data, strings, spec, bytes(512), 0)
         text(13,4,'old profile')

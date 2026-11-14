@@ -18,7 +18,7 @@ static void text(rb_u16 row, rb_u16 col, const char *s, rb_u16 color)
 {
     rb_video_text(row * 80 + col, s, color);
 }
-static void hex(rb_u16 row, rb_u16 col, rb_u32 value, rb_u16 width)
+static void hex_digits(rb_u16 row, rb_u16 col, rb_u32 value, rb_u16 width)
 {
     char buffer[9];
     rb_u16 i = width;
@@ -26,6 +26,24 @@ static void hex(rb_u16 row, rb_u16 col, rb_u32 value, rb_u16 width)
     while (i) { buffer[--i] = digits[value & 15]; value >>= 4; }
     text(row, col, buffer, 0x17);
 }
+/* Numeric values have one prefix; byte sequences keep their stored order. */
+static void hex(rb_u16 row, rb_u16 col, rb_u32 value, rb_u16 width)
+{
+    text(row, col, "0x", 0x17); hex_digits(row, col + 2, value, width);
+}
+static void hex64(rb_u16 row, rb_u16 col, rb_u32 high, rb_u32 low)
+{
+    hex(row, col, high, 8); hex_digits(row, col + 10, low, 8);
+}
+static void media_bytes(rb_u16 row, rb_u16 col, const rb_u8 *value)
+{
+    rb_u16 i;
+    for (i = 0; i < 16; ++i) {
+        if (i) { text(row, col + i * 3 - 1, " ", 0x17); }
+        hex_digits(row, col + i * 3, value[i], 2);
+    }
+}
+
 static void debug(const char *s)
 {
     while (*s) { rb_debug_putc((rb_u8)*s++); }
@@ -56,23 +74,23 @@ static void draw(rb_u16 boot, rb_u16 view, const rb_rescue_device *d, const rb_r
         : r->layout ? RB_RS_BAD_LAYOUT : RB_RS_OK, view && !r->status && !r->layout ? 0x1A : 0x1E);
     if (view) {
         text(9, 4, RB_RS_CODES, 0x17);
-        hex(9, 32, r->status, 4); text(9, 37, "/", 0x17); hex(9, 39, r->layout, 4);
+        hex(9, 32, r->status, 4); text(9, 39, "/", 0x17); hex(9, 41, r->layout, 4);
         text(11, 4, RB_RS_DRIVES, 0x17);
-        hex(11, 32, boot, 4); text(11, 37, "/", 0x17); hex(11, 39, 0x80, 4);
+        hex(11, 32, boot, 4); text(11, 39, "/", 0x17); hex(11, 41, 0x80, 4);
         if (d->drive) {
             text(12, 4, RB_RS_ROUTE, 0x17); text(12, 32, d->mode ? "EDD" : "CHS", 0x17);
             text(13, 4, RB_RS_CAPACITY, 0x17);
-            hex(13, 32, d->capacity_high, 8); hex(13, 40, d->capacity_low, 8);
+            hex64(13, 32, d->capacity_high, d->capacity_low);
             text(14, 4, RB_RS_GEOMETRY_LABEL, 0x17);
-            hex(14, 32, d->heads, 4); text(14, 37, "/", 0x17); hex(14, 39, d->sectors_per_track, 4);
+            hex(14, 32, d->heads, 4); text(14, 39, "/", 0x17); hex(14, 41, d->sectors_per_track, 4);
         }
         if (!r->status) {
             text(15, 4, RB_RS_DISK_ID, 0x17); hex(15, 32, r->disk_id, 8);
             text(16, 4, RB_RS_CRC, 0x17); hex(16, 32, r->mbr_crc, 8);
             text(17, 4, RB_RS_SIGNATURE, 0x17);
-            hex(17, 32, r->signature, 4); text(17, 37, "/", 0x17); hex(17, 39, r->marker, 4);
+            hex(17, 32, r->signature, 4); text(17, 39, "/", 0x17); hex(17, 41, r->marker, 4);
             text(18, 4, RB_RS_COUNTS, 0x17);
-            hex(18, 32, r->entries, 4); text(18, 37, "/", 0x17); hex(18, 39, r->ebrs, 4);
+            hex(18, 32, r->entries, 4); text(18, 39, "/", 0x17); hex(18, 41, r->ebrs, 4);
         }
         text(19, 4, RB_RS_LBA, 0x17); hex(19, 32, r->error_lba, 8);
     }
@@ -88,26 +106,25 @@ static void draw_file(rb_u16 status, rb_u32 lba, const rb_backup_boot *r)
     text(5, 4, RB_RS_B_SCOPE, 0x1F); text(6, 4, RB_RS_B_LIMIT, 0x17);
     text(8, 4, reason, !status && !r->status ? 0x1A : 0x1E);
     text(9, 4, RB_RS_B_CODES, 0x17);
-    hex(9, 32, status, 4); text(9, 37, "/", 0x17); hex(9, 39, r->status, 4);
-    text(9, 44, "/", 0x17); hex(9, 46, r->detail, 4);
+    hex(9, 32, status, 4); text(9, 39, "/", 0x17); hex(9, 41, r->status, 4);
+    text(9, 48, "/", 0x17); hex(9, 50, r->detail, 4);
     text(10, 4, RB_RS_B_NESTED, 0x17); hex(10, 32, r->record_detail, 4);
     if (!status && !r->status) {
         text(12, 4, RB_RS_B_COUNTS, 0x17);
-        hex(12, 32, r->volumes, 4); text(12, 37, "/", 0x17); hex(12, 39, r->fat16, 4);
-        text(12, 44, "/", 0x17); hex(12, 46, r->fat32, 4);
+        hex(12, 32, r->volumes, 4); text(12, 39, "/", 0x17); hex(12, 41, r->fat16, 4);
+        text(12, 48, "/", 0x17); hex(12, 50, r->fat32, 4);
         text(13, 4, RB_RS_B_SECTORS, 0x17); hex(13, 32, r->reserved_sectors, 4);
         text(14, 4, RB_RS_B_READY, 0x17); hex(14, 32, r->ready_matches, 4);
     }
     text(16, 4, RB_RS_B_FILE_LBA, 0x17); hex(16, 32, lba, 8);
     text(17, 4, RB_RS_B_DISK_LBA, 0x17); hex(17, 32, r->error_lba, 8);
     text(18, 4, RB_RS_B_EXTENT, 0x17);
-    hex(18, 32, r->kind, 4); text(18, 37, "/", 0x17); hex(18, 39, r->index, 4);
+    hex(18, 32, r->kind, 4); text(18, 39, "/", 0x17); hex(18, 41, r->index, 4);
     text(21, 4, RB_RS_B_HELP, 0x17); text(22, 4, RB_RS_B_BOUNDARY, 0x17);
 }
 
 static void draw_match(const rb_rescue_match *r)
 {
-    rb_u16 i;
     const rb_backup_target *o = &r->observed;
     const char *reason = RB_RS_T_OK;
     if (r->status == RB_RMATCH_FILE) {
@@ -126,23 +143,23 @@ static void draw_match(const rb_rescue_match *r)
     frame(); text(5, 4, RB_RS_T_SCOPE, 0x1F); text(6, 4, RB_RS_T_LIMIT, 0x17);
     text(8, 4, reason, r->status ? 0x1E : 0x1A);
     text(9, 4, RB_RS_T_CODES, 0x17);
-    hex(9, 32, r->status, 4); text(9, 37, "/", 0x17); hex(9, 39, r->detail, 4);
-    text(9, 44, "/", 0x17); hex(9, 46, r->nested, 4);
+    hex(9, 32, r->status, 4); text(9, 39, "/", 0x17); hex(9, 41, r->detail, 4);
+    text(9, 48, "/", 0x17); hex(9, 50, r->nested, 4);
     text(10, 4, RB_RS_B_NESTED, 0x17); hex(10, 32, r->record_detail, 4);
     if (!r->status) {
         text(11, 4, RB_RS_DISK_ID, 0x17); hex(11, 32, o->disk_id, 8);
         text(12, 4, RB_RS_T_MEDIA, 0x17);
-        for (i = 0; i < 16; ++i) { hex(12, 32 + i * 2, o->media_id[i], 2); }
+        media_bytes(12, 29, o->media_id);
         text(13, 4, RB_RS_T_CRC, 0x17); hex(13, 32, o->layout_crc, 8);
         text(14, 4, RB_RS_T_ADMIN, 0x17);
-        hex(14, 32, o->admin_start, 8); text(14, 41, "/", 0x17); hex(14, 43, o->admin_sectors, 8);
+        hex(14, 32, o->admin_start, 8); text(14, 43, "/", 0x17); hex(14, 45, o->admin_sectors, 8);
         text(15, 4, RB_RS_CAPACITY, 0x17);
-        hex(15, 32, r->device.capacity_high, 8); hex(15, 40, r->device.capacity_low, 8);
+        hex64(15, 32, r->device.capacity_high, r->device.capacity_low);
         text(16, 4, RB_RS_T_ROUTE, 0x17); text(16, 32, r->device.mode ? "EDD" : "CHS", 0x17);
         text(16, 36, "/", 0x17); hex(16, 38, r->device.heads, 4);
-        text(16, 43, "/", 0x17); hex(16, 45, r->device.sectors_per_track, 4);
+        text(16, 45, "/", 0x17); hex(16, 47, r->device.sectors_per_track, 4);
         text(17, 4, RB_RS_T_GENERATIONS, 0x17);
-        hex(17, 32, o->config_generation, 8); text(17, 41, "/", 0x17); hex(17, 43, o->state_generation, 8);
+        hex(17, 32, o->config_generation, 8); text(17, 43, "/", 0x17); hex(17, 45, o->state_generation, 8);
     }
     text(18, 4, RB_RS_B_FILE_LBA, 0x17); hex(18, 32, r->file_lba, 8);
     text(19, 4, RB_RS_T_LBA, 0x17); hex(19, 32, r->disk_lba, 8);

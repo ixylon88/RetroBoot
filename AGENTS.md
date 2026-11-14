@@ -14,3 +14,7 @@
 - The specification's technical contracts remain authoritative. Mark editorial
   changes to archived conversation material; do not silently revise its old
   technical claims into current requirements.
+- Display hexadecimal numeric values with one `0x` prefix, including complete
+  64-bit values. Display opaque byte sequences as uppercase byte pairs separated
+  by spaces, in stored byte order, with a byte-oriented label. Keep decimal
+  counters decimal and retain the stable ASCII debug-marker formats.

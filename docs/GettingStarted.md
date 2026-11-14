@@ -65,13 +65,13 @@ the saved file **RBBACKUP.RBB** on floppy A:.
 
 | Field | Expected demo result | Meaning |
 | --- | --- | --- |
-| File / check / detail | `0000 / 0000 / 0000` | File access and saved-content checks passed |
-| Record detail | `0000` | No nested record error |
-| Volumes / FAT16 / FAT32 | `0002 / 0001 / 0001` | Two saved volumes: one of each format |
-| Reserved sectors | `0021` | 33 sectors in hexadecimal notation |
-| Matching READY VBRs | `0001` | One saved start-sector checksum matches its saved record |
-| Floppy / saved-disk error LBA | Both `00000000` | No error location reported |
-| Descriptor kind / index | `0000 / 0000` | No rejected descriptor reported |
+| File / check / detail | `0x0000 / 0x0000 / 0x0000` | File access and saved-content checks passed |
+| Record detail | `0x0000` | No nested record error |
+| Volumes / FAT16 / FAT32 | `0x0002 / 0x0001 / 0x0001` | Two saved volumes: one of each format |
+| Reserved sectors | `0x0021` | 33 sectors in hexadecimal notation |
+| Matching READY VBRs | `0x0001` | One saved start-sector checksum matches its saved record |
+| Floppy / saved-disk error LBA | Both `0x00000000` | No error location reported |
+| Descriptor kind / index | `0x0000 / 0x0000` | No rejected descriptor reported |
 
 The green message concerns the **saved file**. It does not confirm that an
 attached HDD matches that file, that an OS boots, or that restoration is ready.
@@ -92,9 +92,9 @@ The [F5 setup guide](RescueTargetCheck.md#manual-virtualbox-check) gives the
 complete procedure: convert this new 128 MiB image into a new VDI, attach it
 as the first IDE HDD, and boot the demo floppy as A:. From **RetroBoot Rescue**,
 press **F5**. Expected: a green match message and check/detail/nested
-`0000 / 0000 / 0000`. **Enter** repeats, **F4** returns to the saved-file check,
+`0x0000 / 0x0000 / 0x0000`. **Enter** repeats, **F4** returns to the saved-file check,
 and **Esc** returns to diagnosis. With the HDD detached, F5 instead reports
-`0003 / 0001 / 0000`; successful identity fields must be blank.
+`0x0003 / 0x0001 / 0x0000`; successful identity fields must be blank.
 
 This pair contains synthetic test metadata. A green match confirms only the
 supported comparison; no installation, restoration or OS start follows.
@@ -107,10 +107,10 @@ the test even when a chat message or screenshot is no longer nearby.
 | Image and starting screen | Key sequence | Purpose and expected result |
 | --- | --- | --- |
 | `retroboot-rescue-demo.img`, **RetroBoot Rescue** | **F4** | Check the example backup file; the table above applies |
-| `retroboot-rescue.img`, **RetroBoot Rescue** | **F4** | Expected missing-file result `0005 / 0000 / 0000` |
-| Demo rescue floppy plus `retroboot-rescue-target-hdd.img`, **RetroBoot Rescue** | **F5** | Compare saved/current metadata; expected `0000 / 0000 / 0000` |
+| `retroboot-rescue.img`, **RetroBoot Rescue** | **F4** | Expected missing-file result `0x0005 / 0x0000 / 0x0000` |
+| Demo rescue floppy plus `retroboot-rescue-target-hdd.img`, **RetroBoot Rescue** | **F5** | Compare saved/current metadata; expected `0x0000 / 0x0000 / 0x0000` |
 | Either rescue image, initial diagnosis page | **Enter** | Read the first HDD's partition metadata; outcome depends on the attached HDD |
-| `retroboot-hdd.img` or `retroboot-handoff.img`, **RetroBoot** menu | **F10** | Audit allocation of the eight management files; expected `0000 / 0000` |
+| `retroboot-hdd.img` or `retroboot-handoff.img`, **RetroBoot** menu | **F10** | Audit allocation of the eight management files; expected `0x0000 / 0x0000` |
 | Either HDD image, **RetroBoot** menu | **F8**, then **Enter** | Read the transaction journal; see [journal diagnosis](JournalDiagnosis.md) |
 | `retroboot-handoff.img`, **RetroBoot** menu | **F7**, then **F9** | Check the selected test profile, then run the test sector: `RB HANDOFF PASS` |
 | `retroboot-handoff.img`, **RetroBoot** main menu | **F4** | Earlier isolated test-sector handoff: `RB HANDOFF PASS` |
@@ -130,9 +130,9 @@ configuration; the image and screen title remain essential.
 | Observation | First check |
 | --- | --- |
 | The title is **RetroBoot**, although a rescue test was intended | The HDD probably booted; check floppy attachment and boot priority |
-| F4 reports `0005 / 0000 / 0000` | The normal rescue image intentionally has no backup; select `-demo.img` for the example |
-| F5 reports `0001 / 0005 / 0000` | The backup file is absent; use the demo floppy |
-| F5 reports `0003 / 0001 / 0000` | No HDD was found; check the target VDI attachment |
+| F4 reports `0x0005 / 0x0000 / 0x0000` | The normal rescue image intentionally has no backup; select `-demo.img` for the example |
+| F5 reports `0x0001 / 0x0005 / 0x0000` | The backup file is absent; use the demo floppy |
+| F5 reports `0x0003 / 0x0001 / 0x0000` | No HDD was found; check the target VDI attachment |
 | F5 reports a capacity or identity difference | Confirm the matching target HDD image and a newly converted VDI |
 | Enter reports no HDD | This is expected with no HDD attached; F4 remains available |
 | An HDD check still shows an older result or file count | Confirm the artifact run and replace any VDI converted from an older image |
@@ -153,6 +153,15 @@ Screen and keys: RetroBoot Rescue → F4
 Observed: file/check/detail; any differing message or counter
 Repeat/return: Enter and Esc checked, or not checked
 ```
+
+## Reading numbers and byte sequences
+
+`0x00123456` is one hexadecimal number. `56 34 12 00`, under a **Bytes**
+label, is a sequence of four separate bytes in their stored order. The two
+can represent the same 32-bit value when its storage format is little endian.
+The 16-byte media identity uses the byte-pair form; LBA addresses, capacities,
+CRCs and status codes use numeric values. Decimal page and slot numbers stay
+decimal. Older screenshots omit the prefix but show the same values.
 
 ## Terms used in the diagnostics
 

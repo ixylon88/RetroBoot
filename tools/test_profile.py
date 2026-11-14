@@ -40,8 +40,8 @@ def check_rejection(data, strings, status, expected):
     detail = expected.get('detail', 0) if status == 2 else 0
     for row, col, value in ((2,65,strings['READ_ONLY']), (5,4,strings['PROFILE_TEST_FAILED']),
             (6,4,strings[REASONS[status]]), (8,4,strings['PROFILE_TEST_REASON']),
-            (10,4,f'{status:04X} / {proof:04X} / {detail:04X}'), (14,4,strings['LBA_HEX']),
-            (14,23,f'{expected.get("error_lba", 0) if status in (2,5) else 0:08X}'),
+            (10,4,f'0x{status:04X} / 0x{proof:04X} / 0x{detail:04X}'), (14,4,strings['LBA_HEX']),
+            (14,23,f'0x{expected.get("error_lba", 0) if status in (2,5) else 0:08X}'),
             (17,4,strings['NO_CHANGES']), (19,4,strings['PROFILE_TEST_REVIEW']),
             (21,4,strings['KEY_HELP']), (22,4,strings['FUNCTION_HELP'])):
         if rows[row][col:col+len(value)] != value:

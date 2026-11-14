@@ -52,17 +52,17 @@ def check_journal_screen(data, strings, spec, crcs):
     reason='JOURNAL_'+(LOAD_REASONS[load] if load else 'INVALID' if status else OBSERVATIONS[obs])
     copies=spec.get('copies',[0,0])
     cells=[(2,65,strings['READ_ONLY']),(5,4,strings['JOURNAL_TITLE']),(6,4,strings['JOURNAL_SCOPE']),
-        (8,4,strings[reason]),(9,4,strings['JOURNAL_LOAD_CODES']),(9,32,f'{load:04X} / {spec.get("detail",0):04X}'),
-        (10,4,strings['JOURNAL_COPY_CODES']),(10,32,f'{status:04X} / {copies[0]:04X} / {copies[1]:04X}'),
-        (17,4,strings['LBA_HEX']),(17,32,f'{spec.get("lba",0):08X}'),(19,4,strings['JOURNAL_HELP']),
+        (8,4,strings[reason]),(9,4,strings['JOURNAL_LOAD_CODES']),(9,32,f'0x{load:04X} / 0x{spec.get("detail",0):04X}'),
+        (10,4,strings['JOURNAL_COPY_CODES']),(10,32,f'0x{status:04X} / 0x{copies[0]:04X} / 0x{copies[1]:04X}'),
+        (17,4,strings['LBA_HEX']),(17,32,f'0x{spec.get("lba",0):08X}'),(19,4,strings['JOURNAL_HELP']),
         (20,4,strings['NO_CHANGES']),(21,4,strings['KEY_HELP']),(22,4,strings['FUNCTION_HELP'])]
     blank=[7,11,16,18]
     if load or status:blank += [12,13,14,15]
     else:
-        cells += [(12,4,strings['JOURNAL_SEQUENCE']),(12,32,f'{spec["sequence"]:08X}'),
-            (13,4,strings['JOURNAL_PHASE']),(13,32,f'{spec["phase"]:04X} / '+('B' if spec['source'] else 'A')),
-            (14,4,strings['JOURNAL_CRCS']),(14,32,f'{crcs[0]:08X} / {crcs[1]:08X}'),
-            (15,4,strings['VIS_CHANGED']),(15,32,f'{spec["changed"]:02X}')]
+        cells += [(12,4,strings['JOURNAL_SEQUENCE']),(12,32,f'0x{spec["sequence"]:08X}'),
+            (13,4,strings['JOURNAL_PHASE']),(13,32,f'0x{spec["phase"]:04X} / '+('B' if spec['source'] else 'A')),
+            (14,4,strings['JOURNAL_CRCS']),(14,32,f'0x{crcs[0]:08X} / 0x{crcs[1]:08X}'),
+            (15,4,strings['VIS_CHANGED']),(15,32,f'0x{spec["changed"]:02X}')]
     for row,col,value in cells:
         if rows[row][col:col+len(value)]!=value:raise ValueError(f'Journal VGA mismatch at {row},{col}: {value!r}; {rows[row]!r}')
     if any(rows[row][4:78].strip() for row in blank):raise ValueError('Journal failure retains stale selected record')

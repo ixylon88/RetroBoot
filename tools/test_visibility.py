@@ -41,7 +41,7 @@ def check_visibility_screen(data, strings, spec, expected, mbr, config, index, c
         at(row, 4, strings[key])
     at(2, 65, strings['READ_ONLY'])
     at(8, 4, strings[VIS_KEYS[expected['status']]])
-    at(9, 30, f'{expected["status"]:04X} / {expected.get("proof", 0):04X} / {expected.get("detail", 0):04X}')
+    at(9, 30, f'0x{expected["status"]:04X} / 0x{expected.get("proof", 0):04X} / 0x{expected.get("detail", 0):04X}')
 
     if count:
         entry = config[64 + index * 52:116 + index * 52]
@@ -54,21 +54,21 @@ def check_visibility_screen(data, strings, spec, expected, mbr, config, index, c
         at(10, 4, strings['VIS_COLUMNS'])
         for i in range(4):
             at(11 + i, 4, f'P{i + 1}')
-            at(11 + i, 17, f'{mbr[450 + 16 * i]:02X} /  {mbr[446 + 16 * i]:02X}')
-            at(11 + i, 45, f'{expected["types"][i]:02X} /  {expected["flags"][i]:02X}')
+            at(11 + i, 17, f'0x{mbr[450 + 16 * i]:02X} /  0x{mbr[446 + 16 * i]:02X}')
+            at(11 + i, 45, f'0x{expected["types"][i]:02X} /  0x{expected["flags"][i]:02X}')
         for row, key, current, wanted in (
                 (15, 'VIS_VISIBLE', spec.get('current_visible', 3), expected['visible']),
                 (16, 'VIS_ACTIVE', spec.get('current_active', 1), expected['active'])):
-            at(row, 4, strings[key]); at(row, 30, f'{current:02X} /  {wanted:02X}')
-        at(17, 4, strings['VIS_CHANGED']); at(17, 30, f'{expected["changed"]:02X}')
+            at(row, 4, strings[key]); at(row, 30, f'0x{current:02X} /  0x{wanted:02X}')
+        at(17, 4, strings['VIS_CHANGED']); at(17, 30, f'0x{expected["changed"]:02X}')
     else:
         if expected['status'] == 2: at(11, 4, strings[PROOF_KEYS[expected['proof']]])
-        at(13, 4, strings['LBA_HEX']); at(13, 23, f'{expected.get("error_lba", 0):08X}')
+        at(13, 4, strings['LBA_HEX']); at(13, 23, f'0x{expected.get("error_lba", 0):08X}')
         # Failure text uses rows 11 and 13; every other former plan row is empty.
         if any(rows[r][4:78].strip() for r in (10, 12, 14, 15, 16, 17)):
             raise ValueError('Blocked visibility view displays a stale plan')
         reason = strings[PROOF_KEYS[expected['proof']]] if expected['status'] == 2 else ''
-        if rows[13][31:78].strip() or rows[11][4 + len(reason):78].strip():
+        if rows[13][33:78].strip() or rows[11][4 + len(reason):78].strip():
             raise ValueError('Blocked visibility view retains stale table fields')
 
     if data[(8 * 80 + 4) * 2 + 1] != (0x1E if expected['status'] else 0x1A):

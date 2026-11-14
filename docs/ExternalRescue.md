@@ -25,14 +25,15 @@ contains these normal images:
 
 1. With the BIOS test VM powered off, attach the selected image as floppy A:
    and place floppy before hard disk in the boot order. In VirtualBox this is
-   a floppy-controller attachment, not a raw-to-VDI conversion. The existing
-   PR #17 HDD test image can stay attached as the first HDD. The four
-   published HDD images are unchanged by this increment.
+   a floppy-controller attachment, not a raw-to-VDI conversion. An existing
+   normal or handoff HDD fixture can stay attached for this metadata diagnosis.
+   Checking the latest HDD menu presentation requires a fresh VDI made from
+   the corresponding new HDD build.
 2. Boot. The title is **RetroBoot Rescue**, with **Read only** or **Nur lesen**.
    The initial page requests Enter; the rescue program has not read HDD sectors.
 3. Press **Enter**. A normal compact or handoff fixture produces a green
-   result, probe/layout `0000 / 0000`, boot/target `0000 / 0080`,
-   signature/marker `AA55 / 0001` and entries/EBRs `0005 / 0001`.
+   result, probe/layout `0x0000 / 0x0000`, boot/target `0x0000 / 0x0080`,
+   signature/marker `0xAA55 / 0x0001` and entries/EBRs `0x0005 / 0x0001`.
    The count includes all four primary slots, including unused slots.
    Disk ID and MBR CRC describe the attached image; they are not identity
    authorization. Capacity depends on the image and BIOS route.
@@ -43,7 +44,7 @@ contains these normal images:
    [matching file/HDD pair](RescueTargetCheck.md). F9 has no action.
    There is no HDD handoff.
 5. Optionally repeat with the HDD detached while the VM is powered off.
-   The floppy still starts. Enter then reports `0001 / 0000`, with no retained
+   The floppy still starts. Enter then reports `0x0001 / 0x0000`, with no retained
    capacity, identity, CRC or partition-count fields.
 
 The German rescue floppy was confirmed under VirtualBox on 13 November 2026
@@ -145,8 +146,8 @@ The medium is defined for floppy A: (`00h`) and the first HDD (`80h`).
 Additional disks and alternate boot-drive numbering are not selected.
 
 Code/data/BSS/stack share segment `1000h`, with the existing 48 KiB file limit,
-guard at `E000h` and stack top `FFFEh`. Current payload sizes are 29,638 bytes EN and
-29,856 bytes DE; BSS ends at 50,392 / 50,610. Fresh BIOS discovery establishes only a reader context. An
+guard at `E000h` and stack top `FFFEh`. Current payload sizes are 29,686 bytes EN and
+29,908 bytes DE; BSS ends at 50,440 / 50,662. Fresh BIOS discovery establishes only a reader context. An
 unavailable EDD read capability selects validated CHS geometry; EDD parameter
 failure does not silently fall back. Sector size must be 512 bytes.
 

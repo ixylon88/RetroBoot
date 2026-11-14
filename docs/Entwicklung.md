@@ -259,8 +259,10 @@ Die nächsten Schritte sind:
    tests. The [independent rescue floppy](ExternalRescue.md) and German
    [F4 saved-file check](RescueBackupFile.md) have manual VirtualBox confirmation.
    The [F5 comparison](RescueTargetCheck.md) now integrates the target core with
-   full saved-file validation and fresh BIOS discovery. Its manual test is
-   pending; real collection, provenance and restore remain open. F7/F9 and the subsequent
+   full saved-file validation and fresh BIOS discovery. Its English success page has
+   manual VirtualBox confirmation; repeat keys and the later numeric/byte
+   formatting remain unconfirmed manually. Real collection, provenance and
+   restore remain open. F7/F9 and the subsequent
    PR #17 procedure were reported confirmed; no original-OS authorization follows.
 2. Rechner-/BIOS-Daten der historischen Referenzmaschine erfassen und die
    Bootnachweise dort ergänzen.

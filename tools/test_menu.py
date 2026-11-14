@@ -139,7 +139,7 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
         at(7, 4, "AUTO_OFF")
         at(17, 4, "DRIVE")
         at(18, 4, "ROUTE_" + mode)
-        if rows[17][19:22] != f"{struct.unpack_from('<H', boot)[0]:02X}h":
+        if rows[17][19:23] != f"0x{struct.unpack_from('<H', boot)[0]:02X}":
             raise ValueError("Wrong boot drive on menu")
         for index, key in enumerate(("SYSTEM_INFO", "PARTITIONS", "RECOVERY")):
             row = 9 + index * 2
@@ -154,9 +154,9 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
                          (10, "REACHABLE"), (13, "DISK_ID"), (18, "BOOT_SNAPSHOT")):
             at(row, 4, key)
         drive, _, low, high = struct.unpack("<HHII", boot)
-        if (rows[7][29:31] != f"{drive:02X}" or rows[8][29:32] != mode
-                or rows[11][6:23] != f"{high:08X}:{low:08X}"
-                or rows[13][29:37] != f"{struct.unpack_from('<I', mbr, 440)[0]:08X}"):
+        if (rows[7][29:33] != f"0x{drive:02X}" or rows[8][29:32] != mode
+                or rows[11][6:24] != f"0x{high:08X}{low:08X}"
+                or rows[13][29:39] != f"0x{struct.unpack_from('<I', mbr, 440)[0]:08X}"):
             raise ValueError("System information differs from boot context/MBR")
     elif view == 2:
         at(5, 4, "PARTITION_TITLE")
@@ -164,7 +164,7 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
             for row, key in ((8, "SCAN_FAILED"), (10, ERROR_KEYS[status]), (12, "LBA_HEX"),
                              (13, "ENTRY"), (16, "NO_CHANGES"), (18, "SCAN_HELP")):
                 at(row, 4, key)
-            if (rows[12][23:31] != f"{error_lba:08X}"
+            if (rows[12][23:33] != f"0x{error_lba:08X}"
                     or rows[6][4:74].strip() or rows[7][4:74].strip()):
                 raise ValueError("Missing scan error/LBA or unsafe partial success display")
             expected_slot = str(error_slot) if error_slot else strings["WHOLE_SECTOR"]
@@ -180,14 +180,14 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
             for index in range(8):
                 row = rows[9 + index]
                 if page * 8 + index >= len(partitions):
-                    if row[4:62].strip():
+                    if row[4:64].strip():
                         raise ValueError("Stale partition row after page change")
                     continue
                 p = partitions[page * 8 + index]
                 if (row[4:7].strip() != f"{p['kind']}{p['slot']}"
-                        or row[10:12] != f"{p['flag']:02X}" or row[16:18] != f"{p['type']:02X}"
-                        or row[23:31] != f"{p['start']:08X}" or row[39:47] != f"{p['sectors']:08X}"
-                        or row[54:62] != f"{p['table']:08X}"):
+                        or row[10:14] != f"0x{p['flag']:02X}" or row[16:20] != f"0x{p['type']:02X}"
+                        or row[23:33] != f"0x{p['start']:08X}" or row[39:49] != f"0x{p['sectors']:08X}"
+                        or row[54:64] != f"0x{p['table']:08X}"):
                     raise ValueError(f"Displayed partition {page * 8 + index} differs from source sectors")
             if rows[18][10:12].strip() != str(page + 1) or rows[18][14:16].strip() != str((len(partitions) + 7) // 8):
                 raise ValueError("Incorrect partition pagination")
@@ -209,8 +209,8 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
             at(9, 4, "VOLUME_LBA")
             at(11, 4, VOLUME_KEYS[volume["status"]])
             label = ("L" if volume["logical"] else "P") + str(volume["slot"])
-            if (rows[8][29:29 + len(label)] != label or rows[8][54:56] != f'{volume["type"]:02X}'
-                    or rows[9][29:37] != f'{volume["start"]:08X}'):
+            if (rows[8][29:29 + len(label)] != label or rows[8][54:58] != f'0x{volume["type"]:02X}'
+                    or rows[9][29:39] != f'0x{volume["start"]:08X}'):
                 raise ValueError("Wrong selected volume identity")
             if volume["status"]:
                 if any(row[4:78].strip() for row in rows[13:18]):
@@ -221,9 +221,9 @@ def check_screen(data, view, selected, mode, mbr, boot, strings, partitions=None
                     at(row, 4, key)
                 if (rows[13][29:34] != f'FAT{volume["bits"]}'
                         or rows[14][29:34].strip() != str(volume["cluster_bytes"])
-                        or rows[15][29:37] != f'{volume["total"]:08X}'
-                        or rows[16][29:37] != f'{volume["clusters"]:08X}'
-                        or rows[17][29:37] != f'{volume["data_lba"]:08X}'):
+                        or rows[15][29:39] != f'0x{volume["total"]:08X}'
+                        or rows[16][29:39] != f'0x{volume["clusters"]:08X}'
+                        or rows[17][29:39] != f'0x{volume["data_lba"]:08X}'):
                     raise ValueError("Wrong FAT header arithmetic displayed")
     else:
         raise ValueError("Unknown menu view")

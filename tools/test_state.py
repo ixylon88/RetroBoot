@@ -40,12 +40,12 @@ def check_state_screen(data, strings, spec, record, config, index):
                      (21, 'KEY_HELP'), (22, 'FUNCTION_HELP')): at(row, 4, strings[key])
     at(2, 65, strings['READ_ONLY']); at(12, 4, strings[PROOF_KEYS[proof]])
     for row, pair in ((7, spec.get('config_copies', [0, 0])), (8, spec.get('copies', [0, 0]))):
-        at(row, 29, f'{pair[0]:04X} / {pair[1]:04X}')
-    at(13, 29, f'{proof:04X} / {spec.get("detail", 0):04X}')
+        at(row, 29, f'0x{pair[0]:04X} / 0x{pair[1]:04X}')
+    at(13, 29, f'0x{proof:04X} / 0x{spec.get("detail", 0):04X}')
     if not status:
-        at(9, 4, strings['CONFIG_GENERATION']); at(9, 29, f'{struct.unpack_from("<I", record, 16)[0]:08X}')
-        at(9, 39, 'B' if spec.get('source', 1) else 'A'); at(10, 4, strings['STATE_MEDIA'])
-        at(10, 29, record[48:64].hex().upper())
+        at(9, 4, strings['CONFIG_GENERATION']); at(9, 29, f'0x{struct.unpack_from("<I", record, 16)[0]:08X}')
+        at(9, 40, 'B' if spec.get('source', 1) else 'A'); at(10, 4, strings['STATE_MEDIA'])
+        at(10, 29, record[48:64].hex(' ').upper())
     elif any(rows[r][4:78].strip() for r in (9, 10)):
         raise ValueError('Failed state record displays stale identity')
     count = struct.unpack_from('<H', config, 36)[0] if not any(spec.get('config_copies', [0, 0])) else 0
@@ -53,14 +53,14 @@ def check_state_screen(data, strings, spec, record, config, index):
         version = struct.unpack_from('<H', config, 8)[0]; stride = 52 if version == 2 else 48
         p = config[64 + index * stride:64 + (index + 1) * stride]
         at(14, 4, p[20:20 + p[18]].decode('cp437')); at(15, 4, strings['STATE_INSTALL_ID'])
-        at(15, 29, f'{struct.unpack_from("<Q", p, 44)[0] if version == 2 else 0:016X}')
+        at(15, 29, f'0x{struct.unpack_from("<Q", p, 44)[0] if version == 2 else 0:016X}')
         at(18, 4, strings['PAGE']); at(18, 10, str(index + 1)); at(18, 14, str(count))
     elif any(rows[r][4:78].strip() for r in (14, 15, 18)):
         raise ValueError('Empty installation-state displays stale installation')
     if not proof:
-        at(17, 4, strings['STATE_CRC']); at(17, 29, f'{struct.unpack_from("<I", record, 84)[0]:08X}')
+        at(17, 4, strings['STATE_CRC']); at(17, 29, f'0x{struct.unpack_from("<I", record, 84)[0]:08X}')
     else:
-        at(17, 4, strings['LBA_HEX']); at(17, 23, f'{spec.get("error_lba", 0):08X}')
+        at(17, 4, strings['LBA_HEX']); at(17, 23, f'0x{spec.get("error_lba", 0):08X}')
         if strings['STATE_CRC'] in rows[17]: raise ValueError('Failed proof displays stale CRC')
     if data[(12 * 80 + 4) * 2 + 1] != (0x1E if proof else 0x1A): raise ValueError('Wrong proof color')
     for row in range(2, 23):

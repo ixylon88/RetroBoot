@@ -14,10 +14,10 @@ contains two images per language:
 
 | Artifact path | Contents | Expected F4 result |
 | --- | --- | --- |
-| `rescue/retroboot-rescue-demo.img` | English program and synthetic test metadata | `0000 / 0000 / 0000` |
-| `rescue-de/retroboot-rescue-demo.img` | German program and the same synthetic metadata | `0000 / 0000 / 0000` |
-| `rescue/retroboot-rescue.img` | English program, no backup file | `0005 / 0000 / 0000` |
-| `rescue-de/retroboot-rescue.img` | German program, no backup file | `0005 / 0000 / 0000` |
+| `rescue/retroboot-rescue-demo.img` | English program and synthetic test metadata | `0x0000 / 0x0000 / 0x0000` |
+| `rescue-de/retroboot-rescue-demo.img` | German program and the same synthetic metadata | `0x0000 / 0x0000 / 0x0000` |
+| `rescue/retroboot-rescue.img` | English program, no backup file | `0x0005 / 0x0000 / 0x0000` |
+| `rescue-de/retroboot-rescue.img` | German program, no backup file | `0x0005 / 0x0000 / 0x0000` |
 
 All images are 1,474,560-byte floppy images. The demo is **not a backup of any
 attached disk**. Its original-MBR field is empty, and its boot regions contain
@@ -27,13 +27,13 @@ test headers rather than an OS boot program. It is unsuitable for restoration.
    floppy boot precedes HDD boot. VirtualBox uses a floppy-controller attachment,
    without raw-to-VDI conversion. The existing HDD may remain attached.
 2. After the initial diagnosis page appears, **F4** checks the saved file.
-   Expected file/check/detail: `0000 / 0000 / 0000`; nested detail `0000`.
-   The result is green, with volumes/FAT16/FAT32 `0002 / 0001 / 0001`,
-   reserved sectors `0021` (hexadecimal, 33 decimal), and READY VBR matches `0001`.
+   Expected file/check/detail: `0x0000 / 0x0000 / 0x0000`; nested detail `0x0000`.
+   The result is green, with volumes/FAT16/FAT32 `0x0002 / 0x0001 / 0x0001`,
+   reserved sectors `0x0021` (hexadecimal, 33 decimal), and READY VBR matches `0x0001`.
 3. **Enter** repeats the file check. **Esc** returns to the cleared HDD diagnosis
    page. Enter there performs the existing HDD diagnosis; F4 returns to the file
    check. An absent HDD does not prevent the file check from succeeding.
-4. The normal image, which has no `RBBACKUP.RBB`, reports file status `0005`
+4. The normal image, which has no `RBBACKUP.RBB`, reports file status `0x0005`
    and no successful volume counters. This is the expected missing-file result.
 
 The German demo's F4 result was manually confirmed under VirtualBox on

@@ -82,7 +82,7 @@ static void cell(rb_u16 row, rb_u16 column, rb_u16 character)
     rb_video_fill(row * 80U + column, 1, (NORMAL << 8) | character);
 }
 
-static void hex(rb_u16 row, rb_u16 column, rb_u32 value, rb_u16 width)
+static void hex_digits(rb_u16 row, rb_u16 column, rb_u32 value, rb_u16 width)
 {
     char buffer[9];
     rb_u16 index = width;
@@ -92,6 +92,24 @@ static void hex(rb_u16 row, rb_u16 column, rb_u32 value, rb_u16 width)
         value >>= 4;
     }
     text(row, column, buffer, NORMAL);
+}
+
+/* Numeric values have one prefix; byte sequences keep their stored order. */
+static void hex(rb_u16 row, rb_u16 col, rb_u32 value, rb_u16 width)
+{
+    text(row, col, "0x", NORMAL); hex_digits(row, col + 2, value, width);
+}
+static void hex64(rb_u16 row, rb_u16 col, rb_u32 high, rb_u32 low)
+{
+    hex(row, col, high, 8); hex_digits(row, col + 10, low, 8);
+}
+static void media_bytes(rb_u16 row, rb_u16 col, const rb_u8 *value)
+{
+    rb_u16 i;
+    for (i = 0; i < 16; ++i) {
+        if (i) { text(row, col + i * 3 - 1, " ", NORMAL); }
+        hex_digits(row, col + i * 3, value[i], 2);
+    }
 }
 
 static void decimal(rb_u16 row, rb_u16 column, rb_u16 value)
@@ -163,7 +181,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             text(row, 8, labels[index], state->selected == index ? SELECTED : NORMAL);
         }
         text(17, 4, RB_UI_DRIVE, NORMAL);
-        hex(17, 19, rb_boot.drive, 2); text(17, 21, "h", NORMAL);
+        hex(17, 19, rb_boot.drive, 2);
         text(20, 4, RB_UI_AUDIT_HELP, NORMAL);
         text(18, 4, rb_boot.io_mode == 1 ? RB_UI_ROUTE_EDD : RB_UI_ROUTE_CHS, NORMAL);
 #ifdef RB_HANDOFF_TEST
@@ -175,8 +193,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(8, 4, RB_UI_ROUTE, NORMAL);
         text(8, 29, rb_boot.io_mode == 1 ? "EDD" : "CHS", NORMAL);
         text(10, 4, RB_UI_REACHABLE, NORMAL);
-        hex(11, 6, rb_boot.reachable_sectors_high, 8);
-        text(11, 14, ":", NORMAL); hex(11, 15, rb_boot.reachable_sectors_low, 8);
+        hex64(11, 6, rb_boot.reachable_sectors_high, rb_boot.reachable_sectors_low);
         text(13, 4, RB_UI_DISK_ID, NORMAL); hex(13, 29, read32(snapshot->mbr + 440), 8);
         geometry(snapshot, 15);
         text(18, 4, RB_UI_BOOT_SNAPSHOT, NORMAL);
@@ -239,14 +256,14 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             text(7, 4, RB_UI_CONFIG_DEGRADED, 0x1E);
         }
         text(8, 4, RB_UI_CONFIG_COPIES, NORMAL);
-        hex(8, 29, config->copies[0], 4); text(8, 34, "/", NORMAL); hex(8, 36, config->copies[1], 4);
+        hex(8, 29, config->copies[0], 4); text(8, 36, "/", NORMAL); hex(8, 38, config->copies[1], 4);
         text(9, 4, config_messages[config->status], config->status ? 0x1E : NORMAL);
         if (config->status) {
             text(11, 4, RB_UI_LBA_HEX, NORMAL); hex(11, 23, config->error_lba, 8);
             text(12, 4, RB_UI_CONFIG_DETAIL, NORMAL); hex(12, 29, config->detail, 4);
         } else {
             text(10, 4, RB_UI_CONFIG_GENERATION, NORMAL); hex(10, 29, config->config.generation, 8);
-            text(10, 39, config->source ? "B" : "A", NORMAL);
+            text(10, 40, config->source ? "B" : "A", NORMAL);
             text(11, 4, RB_UI_CONFIG_IDENTITY_LABEL, NORMAL);
             hex(11, 29, config->config.disk_id, 8); hex(11, 40, config->config.layout_crc, 8);
             if (!config->config.count) { text(14, 4, RB_UI_CONFIG_EMPTY, NORMAL); }
@@ -267,23 +284,23 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     } else if (view == 7) {
         text(5, 4, RB_UI_STATE_TITLE, TITLE); text(6, 4, RB_UI_STATE_SCOPE, NORMAL);
         text(7, 4, RB_UI_STATE_CONFIG_COPIES, NORMAL);
-        hex(7, 29, config->copies[0], 4); text(7, 34, "/", NORMAL); hex(7, 36, config->copies[1], 4);
+        hex(7, 29, config->copies[0], 4); text(7, 36, "/", NORMAL); hex(7, 38, config->copies[1], 4);
         text(8, 4, RB_UI_STATE_COPIES, NORMAL);
-        hex(8, 29, installation->copies[0], 4); text(8, 34, "/", NORMAL); hex(8, 36, installation->copies[1], 4);
+        hex(8, 29, installation->copies[0], 4); text(8, 36, "/", NORMAL); hex(8, 38, installation->copies[1], 4);
         if (!installation->status) {
             text(9, 4, RB_UI_CONFIG_GENERATION, NORMAL); hex(9, 29, installation->state.generation, 8);
-            text(9, 39, installation->source ? "B" : "A", NORMAL);
+            text(9, 40, installation->source ? "B" : "A", NORMAL);
             text(10, 4, RB_UI_STATE_MEDIA, NORMAL);
-            for (index = 0; index < 16; ++index) { hex(10, 29 + index * 2, installation->state.media_id[index], 2); }
+            media_bytes(10, 29, installation->state.media_id);
         }
         text(12, 4, proof_messages[proof->status], proof->status ? 0x1E : 0x1A);
         text(13, 4, RB_UI_STATE_REASON, NORMAL);
-        hex(13, 29, proof->status, 4); text(13, 34, "/", NORMAL); hex(13, 36, proof->detail, 4);
+        hex(13, 29, proof->status, 4); text(13, 36, "/", NORMAL); hex(13, 38, proof->detail, 4);
         if (!config->status && config_index < config->config.count) {
             profile = &config->config.entries[config_index];
             text(14, 4, profile->name, TITLE);
             text(15, 4, RB_UI_STATE_INSTALL_ID, NORMAL);
-            hex(15, 29, profile->install_high, 8); hex(15, 37, profile->install_low, 8);
+            hex64(15, 29, profile->install_high, profile->install_low);
             text(18, 4, RB_UI_PAGE, NORMAL); decimal(18, 10, config_index + 1);
             text(18, 12, "/", NORMAL); decimal(18, 14, config->config.count);
         }
@@ -299,9 +316,9 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(8, 4, visibility_messages[visibility->status], visibility->status ? 0x1E : 0x1A);
 
         text(9, 4, RB_UI_VIS_CODES, NORMAL);
-        hex(9, 30, visibility->status, 4); text(9, 35, "/", NORMAL);
-        hex(9, 37, visibility->proof.status, 4); text(9, 42, "/", NORMAL);
-        hex(9, 44, visibility->proof.detail, 4);
+        hex(9, 30, visibility->status, 4); text(9, 37, "/", NORMAL);
+        hex(9, 39, visibility->proof.status, 4); text(9, 46, "/", NORMAL);
+        hex(9, 48, visibility->proof.detail, 4);
 
         if (!config->status && config_index < config->config.count) {
             text(7, 4, config->config.entries[config_index].name, TITLE);
@@ -315,19 +332,19 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             for (index = 0; index < 4; ++index) {
                 text(11 + index, 4, "P", NORMAL); decimal(11 + index, 5, index + 1);
                 hex(11 + index, 17, visibility->before[450 + index * 16], 2);
-                text(11 + index, 20, "/", NORMAL);
-                hex(11 + index, 23, visibility->before[446 + index * 16], 2);
+                text(11 + index, 22, "/", NORMAL);
+                hex(11 + index, 25, visibility->before[446 + index * 16], 2);
                 hex(11 + index, 45, visibility->after[450 + index * 16], 2);
-                text(11 + index, 48, "/", NORMAL);
-                hex(11 + index, 51, visibility->after[446 + index * 16], 2);
+                text(11 + index, 50, "/", NORMAL);
+                hex(11 + index, 53, visibility->after[446 + index * 16], 2);
             }
 
             text(15, 4, RB_UI_VIS_VISIBLE, NORMAL);
-            hex(15, 30, visibility->current_visible, 2); text(15, 33, "/", NORMAL);
-            hex(15, 36, visibility->wanted_visible, 2);
+            hex(15, 30, visibility->current_visible, 2); text(15, 35, "/", NORMAL);
+            hex(15, 38, visibility->wanted_visible, 2);
             text(16, 4, RB_UI_VIS_ACTIVE, NORMAL);
-            hex(16, 30, visibility->current_active, 2); text(16, 33, "/", NORMAL);
-            hex(16, 36, visibility->wanted_active, 2);
+            hex(16, 30, visibility->current_active, 2); text(16, 35, "/", NORMAL);
+            hex(16, 38, visibility->wanted_active, 2);
             text(17, 4, RB_UI_VIS_CHANGED, NORMAL); hex(17, 30, visibility->changed, 2);
         } else {
             if (visibility->status == RB_VISIBILITY_PROOF) {
@@ -345,18 +362,18 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
              : handoff_status == RB_HANDOFF_VOLUME ? volume_messages[handoff_detail]
              : handoff_status == RB_HANDOFF_TARGET ? RB_UI_HANDOFF_TARGET : RB_UI_HANDOFF_CODE, 0x1E);
         text(8, 4, RB_UI_HANDOFF_REASON, NORMAL);
-        hex(10, 4, handoff_status, 4); text(10, 9, "/", NORMAL);
-        hex(10, 11, handoff_detail, 4);
+        hex(10, 4, handoff_status, 4); text(10, 11, "/", NORMAL);
+        hex(10, 13, handoff_detail, 4);
         text(13, 4, RB_UI_NO_CHANGES, NORMAL);
         text(18, 4, RB_UI_HANDOFF_RETRY, NORMAL);
     } else if (view == 9) {
         text(5, 4, RB_UI_PROFILE_TEST_FAILED, TITLE);
         text(6, 4, profile_test_messages[profile_status], 0x1E);
         text(8, 4, RB_UI_PROFILE_TEST_REASON, NORMAL);
-        hex(10, 4, profile_status, 4); text(10, 9, "/", NORMAL);
-        hex(10, 11, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.status : 0, 4);
-        text(10, 16, "/", NORMAL);
-        hex(10, 18, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.detail : 0, 4);
+        hex(10, 4, profile_status, 4); text(10, 11, "/", NORMAL);
+        hex(10, 13, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.status : 0, 4);
+        text(10, 20, "/", NORMAL);
+        hex(10, 22, profile_status == RB_PROFILE_TEST_PROOF ? visibility->proof.detail : 0, 4);
         if (profile_status == RB_PROFILE_TEST_PROOF) {
             text(12, 4, visibility->status == RB_VISIBILITY_ADMIN ? RB_UI_VIS_ADMIN
                 : proof_messages[visibility->proof.status], 0x1E);
@@ -371,7 +388,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(7, 4, RB_UI_AUDIT_LIMIT, NORMAL);
         text(8, 4, audit_messages[audit->status], audit->status ? 0x1E : 0x1A);
         text(9, 4, RB_UI_AUDIT_CODES, NORMAL);
-        hex(9, 32, audit->status, 4); text(9, 37, "/", NORMAL); hex(9, 39, audit->detail, 4);
+        hex(9, 32, audit->status, 4); text(9, 39, "/", NORMAL); hex(9, 41, audit->detail, 4);
         if (!audit->status) {
             text(10, 4, RB_UI_AUDIT_COLUMNS, NORMAL);
             for (index = 0; index < RB_AUDIT_FILES; ++index) {
@@ -381,13 +398,13 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                 hex(11 + index, 41, audit->files[index].first_lba, 8);
             }
             text(19, 4, RB_UI_AUDIT_CLUSTERS, NORMAL);
-            hex(19, 38, audit->total_clusters, 4); text(19, 43, "/", NORMAL);
-            hex(19, 45, audit->used_clusters, 4); text(19, 50, "/", NORMAL);
-            hex(19, 52, audit->free_clusters, 4);
+            hex(19, 38, audit->total_clusters, 4); text(19, 45, "/", NORMAL);
+            hex(19, 47, audit->used_clusters, 4); text(19, 54, "/", NORMAL);
+            hex(19, 56, audit->free_clusters, 4);
         } else {
             text(11, 4, RB_UI_LBA_HEX, NORMAL); hex(11, 32, audit->error_lba, 8);
             text(13, 4, RB_UI_AUDIT_ERROR_FILE, NORMAL);
-            hex(13, 32, audit->error_file, 4); text(13, 37, "/", NORMAL); hex(13, 39, audit->error_cluster, 4);
+            hex(13, 32, audit->error_file, 4); text(13, 39, "/", NORMAL); hex(13, 41, audit->error_cluster, 4);
         }
         text(20, 4, RB_UI_AUDIT_REVIEW, NORMAL);
     } else if (view == 11) {
@@ -400,19 +417,19 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                 && (journal->journal.observation == RB_TX_BASELINE
                     || journal->journal.observation == RB_TX_COMMITTED_NEW) ? 0x1A : 0x1E);
         text(9, 4, RB_UI_JOURNAL_LOAD_CODES, NORMAL);
-        hex(9, 32, journal->status, 4); text(9, 37, "/", NORMAL); hex(9, 39, journal->detail, 4);
+        hex(9, 32, journal->status, 4); text(9, 39, "/", NORMAL); hex(9, 41, journal->detail, 4);
         text(10, 4, RB_UI_JOURNAL_COPY_CODES, NORMAL);
-        hex(10, 32, journal->journal.status, 4); text(10, 37, "/", NORMAL);
-        hex(10, 39, journal->journal.copies[0], 4); text(10, 44, "/", NORMAL);
-        hex(10, 46, journal->journal.copies[1], 4);
+        hex(10, 32, journal->journal.status, 4); text(10, 39, "/", NORMAL);
+        hex(10, 41, journal->journal.copies[0], 4); text(10, 48, "/", NORMAL);
+        hex(10, 50, journal->journal.copies[1], 4);
         if (!journal->status && !journal->journal.status) {
             text(12, 4, RB_UI_JOURNAL_SEQUENCE, NORMAL); hex(12, 32, journal->journal.record.sequence, 8);
             text(13, 4, RB_UI_JOURNAL_PHASE, NORMAL);
-            hex(13, 32, journal->journal.record.phase, 4); text(13, 37, "/", NORMAL);
-            text(13, 39, journal->journal.source ? "B" : "A", NORMAL);
+            hex(13, 32, journal->journal.record.phase, 4); text(13, 39, "/", NORMAL);
+            text(13, 41, journal->journal.source ? "B" : "A", NORMAL);
             text(14, 4, RB_UI_JOURNAL_CRCS, NORMAL);
-            hex(14, 32, journal->journal.record.before_crc, 8); text(14, 41, "/", NORMAL);
-            hex(14, 43, journal->journal.record.after_crc, 8);
+            hex(14, 32, journal->journal.record.before_crc, 8); text(14, 43, "/", NORMAL);
+            hex(14, 45, journal->journal.record.after_crc, 8);
             text(15, 4, RB_UI_VIS_CHANGED, NORMAL); hex(15, 32, journal->journal.record.changed, 2);
         }
         text(17, 4, RB_UI_LBA_HEX, NORMAL); hex(17, 32, journal->error_lba, 8);

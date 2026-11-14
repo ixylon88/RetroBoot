@@ -63,9 +63,9 @@ class JournalIOToolsTests(unittest.TestCase):
             for row in range(2,23):data[(row*80+1)*2]=data[(row*80+78)*2]=0xB3
             for row,col,key in ((2,65,'READ_ONLY'),(5,4,'JOURNAL_TITLE'),(6,4,'JOURNAL_SCOPE'),(8,4,'JOURNAL_INVALID'),
                 (9,4,'JOURNAL_LOAD_CODES'),(10,4,'JOURNAL_COPY_CODES'),(17,4,'LBA_HEX'),(19,4,'JOURNAL_HELP'),(20,4,'NO_CHANGES'),(21,4,'KEY_HELP'),(22,4,'FUNCTION_HELP')):text(row,col,strings[key])
-            text(9,32,'0000 / 0000');text(10,32,'0009 / 0003 / 0000');text(17,32,'00000000');data[(8*80+4)*2+1]=0x1E
+            text(9,32,'0x0000 / 0x0000');text(10,32,'0x0009 / 0x0003 / 0x0000');text(17,32,'0x00000000');data[(8*80+4)*2+1]=0x1E
             check_journal_screen(data,strings,spec,(0,0))
-            for row,col,value in ((12,32,'00000002'),(14,32,'12345678'),(15,32,'01'),(2,78,'X')):
+            for row,col,value in ((12,32,'0x00000002'),(14,32,'0x12345678'),(15,32,'01'),(2,78,'X')):
                 good=data[:];text(row,col,value)
                 with self.assertRaises(ValueError):check_journal_screen(data,strings,spec,(0,0))
                 data[:]=good

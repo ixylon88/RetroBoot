@@ -46,6 +46,31 @@ RB_LANGUAGE=en` or `make rescue-test RB_LANGUAGE=de`. Its separate
 The **retroboot-rescue-diagnostics** artifact contains both floppies; these
 attach directly to a floppy controller and require no VDI conversion.
 
+## Numbers and byte sequences
+
+Both the HDD menu and rescue program use these display conventions:
+
+| Meaning | Display example |
+| --- | --- |
+| Hexadecimal numeric value | `0x00123456` |
+| Complete 64-bit numeric value | `0x0000000100000001` |
+| Opaque byte sequence, in stored order | `Bytes: 56 34 12 00` |
+| Decimal page, slot or ordinary counter | `1`, `16`, `512` |
+
+Hexadecimal integers have a single `0x` prefix and uppercase digits; the
+repeated `(hex)` qualifiers are removed. The 16-byte media identity is labeled
+as bytes and printed as sixteen space-separated pairs. It is neither decoded
+as an integer nor rearranged as a GUID. Numeric disk IDs, CRCs, masks and
+status codes retain their numeric meaning even when a field occupies one byte.
+
+The displayed number `0x00123456` corresponds to `56 34 12 00` in a 32-bit
+little-endian field, or `00 12 34 56` in a big-endian field. Positional digit
+notation does not prescribe byte order. The presentation change does not
+change disk formats, stored values, BIOS operations or validation decisions.
+Boot/debug markers keep their existing compact ASCII syntax. Earlier manual
+reports and technical code tables may omit the `0x` prefix; their values remain
+unchanged.
+
 ## Characters and encoding
 
 The source catalogs [en.json](../ui/en.json) and [de.json](../ui/de.json) are
@@ -84,7 +109,7 @@ make hdd-test RB_LANGUAGE=en
 make hdd-ui-test RB_LANGUAGE=de
 ```
 
-The 140 host tests include seven HDD catalog tests, with independent byte values
+The 175 host tests include seven HDD catalog tests, with independent byte values
 for all six umlauts and `ß`, field bounds and stale-language detection.
 Each language is built twice and all binaries, images and manifests must
 match between its two builds. Different languages are expected to produce
@@ -99,10 +124,11 @@ translated label, including scanner and header errors, is checked against the se
 catalog. Image hashes, RAM/BSS/stack checks and disk-write monitoring remain
 active. QEMU screenshots provide additional visual evidence.
 
-Rescue adds 38 boots and 217 VGA/keyboard states per language, including
-independent startup with absent or damaged HDDs. Its catalog test checks field
+The complete rescue suite adds 94 boots and 622 VGA/keyboard states per
+language, including independent startup with absent or damaged HDDs. Its catalog test checks field
 bounds, output isolation and `ß` in the German help line. Both rescue builds
-also repeat byte-identically; the HDD binary/catalog hashes remain unchanged.
+also repeat byte-identically. Rescue builds leave the separately built HDD
+binaries and catalogs untouched.
 
 The build manifest records the selected language, `cp437` encoding and the
 catalog SHA-256. UI tests reject a stale or mismatched catalog and require

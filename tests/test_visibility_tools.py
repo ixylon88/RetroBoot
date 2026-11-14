@@ -68,7 +68,7 @@ class VisibilityToolsTests(unittest.TestCase):
                                   (8,4,'VIS_BLOCKED'), (9,4,'VIS_CODES'), (13,4,'LBA_HEX'),
                                   (19,4,'VIS_HELP'), (21,4,'KEY_HELP'), (22,4,'FUNCTION_HELP')):
                 text(row, col, strings[key])
-            text(9,30,'0002 / 0006 / 0000'); text(11,4,strings[PROOF_KEYS[6]]); text(13,23,'00000000')
+            text(9,30,'0x0002 / 0x0006 / 0x0000'); text(11,4,strings[PROOF_KEYS[6]]); text(13,23,'0x00000000')
             data[(8 * 80 + 4) * 2 + 1] = 0x1E
             args = (strings, {}, blocked(6), bytes(512), bytes(512), 0, 0)
             check_visibility_screen(data, *args)

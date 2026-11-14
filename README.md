@@ -101,9 +101,9 @@ live metadata; unique physical identity and recovery authorization remain open.
 The **F4** path checks `RBBACKUP.RBB` on the boot floppy. The artifact also
 contains `rescue/retroboot-rescue-demo.img` and its German counterpart under
 `rescue-de/`, with synthetic metadata. Booting a demo as floppy A: and pressing
-F4 should produce `0000 / 0000 / 0000`, volumes `0002 / 0001 / 0001`, reserved
-sectors `0021` and one READY VBR match. Enter repeats; Esc returns to HDD
-diagnosis. The normal image intentionally has no backup file (`0005 / 0000 / 0000`).
+F4 should produce `0x0000 / 0x0000 / 0x0000`, volumes `0x0002 / 0x0001 / 0x0001`, reserved
+sectors `0x0021` and one READY VBR match. Enter repeats; Esc returns to HDD
+diagnosis. The normal image intentionally has no backup file (`0x0005 / 0x0000 / 0x0000`).
 The [file-validation guide](docs/RescueBackupFile.md) describes the manual test
 and boundaries. A matching result never identifies an attached HDD or permits
 restoration. F4 alone needs no HDD.
@@ -112,9 +112,14 @@ restoration. F4 alone needs no HDD.
 HDD metadata. The same artifact includes `retroboot-rescue-target-hdd.img`
 under both language directories: identical synthetic 128 MiB HDDs matching
 the demo backup. The [F5 guide](docs/RescueTargetCheck.md) gives the exact pair,
-new-VDI setup, codes and limits. Expected success is `0000 / 0000 / 0000`;
+new-VDI setup, codes and limits. Expected success is `0x0000 / 0x0000 / 0x0000`;
 Enter repeats, F4 selects the file-only check, and Esc clears the comparison.
 This HDD is nonbootable and is not the ordinary HDD/handoff fixture.
+
+Across both programs, hexadecimal numbers now carry `0x`; media IDs use
+space-separated byte pairs in stored order. The [display convention](docs/Languages.md#numbers-and-byte-sequences)
+distinguishes numeric values from byte sequences. Decimal counters and debug
+markers keep their existing form.
 
 Automated rescue checks cover 188 boots and 1,244 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.

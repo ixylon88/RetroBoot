@@ -48,19 +48,19 @@ def check_config_screen(data, strings, spec, record, index):
                              (8, 4, 'CONFIG_COPIES'), (9, 4, STATUS_KEYS[status]),
                              (19, 4, 'CONFIG_HELP'), (21, 4, 'KEY_HELP'), (22, 4, 'FUNCTION_HELP')):
         at(row, column, strings[key])
-    at(8, 29, f'{copies[0]:04X} / {copies[1]:04X}')
+    at(8, 29, f'0x{copies[0]:04X} / 0x{copies[1]:04X}')
     if not status and any(copies): at(7, 4, strings['CONFIG_DEGRADED'])
     elif rows[7][4:78].strip(): raise ValueError('Unexpected degraded configuration warning')
     if status:
         at(11, 4, strings['LBA_HEX']); at(12, 4, strings['CONFIG_DETAIL'])
-        at(11, 23, f'{spec.get("error_lba", 0):08X}'); at(12, 29, f'{spec.get("detail", 0):04X}')
+        at(11, 23, f'0x{spec.get("error_lba", 0):08X}'); at(12, 29, f'0x{spec.get("detail", 0):04X}')
         if any(row[4:78].strip() for row in rows[13:19]):
             raise ValueError('Failed configuration displays stale profile data')
     else:
         generation, disk_id, fingerprint = struct.unpack_from('<III', record, 16)
-        at(10, 4, strings['CONFIG_GENERATION']); at(10, 29, f'{generation:08X}')
-        at(10, 39, 'B' if spec.get('source', 1) else 'A')
-        at(11, 4, strings['CONFIG_IDENTITY_LABEL']); at(11, 29, f'{disk_id:08X}'); at(11, 40, f'{fingerprint:08X}')
+        at(10, 4, strings['CONFIG_GENERATION']); at(10, 29, f'0x{generation:08X}')
+        at(10, 40, 'B' if spec.get('source', 1) else 'A')
+        at(11, 4, strings['CONFIG_IDENTITY_LABEL']); at(11, 29, f'0x{disk_id:08X}'); at(11, 40, f'0x{fingerprint:08X}')
         count = struct.unpack_from('<H', record, 36)[0]
         if not count:
             at(14, 4, strings['CONFIG_EMPTY'])
@@ -72,10 +72,10 @@ def check_config_screen(data, strings, spec, record, index):
             entry_id, start, sectors = struct.unpack_from('<III', p)
             at(13, 4, p[20:20 + p[18]].decode('cp437'))
             for row, key in ((14, 'CONFIG_ENTRY'), (15, 'CONFIG_EXTENT'), (18, 'PAGE')): at(row, 4, strings[key])
-            at(14, 29, f'{entry_id:08X}'); at(14, 40, f'P{p[12]}'); at(14, 46, f'{p[13]:02X}')
-            at(15, 29, f'{start:08X}'); at(15, 40, f'{sectors:08X}')
+            at(14, 29, f'0x{entry_id:08X}'); at(14, 40, f'P{p[12]}'); at(14, 46, f'0x{p[13]:02X}')
+            at(15, 29, f'0x{start:08X}'); at(15, 40, f'0x{sectors:08X}')
             at(16, 4, 'dos9x_isolated' if p[14] == 1 else 'nt_chain')
-            at(16, 29, strings['CONFIG_FLAGS']); at(16, 57, str(p[15])); at(16, 61, str(p[16])); at(16, 65, f'{p[17]:02X}')
+            at(16, 29, strings['CONFIG_FLAGS']); at(16, 57, str(p[15])); at(16, 61, str(p[16])); at(16, 65, f'0x{p[17]:02X}')
             at(18, 10, str(index + 1)); at(18, 14, str(count))
     for row in range(2, 23):
         if data[(row * 80 + 1) * 2] != 0xB3 or data[(row * 80 + 78) * 2] != 0xB3:
