@@ -14,6 +14,7 @@ try:
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from .backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
     from .backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
@@ -28,6 +29,7 @@ except ImportError:
     from rescue_text import LANGUAGES, metadata, output_name, render_header
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
+    from backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
     from backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
@@ -126,6 +128,7 @@ def build(kind='rescue',language='en'):
         if r.returncode or 'Warning!' in r.stdout+r.stderr:raise ValueError('Build failed: '+r.stdout+r.stderr)
     (destination/'rescue_text.h').write_text(render_header(language),encoding='ascii')
     (destination/'backup_vectors.h').write_text(model_header(),encoding='ascii')
+    (destination/'backup_encode_vectors.h').write_text(encode_header(),encoding='ascii')
     (destination/'backup_record_vectors.h').write_text(record_header(),encoding='ascii')
     (destination/'backup_boot_vectors.h').write_text(boot_header(),encoding='ascii')
     (destination/'journal_io_fixture.h').write_text(io_model_header(),encoding='ascii')
@@ -136,6 +139,8 @@ def build(kind='rescue',language='en'):
         if name!='model':objects.append(obj)
     for name,source in (('rescue-ui','core/rescue.c'),('rescue-plan','core/rescue_plan.c'),('rescue-file','core/rescue_file.c'),
             ('rescue-file-tests','tests/rescue/file.c'),('rescue-backup','core/rescue_backup.c'),('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
+            ('backup-format','core/backup_format.c'),('backup-encode','core/backup_encode.c'),
+            ('backup-encode-tests','tests/backup/encode.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('backup-links','core/backup_links.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
@@ -156,6 +161,7 @@ def build(kind='rescue',language='en'):
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
     for name,defines in (('retroboot-rescue',[]),('rescue-bss-fault',['-DRB_RESCUE_BAD_BSS=1']),
             ('rescue-model',['-DRB_RESCUE_MODEL=1']),('backup-model',['-DRB_RESCUE_BACKUP_MODEL=1']),
+            ('backup-encode-model',['-DRB_RESCUE_ENCODE_MODEL=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -164,6 +170,8 @@ def build(kind='rescue',language='en'):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
         extra=[destination/'model.obj'] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
+        if name=='backup-encode-model':
+            extra=[destination/(n+'.obj') for n in ('backup','backup-encode','backup-encode-tests')]
         if name=='backup-records-model':
             extra=[destination/(n+'.obj') for n in ('backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-record-tests')]
         if name=='backup-boot-model':
@@ -180,6 +188,8 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
                 'backup-plan','rescue-plan','fat-boot')]
+        if destination/'backup.obj' in extra:
+            extra.append(destination/'backup-format.obj')
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -220,6 +230,8 @@ def build(kind='rescue',language='en'):
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,
         host_executable_sha256=dict(nasm=sha256(nasm),wcc=sha256(wcc),wlink=sha256(wlink)),memory=memory,artifacts=artifacts,hdd_cases=HDD_CASES)
     example=destination/'synthetic-container.rbb';example.write_bytes(backup_sources()[0]);remember(example)
+    manifest['backup_encode_model']=dict(cases=encode_cases(),assertions=encode_assertions(),
+        scope='metadata-sector encoding only; explicit payload CRC claims, no source capture or disk writes')
     manifest['backup_model']=dict(cases=backup_cases(),assertions=3*len(backup_cases()),
         scope='container-integrity-only; synthetic data, no live media match or restore')
     example=destination/'synthetic-records.rbb';example.write_bytes(record_fixture());remember(example)

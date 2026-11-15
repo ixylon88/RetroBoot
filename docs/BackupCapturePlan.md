@@ -81,6 +81,20 @@ failure remains at `0x00020001`. No file is created or disk written in either te
 
 ## Manual evidence
 
+After PR #32 was merged at `29b3f4b723161e48d326b4c9352107147ead2da8`,
+German VirtualBox results reported on 15 November 2026 confirmed the
+installation-reference check. The intact target shows green F5 and both F6
+pages: zero diagnostic/error fields, eight ranges, two volumes, 39 live /
+45 estimated sectors and 23,040 bytes. All eight displayed ranges match the
+fixture, including `RBCFG.B` at `0x00001939`, `RBSTATE.A` at `0x00001A01`
+and `RBSTATE.B` at `0x00001AC9` on page two. The deliberately wrong-reference
+target shows F5 `0x0004 / 0x000B / 0x0000` and F6
+`0x0000 / 0x0002 / 0x000B / 0x0000`, both at target LBA `0x00020000`.
+F5 identity/layout fields and F6 ranges/counts/size/pages are blank on failure.
+Exact artifact revision, boot medium, VM/BIOS versions, F4 and complete
+Enter/Esc sequence were not separately established. The supplied five images
+were discarded after retaining this text evidence.
+
 After PR #31, English VirtualBox screenshots confirmed the intact target's
 F4/F5/F6 success: all diagnostic/error fields zero; F6 has eight ranges,
 two volumes, 39 live / 45 estimated container sectors and 23,040 bytes, with
@@ -91,8 +105,8 @@ LBA `0x00020001`, no retained ranges). The target variants were clarified
 in the report. Exact artifact revision, boot medium, VM/BIOS versions,
 page two and complete Enter/Esc sequence were not separately established.
 The supplied screenshots were discarded after retaining this text evidence.
-This confirms the buffer-reuse baseline; the new installation-reference
-rejection still requires its own manual check.
+This earlier report confirms the buffer-reuse baseline; installation-reference
+evidence is recorded separately above.
 
 On 15 November 2026, the expanded full boot-area checks were also reported
 successful under VirtualBox. The German good-target screenshot shows the green

@@ -15,6 +15,7 @@ try:
     from .test_menu import Qmp, screen_rows, wait_marker
     from .test_hdd import check_bios_route
     from .backup_vectors import cases as backup_cases
+    from .backup_encode_vectors import assertions as encode_assertions
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .backup_boot_vectors import cases as boot_cases
     from .backup_record_vectors import cases as record_cases
@@ -26,6 +27,7 @@ except ImportError:
     from test_menu import Qmp, screen_rows, wait_marker
     from test_hdd import check_bios_route
     from backup_vectors import cases as backup_cases
+    from backup_encode_vectors import assertions as encode_assertions
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from backup_boot_vectors import cases as boot_cases
     from backup_record_vectors import cases as record_cases
@@ -125,6 +127,7 @@ def scenarios():
             ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),('rescue-file-model','RB RESCUE FILE PASS'),
             ('backup-target-model','RB BACKUP TARGET PASS'),
             ('backup-plan-model','RB BACKUP PLAN PASS'),
+            ('backup-encode-model','RB BACKUP ENCODE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -189,7 +192,7 @@ def main():
                 # Complete boot-area fault/boundary vectors stream substantially
                 # more model sectors; ordinary startup/UI deadlines stay at 15s.
                 wait_marker(process,log,case.get('marker','RB RESCUE READY'),
-                    timeout=60 if name=='backup-plan-model' else 15)
+                    timeout=60 if name in ('backup-plan-model','backup-encode-model') else 15)
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0
@@ -232,6 +235,17 @@ def main():
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
                         if not match:raise ValueError('Missing target-model read evidence')
                         check_target_reads([int(x,16) for x in match[1].split(',') if x])
+                    if case['name']=='backup-encode-model':
+                        marker=f'H={encode_assertions():04X}'
+                        if marker not in log.read_text():raise ValueError('Missing native metadata-encoder assertions')
+                        paths={k:out/f'{name}-{k}.bin' for k in ('ram','vga')}
+                        for k,address,length in (('ram',0x10000,0x10000),('vga',0xB8000,4000)):
+                            qmp.call('pmemsave',{'val':address,'size':length,'filename':str(paths[k])})
+                        check_memory(paths['ram'].read_bytes(),(source/(name+'.bin')).read_bytes(),manifest['memory'][name],zero_bss=False)
+                        visible='\n'.join(screen_rows(paths['vga'].read_bytes()))
+                        if marker not in visible or 'RB BACKUP ENCODE PASS' not in visible or '!' in visible:
+                            raise ValueError('Metadata-encoder result is not visible on VGA')
+                        (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
                     if case['name']=='backup-plan-model':
                         if f'G={plan_assertions():04X}' not in log.read_text():raise ValueError('Missing native capture-plan assertions')
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
