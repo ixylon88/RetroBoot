@@ -139,17 +139,47 @@ static rb_u16 diagnostic(void)
     return 0;
 }
 
+/* Successful boot checking must retain all claims for the subsequent F5
+   target comparison, even after every record-sector buffer was reused. */
+static rb_u16 correct_claims(const rb_backup *b)
+{
+    rb_u16 i, j;
+    const rb_u8 *p;
+    const rb_backup_extent *e;
+    if (guarded.value.status) { return b == (const rb_backup *)0; }
+    if (!b || b->generation != dword(metadata + 16) || b->disk_id != dword(metadata + 20)
+            || b->layout_crc != dword(metadata + 24) || b->admin_start != dword(metadata + 28)
+            || b->admin_sectors != dword(metadata + 32) || b->count != word(metadata + 36)
+            || b->route != word(metadata + 40) || b->heads != word(metadata + 42)
+            || b->sectors_per_track != word(metadata + 44) || b->capacity_low != dword(metadata + 48)
+            || b->capacity_high != dword(metadata + 52)) { return 0; }
+    for (i = 0; i < 16; ++i) { if (b->media_id[i] != metadata[56 + i]) { return 0; } }
+    for (i = 0; i < RB_BACKUP_MAX; ++i) {
+        e = &b->entries[i]; p = metadata + 512 + i * 32;
+        if (i < b->count) {
+            if (e->kind != word(p) || e->index != word(p + 2) || e->lba != dword(p + 4)
+                    || e->sectors != dword(p + 8) || e->file_sector != dword(p + 12)
+                    || e->crc != dword(p + 16) || e->owner_start != dword(p + 20)
+                    || e->owner_sectors != dword(p + 24)) { return 0; }
+        } else {
+            for (j = 0; j < sizeof(*e); ++j) { if (((const rb_u8 *)e)[j]) { return 0; } }
+        }
+    }
+    return 1;
+}
+
 rb_u16 __cdecl rb_backup_boot_selftest(void)
 {
     rb_u16 test, i, failures = 0, count = 0;
     rb_backup_boot *r = &guarded.value;
+    const rb_backup *claims;
     const rb_u16 *v;
     for (test = 0; test < sizeof(boot_vectors) / sizeof(boot_vectors[0]); ++test) {
         v = boot_vectors[test]; source = v[0]; first_patch = v[1]; patch_count = v[2];
         prepare(); calls = bad_read = 0; io_at = v[3]; change_at = v[4];
         guarded.before = 0x12345678UL; guarded.after = 0x87654321UL;
         for (i = 0; i < sizeof(*r); ++i) { ((rb_u8 *)r)[i] = 0xA5; }
-        rb_backup_check_boot(r, read_mock, metadata, seed_sources[source][1]);
+        claims = rb_backup_open_boot(r, read_mock, metadata, seed_sources[source][1]);
         ++count;
         if (r->status != v[5] || r->detail != v[6]) {
             ++failures; rb_debug_putc('!'); hex(test); rb_debug_putc(':'); hex(r->status); rb_debug_putc('/'); hex(r->detail);
@@ -166,6 +196,8 @@ rb_u16 __cdecl rb_backup_boot_selftest(void)
         ++count;
         if (!diagnostic() || r->kind != v[9] || r->index != v[10]
                 || r->error_lba != ((rb_u32)v[11] | ((rb_u32)v[12] << 16))) { ++failures; }
+        ++count;
+        if (!correct_claims(claims)) { ++failures; }
     }
     rb_debug_putc('D'); rb_debug_putc('='); hex(count); rb_debug_putc('\r'); rb_debug_putc('\n');
     return failures;

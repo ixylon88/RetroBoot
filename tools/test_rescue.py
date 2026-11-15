@@ -225,7 +225,7 @@ def main():
                     if case['name']=='rescue-model' and 'R=001C' not in log.read_text():raise ValueError('Missing native rescue assertions')
                     if case['name']=='backup-model' and f'B={3*len(backup_cases()):04X}' not in log.read_text():raise ValueError('Missing native backup assertions')
                     if case['name']=='backup-records-model' and f'C={4*len(record_cases()):04X}' not in log.read_text():raise ValueError('Missing native saved-record assertions')
-                    if case['name']=='backup-boot-model' and f'D={5*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')
+                    if case['name']=='backup-boot-model' and f'D={6*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')
                     if case['name']=='rescue-file-model' and 'E=0020' not in log.read_text():raise ValueError('Missing native file assertions')
                     if case['name']=='backup-target-model':
                         if f'F={TARGET_ASSERTIONS:04X}' not in log.read_text():raise ValueError('Missing native target assertions')

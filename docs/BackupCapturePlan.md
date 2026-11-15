@@ -59,6 +59,18 @@ from installation-state F6 in the HDD program, whose title is **RetroBoot**.
 
 ## Manual evidence
 
+On 15 November 2026, the expanded full boot-area checks were also reported
+successful under VirtualBox. The German good-target screenshot shows the green
+confirmation, four zero codes, zero error LBA/index, eight ranges, two volumes,
+39 live / 45 estimated sectors, 23,040 bytes and page one of two. Its five
+visible ranges match the fixture. The bad-FSInfo screenshot shows the yellow
+rejection, codes `0x0000 / 0x0009 / 0x0007 / 0x0001`, LBA `0x00020001`, zero
+index, and blank ranges/counts/size/pages. The distinct result colors were
+reported as helpful. Exact workflow/image revision, boot medium, VM/BIOS
+versions, page two, repeats/Esc and no-HDD behavior were not separately
+established for this report. The supplied images were discarded after retaining
+this text evidence.
+
 On 15 November 2026, the preceding F6 range-preview increment was reported
 successful under VirtualBox. Two German screenshots show both pages, four zero
 diagnostic codes, zero error LBA/index, eight ranges, two volumes, 39 live /
@@ -66,7 +78,7 @@ diagnostic codes, zero error LBA/index, eight ranges, two volumes, 39 live /
 match the synthetic fixture. Exact workflow/image revision, boot medium,
 VM/BIOS versions, Enter/F6 repeats, Esc and no-HDD behavior were not separately
 established. The supplied images were discarded after retaining this text.
-This confirms the preceding preview, not the new full boot-area checks.
+That earlier report confirms the preceding preview only.
 
 The earlier standalone model's `G=0157` and `RB BACKUP PLAN PASS` were reported
 from VirtualBox on 14 November 2026. The long visible address trace accompanied

@@ -49,7 +49,7 @@ static rb_u16 __cdecl read_table(rb_u32 lba, rb_u8 *out, void *opaque)
         e = &saved.container.entries[i];
         if (e->lba == lba && e->kind == (lba ? RB_BACKUP_EBR : RB_BACKUP_APPROVED)) {
             if (read_record(e, out)) { return 1; }
-            if (!lba) { for (i = 0; i < 512; ++i) { saved.mbr[i] = out[i]; } }
+            if (!lba) { for (i = 0; i < 512; ++i) { saved.scratch.records.mbr[i] = out[i]; } }
             return 0;
         }
     }
@@ -73,13 +73,13 @@ static rb_u16 load_pair(rb_backup_records *r, rb_u16 kind, const rb_partition *a
     rb_u8 *data;
     for (i = 0; i < 2; ++i) {
         e = find(kind + i); /* Required singleton roles were checked by container validation. */
-        if (read_record(e, i ? saved.b : saved.a)) { read_failure(r); return 1; }
+        if (read_record(e, i ? saved.scratch.records.b : saved.scratch.records.a)) { read_failure(r); return 1; }
     }
     if (kind == RB_BACKUP_CONFIG_A) {
-        rb_config_select(&saved.config, saved.a, saved.b, 3, &saved.scan, admin);
+        rb_config_select(&saved.config, saved.scratch.records.a, saved.scratch.records.b, 3, &saved.scan, admin);
         status = saved.config.status;
     } else {
-        rb_state_select(&saved.state, saved.a, saved.b, 3, &saved.scan, admin);
+        rb_state_select(&saved.state, saved.scratch.records.a, saved.scratch.records.b, 3, &saved.scan, admin);
         status = saved.state.status;
     }
     for (i = 0; i < 2; ++i) {
@@ -95,7 +95,7 @@ static rb_u16 load_pair(rb_backup_records *r, rb_u16 kind, const rb_partition *a
         return 1;
     }
     for (i = 0; i < 2; ++i) {
-        data = i ? saved.b : saved.a; e = find(kind + i);
+        data = i ? saved.scratch.records.b : saved.scratch.records.a; e = find(kind + i);
         if (kind == RB_BACKUP_CONFIG_A && (data[8] != 2 || data[9])) {
             fail(r, RB_BREC_IDENTITY, 1, kind + i, 0, e->lba); return 1;
         }
@@ -124,8 +124,8 @@ void rb_backup_check_records(rb_backup_records *r, rb_sector_reader read,
     if (saved.scan.status) {
         fail(r, RB_BREC_LAYOUT, saved.scan.status, saved.kind, saved.index, saved.scan.error_lba); return;
     }
-    if (!equal(saved.mbr + 432, (const rb_u8 *)"RBM1", 4)
-            || dword(saved.mbr + 436) != saved.container.admin_start) {
+    if (!equal(saved.scratch.records.mbr + 432, (const rb_u8 *)"RBM1", 4)
+            || dword(saved.scratch.records.mbr + 436) != saved.container.admin_start) {
         fail(r, RB_BREC_ADMIN, 0, RB_BACKUP_APPROVED, 0, 0); return;
     }
     for (i = 4; i < saved.scan.count; ++i) {
@@ -186,9 +186,9 @@ void rb_backup_check_records(rb_backup_records *r, rb_sector_reader read,
     r->config_generation = saved.config.config.generation; r->state_generation = saved.state.state.generation;
 }
 
-const rb_backup_saved *rb_backup_open_records(rb_backup_records *r,
+rb_backup_saved *rb_backup_open_records(rb_backup_records *r,
     rb_sector_reader read, void *opaque, rb_u32 size)
 {
     rb_backup_check_records(r, read, opaque, size);
-    return r->status ? (const rb_backup_saved *)0 : &saved;
+    return r->status ? (rb_backup_saved *)0 : &saved;
 }

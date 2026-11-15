@@ -78,15 +78,56 @@ Semantic errors can be reported before the encompassing extent CRC is complete;
 no successful result can bypass that CRC. Reread checks detect changed content
 but do not establish atomic acquisition or cryptographic authenticity.
 
+## Shared sector-buffer lifetime
+
+Saved-record validation finishes before saved boot-area validation begins.
+The private [`rb_backup_saved`](../core/backup_saved.h) context expresses these
+non-overlapping phases with one union:
+
+| Record phase | Subsequent boot phase |
+| --- | --- |
+| MBR sector | Current streamed sector |
+| A record sector | Retained first VBR |
+| B record sector | Retained primary continuation |
+
+The record bytes are no longer needed once the decoded container, partition
+scan and selected configuration/state have passed their checks. Those decoded
+values and the reader context stay outside the union. F5 therefore retains
+valid container claims throughout the later live-target comparison. No live
+target or F6 workspace overlaps this saved-file context.
+
+Opening records clears the entire context, including after a failed boot check.
+The boot phase fills its current sector and first VBR before parsing; a valid
+FAT32 layout requires the primary continuation before any backup comparison.
+The callback for volume probing borrows the retained VBR only during its
+synchronous call. Reentrancy remains unsupported, and returned claims expire
+at the next saved-record/boot check.
+
+This removes 1,536 BSS bytes without moving sector buffers onto the stack.
+The normal payload grows by 62 bytes, so the net static-memory gain is 1,474
+bytes. German headroom below the fixed stack guard grows from 578 to 2,052
+bytes. Every rescue build now enforces a 1,536-byte minimum reserve and reports
+the measured gap in its manifest. [Project state](Arbeitsstand.md) records both
+languages; the reserve does not measure worst-case stack use.
+
 ## Evidence and remaining work
 
 Six added host tests verify literal structures, valid outer/inner checksums in
 semantic counterexamples, sparse native-vector transfer, stale FSInfo hints,
 fault placement and the non-executable nature of the examples. There are
-161 host tests at PR #21; the current file-access increment brings the total to 167. The new native model has 65 scenarios / 325 assertions
+161 host tests at PR #21; the file-access increment raised the total to 167.
+The PR #21 native model had 65 scenarios / 325 assertions
 per language (`D=0145`, `RB BACKUP BOOT PASS`), including reversed split extents,
 FAT16 reserved regions, absent/relocated FAT32 backups, late logical-volume
 failure, selected/older READY CRCs and reads/changes beyond 64 KiB.
+
+The buffer-reuse increment extends this to 66 scenarios / 396 assertions
+(`D=018C`, `RB BACKUP BOOT PASS`). Every case also checks the returned claims:
+all decoded header/descriptor fields and unused descriptor slots survive a
+successful boot check, while failures return no claims. A successful reopen
+after a late read-change failure uses distinct nonzero primary/backup VBR and
+continuation bytes. Host tests independently check that fixture and both sides
+of the static-memory reserve boundary; the project total is now 192.
 
 At PR #21, native model payloads were 32,072 bytes EN / 32,140 bytes DE; BSS ended at
 42,226 / 42,294, below the 57,344 stack guard. Normal rescue payloads then remained

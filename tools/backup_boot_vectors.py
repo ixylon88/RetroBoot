@@ -138,6 +138,10 @@ def cases():
     long_begin=len(seeds[3])//512+6
     add('over-64k-last-read-error',2,source=3,io=long_begin+130,lba=131201)
     add('over-64k-last-source-change',3,source=3,change=long_begin+130)
+    # Reopen after a late failure. Distinct nonzero copies expose aliasing of
+    # the current sector, retained VBR and retained continuation buffers.
+    add('reopen-with-nonzero-boot-copies',edits=[(b+rel*512+100,1,value)
+        for rel,value in ((0,0xCC),(6,0xCC),(2,0xA5),(8,0xA5))])
     return result
 
 

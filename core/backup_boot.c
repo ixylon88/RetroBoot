@@ -3,7 +3,7 @@
 #include "volume.h"
 #include "fat_boot.h"
 
-static rb_u8 sector[512], first[512], continuation[512];
+typedef struct { rb_u32 lba; const rb_u8 *data; } rb_saved_first;
 
 static rb_u16 word(const rb_u8 *p) { return p[0] | ((rb_u16)p[1] << 8); }
 static void copy(rb_u8 *out, const rb_u8 *in)
@@ -47,9 +47,9 @@ static const rb_backup_extent *find(const rb_backup_saved *s, rb_u32 lba, rb_u32
     return (const rb_backup_extent *)0;
 }
 static rb_u16 read_sector(rb_backup_boot *r, const rb_backup_saved *s,
-                         const rb_backup_extent *e, rb_u32 offset)
+                         const rb_backup_extent *e, rb_u32 offset, rb_u8 *out)
 {
-    if (s->read(e->file_sector + offset, sector, s->opaque)) {
+    if (s->read(e->file_sector + offset, out, s->opaque)) {
         fail(r, RB_BBOOT_IO, 0, e->index, e->lba + offset); return 1;
     }
     return 0;
@@ -57,15 +57,17 @@ static rb_u16 read_sector(rb_backup_boot *r, const rb_backup_saved *s,
 /* The volume parser receives the already captured first sector. */
 static rb_u16 __cdecl read_first(rb_u32 lba, rb_u8 *out, void *opaque)
 {
-    const rb_partition *p = (const rb_partition *)opaque;
-    if (lba != p->start) { return 1; }
-    copy(out, first); return 0;
+    const rb_saved_first *first = (const rb_saved_first *)opaque;
+    if (lba != first->lba) { return 1; }
+    copy(out, first->data); return 0;
 }
 const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque, rb_u32 size)
 {
     rb_backup_records records;
     rb_volume_probe volume;
-    const rb_backup_saved *s;
+    rb_backup_saved *s;
+    rb_saved_first captured;
+    rb_u8 *sector, *first, *continuation;
     const rb_backup_extent *e, *start;
     const rb_partition *p;
     const rb_installation *installation;
@@ -77,13 +79,19 @@ const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, v
         fail(r, RB_BBOOT_RECORDS, records.status, records.index, records.error_lba);
         r->kind = records.kind; r->record_detail = records.detail; return (const rb_backup *)0;
     }
+    /* No record-sector byte is used after the successful record check.
+       Each boot buffer is filled before use, including after a failed call. */
+    sector = s->scratch.boot.sector; first = s->scratch.boot.first;
+    continuation = s->scratch.boot.continuation;
+    captured.data = first;
     for (i = 0; i < s->scan.count; ++i) {
         p = &s->scan.entries[i];
         if (!p->type || p->type == 5 || p->type == 15) { continue; }
         start = find(s, p->start, p->start); /* Checked by the record layer. */
-        if (read_sector(r, s, start, 0)) { return (const rb_backup *)0; }
+        if (read_sector(r, s, start, 0, sector)) { return (const rb_backup *)0; }
         copy(first, sector);
-        code = rb_probe_volume(&volume, p, read_first, (void *)p,
+        captured.lba = p->start;
+        code = rb_probe_volume(&volume, p, read_first, &captured,
             s->container.capacity_low, s->container.capacity_high);
         if (code) { fail(r, RB_BBOOT_VOLUME, code, start->index, p->start); return (const rb_backup *)0; }
         reserved = word(first + 14); backup = 0;
@@ -116,7 +124,7 @@ const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, v
             for (offset = 0; offset < e->sectors; ++offset) {
                 relative = cursor + offset - p->start;
                 if (!relative) { copy(sector, first); }
-                else if (read_sector(r, s, e, offset)) { return (const rb_backup *)0; }
+                else if (read_sector(r, s, e, offset, sector)) { return (const rb_backup *)0; }
                 crc = crc_update(crc, sector);
                 if (volume.fat_bits != 32) { continue; }
                 if (relative == 1 || (backup && relative == (rb_u32)backup + 1)) {

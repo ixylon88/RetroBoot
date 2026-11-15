@@ -39,6 +39,7 @@ except ImportError:
 
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
+MIN_HEADROOM_BYTES = 1536
 HDD_CASES = {
     'metadata-only': dict(layout=0,entries=5,ebrs=1,marker=1),
     'unknown-code': dict(layout=0,entries=5,ebrs=1,marker=0),
@@ -65,6 +66,14 @@ def inspect_payload(data):
 def seal_payload(data):
     inspect_payload(data);result=bytearray(data)
     struct.pack_into('<I',result,12,zlib.crc32(result[32:]));return bytes(result)
+
+def check_headroom(header):
+    # Build reserve below the fixed stack guard, not additional stack space.
+    remaining = header['stack_low'] - header['bss_end']
+    if remaining < MIN_HEADROOM_BYTES:
+        raise ValueError(f'Rescue static-memory headroom {remaining} bytes; '
+                         f'at least {MIN_HEADROOM_BYTES} required')
+    return remaining
 
 def fat12_set(fat,cluster,value):
     if not 0<=cluster<2849 or not 0<=value<=0xFFF:raise ValueError('FAT12 entry outside fixture')
@@ -180,7 +189,8 @@ def build(kind='rescue',language='en'):
                 or symbols['rb_bss_begin']!=header['bss_begin'] or symbols['rb_bss_end']!=header['bss_end']
                 or not 32<=symbols['_rb_rescue_initialized']<=len(data)-2
                 or not header['bss_begin']<=symbols['_rb_rescue_bss']<=header['bss_end']-32):raise ValueError('Rescue map/header mismatch')
-        memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols)
+        memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
+            headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
     payload=(destination/'retroboot-rescue.bin').read_bytes()
     bad=bytearray(payload);struct.pack_into('<H',bad,memory['retroboot-rescue']['symbols']['_rb_rescue_initialized'],0xDEAD)
@@ -222,7 +232,7 @@ def build(kind='rescue',language='en'):
         cases=plan_cases(),scope='preliminary live ranges and complete FAT boot-area checks; no backup file, MBR approval or restore')
     manifest['rescue_match_cases']=match_specs()
     manifest['rescue_plan_cases']=plan_specs()
-    manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),
+    manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=6*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     print(f'Built {destination.name}: FAT12 1440 KiB, payload {len(payload)} bytes; no HDD loader dependency',flush=True)
