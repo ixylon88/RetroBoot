@@ -4,6 +4,18 @@ Updated: 15 November 2026.
 
 ## Saved baseline
 
+PR #30 (complete live FAT boot-area validation) is merged into `historical` at
+`09ebfccf4825eccfc134c7014e14e1659d882d7c`. All four PR checks passed. Published
+rescue files, four ISOs and all 14 case/read/VGA reports matched local results
+(298 boots / 2,310 states). On 15 November 2026, German VirtualBox results
+confirmed both the green good-target F6 page and the yellow bad-FSInfo rejection.
+The good page has four zero codes, eight ranges and 23,040 estimated bytes;
+the bad page has `0x0000 / 0x0009 / 0x0007 / 0x0001`, LBA `0x00020001`, and
+blank ranges/size. The [F6 evidence](BackupCapturePlan.md#manual-evidence)
+records the reported scope. Exact revision, boot medium, VM/BIOS versions,
+page two, repeats/Esc and no-HDD behavior were not separately established for
+this report. The supplied images were discarded after retaining text evidence.
+
 PR #29 (live rescue F6 preview) is merged into `historical` at
 `4b4ee977a7ea8d6fc663df754a64ff7fbdad60e3`. All four PR checks passed;
 published rescue files, four ISOs and all 14 case/read/VGA reports matched
@@ -80,9 +92,48 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: complete live FAT boot-area checks
+## Current increment: reuse saved-check sector buffers
 
-Branch `codex/capture-boot-validation` strengthens the existing rescue F6 path.
+Branch `codex/rescue-buffer-reuse` addresses the narrow static-memory margin
+before further rescue features. Saved-record checking and subsequent saved FAT
+boot-area checking share three 512-byte buffers in an explicit union. The
+record phase completes before the boot phase starts. Container descriptors,
+partition scan, selected config/state and reader context remain separate and
+valid for F5. Every new record check clears the complete context; each boot
+buffer is filled before use. The existing non-reentrant contract remains.
+
+| Normal rescue measure | PR #30 EN / DE | Current EN / DE |
+| --- | --- | --- |
+| Payload bytes | 34,146 / 34,410 | 34,208 / 34,472 |
+| BSS bytes | 22,356 / 22,356 | 20,820 / 20,820 |
+| BSS end | 56,502 / 56,766 | 55,028 / 55,292 |
+| Gap below stack guard | 842 / 578 | 2,316 / 2,052 |
+
+The 1,536-byte BSS reduction costs 62 payload bytes, leaving 1,474 bytes more
+static-memory headroom. The fixed 8 KiB stack and its guard at `0xE000` remain
+unchanged. Builds now require at least 1,536 bytes below that guard and record
+`headroom_bytes` for every native rescue variant. This is a build reserve,
+not a stack-usage measurement or a changed image-format requirement.
+
+Host coverage is 192 tests plus the reference layout. The saved-boot model has
+66 scenarios / 396 assertions (`D=018C`): all successful returned container
+claims and unused descriptor slots are checked after scratch reuse; failures
+must return no claims. A new successful reopen immediately follows a late
+failure and uses distinct nonzero VBR/continuation copies. The existing rescue
+campaign covers 298 boots / 2,310 states, including F4/F5/F6 transitions,
+repeats, exact reads, VGA, memory guards and zero-write checks. Validation and
+published artifact evidence are recorded in the PR.
+
+Manual regression uses the current demo rescue floppy or ISO and the matching
+good target HDD: F4, F5, F6, then F4 and Enter again should remain green; Esc
+returns to diagnosis. There is no new key or visible feature in this increment.
+The [saved-check lifetime](BackupBootAreas.md#shared-sector-buffer-lifetime)
+explains the bounded reuse. The frozen specification, HDD implementation,
+disk formats and read-only scope are unchanged.
+
+## Complete live FAT boot-area baseline (PR #30)
+
+Merged PR #30 strengthens the existing rescue F6 path.
 After the entire range plan fits, every supported FAT reserved sector is read.
 FAT32 FSInfo structures, primary/backup boot copies and selected READY
 first-VBR CRC claims must agree with the supported rules. Two complete passes
@@ -96,8 +147,8 @@ The published `retroboot-rescue-bad-fsinfo-hdd.img` supplies a simple negative
 VirtualBox check: F6 codes `0x0000 / 0x0009 / 0x0007 / 0x0001`, error LBA
 `0x00020001`, with ranges and size blank. Both targets are synthetic and
 nonbootable. The [F6 procedure](BackupCapturePlan.md#manual-virtualbox-check)
-identifies the exact good/bad files and the boot medium. Manual confirmation
-of these expanded checks remains pending.
+identifies the exact good/bad files and the boot medium. German confirmation
+of both results is recorded in the saved baseline above.
 
 The workflow display name is now **BIOS ABI and Rescue** (formerly **BIOS ABI
 probe**). The workflow file and `bios-probe` job/check remain unchanged.
@@ -120,10 +171,10 @@ mutation after success verifies stale-result clearing. Full rescue scope is
 unchanged source media and zero guest writes checked. Published CI and artifact
 verification are recorded in the PR.
 
-Both rescue languages reproduce. Payloads are 34,146 / 34,410 bytes EN/DE;
-BSS ends at 56,502 / 56,766, below the 57,344 stack guard. The German margin
-is now only **578 bytes**; further native features need an explicit memory
-budget review. Full-area scratch uses two bounded sector buffers on the
+At PR #30, both rescue languages reproduced. Payloads were 34,146 / 34,410
+bytes EN/DE; BSS ended at 56,502 / 56,766, below the 57,344 stack guard.
+The German margin of only **578 bytes** prompted the current buffer-reuse
+increment. Full-area scratch uses two bounded sector buffers on the
 existing guarded 8 KiB stack, alongside the unchanged 908-byte display result.
 The frozen specification, HDD implementation and disk formats are unchanged.
 Original-MBR provenance, current-MBR approval, serialization, export and

@@ -4,7 +4,7 @@ import struct
 import unittest
 import zlib
 
-from tools.build_rescue import fat12_set, hdd_fixture, inspect_payload, make_image, seal_payload
+from tools.build_rescue import check_headroom, fat12_set, hdd_fixture, inspect_payload, make_image, seal_payload
 from tools.rescue_text import load_catalog, output_name, render_header, unique_keys, validate
 from tools.test_rescue import check_screen, expected_reads, trace_reads
 
@@ -86,6 +86,17 @@ class RescueToolsTests(unittest.TestCase):
         self.assertEqual(hdd_fixture('erased-mbr')[1][0],bytes(512))
         self.assertEqual(hdd_fixture('loop-ebr')[1][63*512][466],5)
         with self.assertRaises(ValueError):hdd_fixture('../disk')
+
+    def test_static_memory_reserve_is_enforced_at_its_boundary(self):
+        header=inspect_payload(payload())
+        header.update(bss_end=0xDA00)
+        self.assertEqual(check_headroom(header),1536)
+        header.update(bss_end=0xD9FF)
+        self.assertEqual(check_headroom(header),1537)
+        for end in (0xDA01,0xE000):
+            header.update(bss_end=end)
+            with self.subTest(end=end),self.assertRaisesRegex(ValueError,'headroom'):
+                check_headroom(header)
 
     def test_read_oracle_and_failed_screen_reject_stale_evidence(self):
         self.assertEqual(expected_reads({},0),[0,63,0])

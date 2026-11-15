@@ -55,6 +55,19 @@ class BackupBootTests(unittest.TestCase):
         self.assertEqual(sector(data,0),sector(data,6))
         self.assertEqual(sector(data,2),sector(data,8))
 
+    def test_reopening_after_late_failure_uses_distinct_boot_copies(self):
+        vectors=cases()
+        self.assertEqual(vectors[-2]['name'],'over-64k-last-source-change')
+        self.assertNotEqual(vectors[-2]['status'],0)
+        case=vectors[-1]
+        self.assertEqual(case['name'],'reopen-with-nonzero-boot-copies')
+        self.assertEqual(case['status'],0)
+        data=materialize(case)
+        self.assertEqual([sector(data,r)[100] for r in (0,6,2,8)],[0xCC,0xCC,0xA5,0xA5])
+        self.assertEqual(sector(data,0),sector(data,6))
+        self.assertEqual(sector(data,2),sector(data,8))
+        self.assertEqual(struct.unpack_from('<I',data,payload(data,7)+84)[0],zlib.crc32(sector(data,0)))
+
     def test_sparse_native_seeds_and_mutations_round_trip(self):
         model=model_data()
         pools=[]
