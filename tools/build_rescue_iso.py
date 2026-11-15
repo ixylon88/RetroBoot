@@ -23,6 +23,7 @@ README = b'''RetroBoot Rescue - BIOS CD
 Boot this ISO as a CD/DVD in a BIOS VM. No VDI conversion is needed.
 The BIOS presents the embedded 1.44 MiB image as floppy A:.
 Enter: HDD diagnosis. F4: saved-file check. F5: saved/current HDD comparison.
+F6: preliminary backup read plan and complete FAT boot-area checks; no writes.
 The demo contains synthetic RBBACKUP.RBB metadata; the normal image does not.
 The demo's matching HDD is retroboot-rescue-target-hdd.img, supplied separately.
 No restore, installation or OS start is provided. EFI boot is unsupported.

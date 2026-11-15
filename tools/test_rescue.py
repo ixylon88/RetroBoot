@@ -185,7 +185,11 @@ def main():
         screens=[];expected=[];expected_floppy=[];file_attempt=0;first_low=None;previous_low=None;initial_trace=''
         with err.open('w') as errors,subprocess.Popen(invocation,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=errors,text=True,bufsize=1) as process:
             try:
-                qmp=Qmp(process);wait_marker(process,log,case.get('marker','RB RESCUE READY'))
+                qmp=Qmp(process)
+                # Complete boot-area fault/boundary vectors stream substantially
+                # more model sectors; ordinary startup/UI deadlines stay at 15s.
+                wait_marker(process,log,case.get('marker','RB RESCUE READY'),
+                    timeout=60 if name=='backup-plan-model' else 15)
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0

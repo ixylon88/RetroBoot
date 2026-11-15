@@ -23,11 +23,11 @@ class RescuePlanTests(unittest.TestCase):
         self.assertEqual(sum(count for _,_,count in ranges()),39)
         self.assertEqual((39+6)*512,23040)
 
-    def test_plan_reads_only_first_vbr_and_discovers_twice(self):
+    def test_plan_reads_complete_boot_areas_and_discovers_twice(self):
         cases=specs();reads=hdd_reads(cases['plan'])
-        self.assertEqual(len(reads),2122)
-        self.assertEqual(reads,(acquisition()*2+[SYSTEM,126,0])*2)
-        self.assertTrue(set(range(SYSTEM+1,SYSTEM+32)).isdisjoint(reads))
+        self.assertEqual(len(reads),2188)
+        self.assertEqual(reads,(acquisition()*2+[SYSTEM,126,*range(SYSTEM,SYSTEM+32),126,0])*2)
+        self.assertNotIn(SYSTEM+32,reads)
         calls=['41','48']+['42']*len(reads)+['41','48']
         text=lambda c:''.join('@'+n+'\n' for n in c)
         check_discovery(text(calls),cases['plan'])
@@ -38,8 +38,8 @@ class RescuePlanTests(unittest.TestCase):
         self.assertEqual(hdd_reads(cases['vbr-io']),acquisition()*2+[SYSTEM]*3)
         self.assertEqual(hdd_reads(cases['failed-reprobe']),reads)
 
-    def test_unread_reserved_sector_cannot_be_certified_by_this_plan(self):
-        size,good=disk();length,bad=disk('reserved-unread')
+    def test_bad_fsinfo_is_rejected_at_its_physical_sector(self):
+        size,good=disk();length,bad=disk('bad-fsinfo')
         self.assertEqual(size,length)
         self.assertNotEqual(good[SYSTEM*512],bad[SYSTEM*512])
         def sector(extents,lba):
@@ -47,8 +47,13 @@ class RescuePlanTests(unittest.TestCase):
                 offset=lba*512-at
                 if 0<=offset<len(block):return block[offset:offset+512]
             return bytes(512)
-        for lba in set(hdd_reads(specs()['plan'])):
+        failure=specs()['bad-fsinfo'];reads=hdd_reads(failure)
+        self.assertEqual((failure['status'],failure['detail'],failure['nested'],failure['lba']),(9,7,1,SYSTEM+1))
+        self.assertEqual(len(reads),1062)
+        self.assertEqual(reads[-1],SYSTEM+1)
+        for lba in set(reads[:-1]):
             self.assertEqual(sector(good,lba),sector(bad,lba))
+        self.assertNotEqual(sector(good,reads[-1]),sector(bad,reads[-1]))
 
     def test_failed_page_rejects_any_retained_size_or_range(self):
         for language in ('en','de'):

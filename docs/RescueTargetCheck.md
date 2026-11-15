@@ -17,7 +17,7 @@ F5-only image still supports F5, but a new conversion is required for F6.
 
 ## Manual VirtualBox check
 
-Use one successful **BIOS ABI probe** run containing the F5 increment. Download
+Use one successful **BIOS ABI and Rescue** run containing the F5 increment. Download
 its **retroboot-rescue-diagnostics** artifact and extract it into a fresh
 build-specific directory. The pair is:
 

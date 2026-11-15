@@ -11,7 +11,7 @@
 enum {
     RB_CAPTURE_OK, RB_CAPTURE_PARAMS, RB_CAPTURE_TARGET, RB_CAPTURE_VOLUME,
     RB_CAPTURE_FAT32_LAYOUT, RB_CAPTURE_LIMIT, RB_CAPTURE_CHANGED,
-    RB_CAPTURE_IO, RB_CAPTURE_RANGE
+    RB_CAPTURE_IO, RB_CAPTURE_RANGE, RB_CAPTURE_BOOT
 };
 
 typedef struct {
@@ -33,8 +33,8 @@ typedef char rb_check_capture_extent[(sizeof(rb_capture_extent) == 20) ? 1 : -1]
 typedef char rb_check_backup_plan[(sizeof(rb_backup_plan) == 908) ? 1 : -1];
 
 /* Preliminary read plan, not a complete backup or any write/boot permission.
-   Two passes compare audited live metadata and the first VBR of each supported
-   FAT volume. Full reserved areas are listed but NOT read or validated here.
+   Two passes compare audited live metadata and complete supported FAT reserved
+   areas, including FSInfo, backup copies and selected READY first-VBR claims.
    Estimated size includes five container sectors and one original-MBR sector;
    original-MBR provenance and approval of the current MBR remain unresolved.
    No payloads, payload CRCs, file offsets or generation are produced.

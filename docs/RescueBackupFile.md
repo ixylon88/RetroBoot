@@ -9,7 +9,7 @@ The operation does not replace the running configuration or installation state.
 
 ## Manual check
 
-The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI probe** workflow
+The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI and Rescue** workflow
 contains two images per language:
 
 | Artifact path | Contents | Expected F4 result |

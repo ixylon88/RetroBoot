@@ -34,6 +34,8 @@ changes; success is not a lease for a later operation.
 `rb_backup_observe_target` exposes the same two-acquisition observation without
 saved claims. Its optional `rb_backup_sources` result contains the validated
 partition scan and config A/B, state A/B addresses from the allocation audit.
+It also projects READY first-VBR claims (start, CRC and original entry index)
+from the selected validated installation-state copy, for full boot-area checks.
 That result is cleared at entry and populated only after both acquisitions
 agree. Missing arguments or invalid devices cause no reads. It requires the
 same non-overlap, stable-source and non-reentrancy preconditions. The

@@ -21,13 +21,21 @@ typedef struct {
 typedef char rb_check_backup_target[(sizeof(rb_backup_target) == 48) ? 1 : -1];
 
 typedef struct {
+    rb_u32 start, vbr_crc;
+    rb_u16 index; /* Index in the selected, validated installation state. */
+} rb_backup_ready;
+
+typedef struct {
     rb_partition_scan scan;
     rb_u32 record_lba[4]; /* Config A/B, state A/B, from the audited allocation. */
+    rb_backup_ready ready[4];
+    rb_u16 ready_count;
 } rb_backup_sources;
 
 /* Independent observation, without saved identity claims. Performs the same
    two acquisitions as the comparison below. Optional sources are published
-   only on success and cleared on failure. Result, sources and inputs must not
+   only on success and cleared on failure, including selected READY VBR claims.
+   Result, sources and inputs must not
    overlap; result is required. No boot-area contents or MBR provenance check. */
 void rb_backup_observe_target(rb_backup_target *result, rb_backup_sources *sources,
     const rb_rescue_device *device, rb_sector_reader read, void *opaque);

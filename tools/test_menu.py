@@ -65,8 +65,8 @@ class Qmp:
         raise ValueError(f"QMP {command} timed out")
 
 
-def wait_marker(process, log, marker):
-    deadline = time.monotonic() + 15
+def wait_marker(process, log, marker, timeout=15):
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         text = log.read_text(encoding="utf-8") if log.exists() else ""
         if marker in text:
