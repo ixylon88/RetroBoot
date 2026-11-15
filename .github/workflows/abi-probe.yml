@@ -1,4 +1,4 @@
-name: BIOS ABI probe
+name: BIOS ABI and Rescue
 
 on:
   pull_request:
@@ -70,6 +70,8 @@ jobs:
             build/rescue-de/backup-plan-model.img
             build/rescue/retroboot-rescue-target-hdd.img
             build/rescue-de/retroboot-rescue-target-hdd.img
+            build/rescue/retroboot-rescue-bad-fsinfo-hdd.img
+            build/rescue-de/retroboot-rescue-bad-fsinfo-hdd.img
             build/rescue/*.bin
             build/rescue-de/*.bin
             build/rescue/*.map

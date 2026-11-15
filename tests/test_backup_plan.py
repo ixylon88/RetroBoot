@@ -22,19 +22,23 @@ class BackupPlanTests(unittest.TestCase):
                 self.assertEqual(struct.unpack_from('<I',data[lba],84)[0],zlib.crc32(data[131072]))
             self.assertEqual(struct.unpack_from('<H',data[131072],14)[0],reserved)
             self.assertEqual(data[0][450],kind or (6 if bits==16 else 11))
+            self.assertTrue(all(131072+i in data for i in range(reserved)))
+            if bits==32:
+                self.assertEqual(data[131078],data[131072])
+                self.assertEqual(data[131080],data[131074])
 
-    def test_two_planning_passes_cover_metadata_and_first_headers_only(self):
+    def test_two_planning_passes_cover_metadata_and_complete_reserved_areas(self):
         reads=expected_reads()
-        self.assertEqual(len(reads),2122)
-        self.assertEqual(reads[:1061],reads[1061:])
+        self.assertEqual(len(reads),2188)
+        self.assertEqual(reads[:1094],reads[1094:])
         self.assertEqual(reads[:529],reads[529:1058])
-        self.assertEqual(reads[1058:1061],[131072,126,0])
-        self.assertEqual(set(reads),{0,63,126,*range(127,631),6257,6457,6657,6857,131072})
-        self.assertTrue(set(reads).isdisjoint({661,697,7057,7257,131073,131078,131103}))
+        self.assertEqual(reads[1058:1094],[131072,126,*range(131072,131104),126,0])
+        self.assertEqual(set(reads),{0,63,126,*range(127,631),6257,6457,6657,6857,*range(131072,131104)})
+        self.assertTrue(set(reads).isdisjoint({661,697,7057,7257,131104}))
 
     def test_oracle_rejects_truncation_reordering_and_extra_payload_reads(self):
         reads=expected_reads();check_reads(reads)
-        for invalid in (reads[:1061],reads[:-1],reads+[131073],
+        for invalid in (reads[:1094],reads[:-1],reads+[131073],
                         reads[:1058]+[126,131072]+reads[1060:],
                         reads[:529]+reads[530:],reads+[7057]):
             with self.assertRaises(ValueError):check_reads(invalid)
@@ -51,7 +55,7 @@ class BackupPlanTests(unittest.TestCase):
         self.assertEqual(restored,{lba:block for lba,block in base.items() if any(block)})
         for alternate in (sectors(16,1),sectors(reserved=2036),{0:bytes(512)}):
             restored=apply(base,patches(base,alternate))
-            for lba,block in alternate.items():self.assertEqual(restored[lba],block)
+            for lba,block in alternate.items():self.assertEqual(restored.get(lba,bytes(512)),block)
 
     def test_budget_boundaries_and_io_oracles(self):
         vectors={c['name']:c for c in cases()}
@@ -65,7 +69,10 @@ class BackupPlanTests(unittest.TestCase):
             if c['io']:
                 self.assertEqual(c['reads'],c['io'])
                 self.assertEqual(c['lba'],reads[c['io']-1])
-        self.assertEqual(sum(bool(c['io']) for c in vectors.values()),26)
+        self.assertEqual(sum(bool(c['io']) for c in vectors.values()),42)
+        self.assertEqual(maximum['reads'],6194)
+        self.assertEqual(vectors['container-one-sector-too-large']['reads'],1060)
+        self.assertEqual(vectors['reserved-count-changes-after-sizing']['reads'],1061)
 
 
 if __name__ == '__main__':

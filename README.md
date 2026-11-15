@@ -99,7 +99,7 @@ make rescue-test RB_LANGUAGE=en
 make rescue-test RB_LANGUAGE=de
 ```
 
-The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI probe** workflow
+The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI and Rescue** workflow
 contains `rescue/retroboot-rescue.img` and `rescue-de/retroboot-rescue.img`.
 Both are FAT12 floppies with an independent loader and C startup. They boot
 without a working HDD MBR, FAT16 bootstrap or Stage 2. Enter probes the first
@@ -130,7 +130,7 @@ space-separated byte pairs in stored order. The [display convention](docs/Langua
 distinguishes numeric values from byte sequences. Decimal counters and debug
 markers keep their existing form.
 
-Automated rescue floppy checks cover 228 boots and 1,632 VGA/keyboard states across both
+Automated rescue floppy checks cover 242 boots and 1,772 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## Rescue CD
@@ -142,26 +142,29 @@ The BIOS emulates floppy A: from the CD, so F4/F5 and their expected results
 remain the same. Normal ISOs without the example backup are included too.
 The [CD guide](docs/RescueCD.md) covers direct ISO attachment in VirtualBox,
 the matching HDD and the build commands. No ISO-to-VDI conversion is needed.
-CD tests add 52 boots and 498 states, including starts without a test ROM.
+CD tests add 56 boots and 538 states, including starts without a test ROM.
 The English F4/F5 success pages were reported from a VirtualBox CD boot on
 14 November 2026. Exact ISO revision and old-floppy removal were not separately
 recorded; the [CD evidence](docs/RescueCD.md#manual-evidence) states the limits.
 
 ## Preliminary backup planning
 
-**F6 in RetroBoot Rescue** now lists live HDD metadata ranges and estimates
-backup size. The [F6 guide](docs/BackupCapturePlan.md#manual-virtualbox-check)
-gives the exact files, keys and expected values. Both normal/demo floppies and
-CDs work; the current `retroboot-rescue-target-hdd.img` must be converted into
-a new VDI because it adds the synthetic FAT32 header absent from older builds.
-The expected plan has eight ranges, two pages and an estimated 23,040 bytes.
-No backup file is written. Enter/F6 repeats; Left/Right pages; Esc clears.
+**F6 in RetroBoot Rescue** lists live HDD metadata ranges, estimates backup
+size and checks complete supported FAT boot areas, including FAT32 FSInfo,
+primary/backup copies and READY first-VBR checksums. The
+[F6 guide](docs/BackupCapturePlan.md#manual-virtualbox-check) identifies the
+exact workflow, good/bad HDD fixtures, keys and expected results.
+Both normal/demo floppies and CDs work. The good target still yields eight
+ranges, two pages and 23,040 bytes. The new `retroboot-rescue-bad-fsinfo-hdd.img`
+must produce `0x0000 / 0x0009 / 0x0007 / 0x0001` and no ranges. No backup file
+is written. Enter/F6 repeats; Left/Right pages; Esc clears.
 
-The native model retains 67 scenarios / 343 assertions per language. Its
-optional `backup-plan-model.img` now shows only `G=0157` and
-`RB BACKUP PLAN PASS` on VGA, with the full address trace retained in debug logs.
-The live F6 tests cover 52 additional floppy/CD boots and 544 states across
-both languages, including failed repeats and zero disk writes.
+The expanded native model has 113 scenarios / 574 assertions per language.
+Its optional `backup-plan-model.img` shows `G=023E` and `RB BACKUP PLAN PASS`
+on VGA; the 2,188-address success trace remains in debug logs. Live F6 tests
+cover 70 floppy/CD boots and 724 states across both languages. The preceding
+German range preview was confirmed under VirtualBox on 15 November 2026;
+manual evidence and its limits are retained in the F6 guide.
 
 ## HDD builds and tests
 

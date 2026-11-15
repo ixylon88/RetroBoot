@@ -128,6 +128,7 @@ def build(kind='rescue',language='en'):
     for name,source in (('rescue-ui','core/rescue.c'),('rescue-plan','core/rescue_plan.c'),('rescue-file','core/rescue_file.c'),
             ('rescue-file-tests','tests/rescue/file.c'),('rescue-backup','core/rescue_backup.c'),('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
+            ('fat-boot','core/fat_boot.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('backup-target','core/backup_target.c'),('backup-target-tests','tests/backup/target.c'),
             ('backup-plan','core/backup_plan.c'),('backup-plan-tests','tests/backup/plan.c'),
@@ -157,19 +158,19 @@ def build(kind='rescue',language='en'):
         if name=='backup-records-model':
             extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-record-tests')]
         if name=='backup-boot-model':
-            extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-boot-tests')]
+            extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','fat-boot','backup-boot-tests')]
         if name=='rescue-file-model':
             extra=[destination/(n+'.obj') for n in ('rescue-file','rescue-file-tests')]
         if name=='backup-target-model':
             extra=[destination/(n+'.obj') for n in ('backup-target','backup-target-tests','target-audit',
                 'saved-state','saved-record-io','saved-volume')]
         if name=='backup-plan-model':
-            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target',
+            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target','fat-boot',
                 'target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
-                'backup-plan','rescue-plan')]
+                'backup-plan','rescue-plan','fat-boot')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -197,6 +198,7 @@ def build(kind='rescue',language='en'):
     for kind in sorted({s['kind'] for s in plan_specs().values()}):
         size,extents=plan_disk(kind);p=destination/('disk-plan-'+kind+'.img');write_fixture(p,size,extents);remember(p)
     size,extents=plan_disk();p=destination/'retroboot-rescue-target-hdd.img';write_fixture(p,size,extents);remember(p)
+    size,extents=plan_disk('bad-fsinfo');p=destination/'retroboot-rescue-bad-fsinfo-hdd.img';write_fixture(p,size,extents);remember(p)
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
     changed_header=destination/'resealed-backup-header.raw';changed_header.write_bytes(match_backup(generation=2)[:512])
@@ -217,7 +219,7 @@ def build(kind='rescue',language='en'):
     manifest['backup_target_model']=dict(assertions=TARGET_ASSERTIONS,read_lbas=target_reads(),
         scope='two live metadata acquisitions compared with supplied claims; model only, no file import or restore')
     manifest['backup_plan_model']=dict(assertions=plan_assertions(),read_lbas=plan_reads(),
-        cases=plan_cases(),scope='preliminary live read ranges and size only; model only, no capture, MBR approval or restore')
+        cases=plan_cases(),scope='preliminary live ranges and complete FAT boot-area checks; no backup file, MBR approval or restore')
     manifest['rescue_match_cases']=match_specs()
     manifest['rescue_plan_cases']=plan_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=5*len(boot_cases()),

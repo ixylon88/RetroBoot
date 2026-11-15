@@ -16,7 +16,7 @@ under specification v0.2.
 
 ## Manual check
 
-The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI probe** workflow
+The **retroboot-rescue-diagnostics** artifact in the **BIOS ABI and Rescue** workflow
 contains these normal images:
 
 | Language | Artifact path | Size |

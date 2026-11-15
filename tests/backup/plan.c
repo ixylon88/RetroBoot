@@ -46,9 +46,10 @@ static rb_u16 __cdecl read_mock(rb_u32 lba, rb_u8 *out, void *opaque)
 {
     ++reads;
     if (trace) { trace_hex(lba); rb_debug_putc(','); }
-    if (opaque != (void *)&device || reads > 2200
+    if (opaque != (void *)&device || reads > 6200
             || !(lba == 0 || lba == 63 || (lba >= 126 && lba <= 660)
-                || lba == 6257 || lba == 6457 || lba == 6657 || lba == 6857 || lba == 131072)) {
+                || lba == 6257 || lba == 6457 || lba == 6657 || lba == 6857
+                || (lba >= 131072UL && lba < 133107UL))) {
         ++unexpected; return 1;
     }
     if (reads == current->io) { return 1; }
@@ -86,7 +87,8 @@ static rb_u16 payload(void)
             || r->observed.status || r->observed.detail || r->observed.error_lba
             || r->observed.disk_id != 0x52425431UL || r->observed.layout_crc != current->layout_crc
             || r->observed.admin_start != 126 || r->observed.admin_sectors != 128457UL
-            || r->observed.config_generation != 1 || r->observed.state_generation != 1) { return 0; }
+            || r->observed.config_generation != 1
+            || r->observed.state_generation != current->state_generation) { return 0; }
     for (i = 0; i < sizeof(device); ++i) {
         if (((rb_u8 *)&r->device)[i] != ((rb_u8 *)&device)[i]) { return 0; }
     }
@@ -132,6 +134,8 @@ rb_u16 __cdecl rb_backup_plan_selftest(void)
     CHECK(s->scan.count == 5 && s->scan.ebr_count == 1 && s->scan.ebr_lba[0] == 63
         && s->scan.entries[0].start == 131072UL && s->scan.entries[4].start == 126);
     CHECK(s->record_lba[0] == 6257 && s->record_lba[1] == 6457 && s->record_lba[2] == 6657 && s->record_lba[3] == 6857);
+    CHECK(s->ready_count == 1 && s->ready[0].start == 131072UL && s->ready[0].vbr_crc == RB_PLAN_READY_CRC
+        && !s->ready[0].index && zeros(s->ready + 1, 3 * sizeof(*s->ready)));
     /* A failure after prior success must clear the exposed address map. */
     reads = 0; device.drive = 0x81; rb_backup_observe_target(&observed, s, &device, read_mock, &device);
     CHECK(observed.status == RB_BTARGET_PARAMS && observed.detail == 2 && !reads

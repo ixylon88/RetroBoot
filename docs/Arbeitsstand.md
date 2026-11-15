@@ -1,8 +1,19 @@
 # Project state and resumption
 
-Updated: 14 November 2026.
+Updated: 15 November 2026.
 
 ## Saved baseline
+
+PR #29 (live rescue F6 preview) is merged into `historical` at
+`4b4ee977a7ea8d6fc663df754a64ff7fbdad60e3`. All four PR checks passed;
+published rescue files, four ISOs and all 14 case/read/VGA reports matched
+local results (280 boots / 2,130 states). On 15 November 2026, two German
+VirtualBox screenshots confirmed both F6 pages, four zero codes, eight ranges,
+two volumes and 23,040 estimated bytes. All displayed LBAs/lengths match the
+fixture. Exact revision, boot medium, VM/BIOS versions, repeats/Esc and no-HDD
+behavior were not separately established. The [F6 guide](BackupCapturePlan.md#manual-evidence)
+retains the text evidence; the supplied images were discarded. This confirms
+the preceding preview, not the new full boot-area checks.
 
 PR #28 (preliminary capture-plan core) is merged into `historical` at
 `d5e01296fad319ac43210ee3a5eb77a895497f3a`. All four PR checks passed;
@@ -69,44 +80,54 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: live rescue F6 preview
+## Current increment: complete live FAT boot-area checks
 
-Branch `codex/rescue-capture-preview` integrates the existing read-only planner
-with **F6 in RetroBoot Rescue**. A fresh BIOS probe precedes every plan and a
-second probe must agree before success. No saved file or F5 result is reused.
-The page shows diagnostics, estimated size and five ranges at a time;
-Left/Right pages without I/O, Enter/F6 starts over and Esc clears the result.
-Failed probes/plans clear all ranges and size. The 908-byte result is on the
-existing guarded stack; planner scratch remains private and non-reentrant.
+Branch `codex/capture-boot-validation` strengthens the existing rescue F6 path.
+After the entire range plan fits, every supported FAT reserved sector is read.
+FAT32 FSInfo structures, primary/backup boot copies and selected READY
+first-VBR CRC claims must agree with the supported rules. Two complete passes
+also compare ordered half-sector fingerprints, including padding bytes.
+Failure clears every range/count/size field. Plan status `0x0009` adds precise
+content diagnostics; existing status values and disk formats remain stable.
+The shared FSInfo helper retains saved-file F4 behavior and test coverage.
 
-Both normal/demo floppies and CDs support the action. The published target HDD
-adds the complete synthetic FAT32 reserved area while preserving its earlier
-F5 metadata. A new VDI conversion is required for F6; an old F5 fixture lacks
-the system VBR and is correctly rejected. The [beginner guide](GettingStarted.md)
-and [F6 procedure](BackupCapturePlan.md#manual-virtualbox-check) identify the
-exact files, key sequence and expected eight ranges / two pages / 23,040 bytes.
-This is only a preliminary plan: full capture, original-MBR provenance,
-current-MBR approval, a writable export destination and restoration remain open.
+The good target still yields eight ranges, two pages and 23,040 estimated bytes.
+The published `retroboot-rescue-bad-fsinfo-hdd.img` supplies a simple negative
+VirtualBox check: F6 codes `0x0000 / 0x0009 / 0x0007 / 0x0001`, error LBA
+`0x00020001`, with ranges and size blank. Both targets are synthetic and
+nonbootable. The [F6 procedure](BackupCapturePlan.md#manual-virtualbox-check)
+identifies the exact good/bad files and the boot medium. Manual confirmation
+of these expanded checks remains pending.
 
-The standalone model retains 67 scenarios / 343 assertions and the exact
-2,122-read oracle. Its long trace now goes only to the debug port; VGA shows
-`G=0157` and `RB BACKUP PLAN PASS`, checked independently by the test harness.
-The unchanged target model retains 178 assertions and its 542-read trace.
+The workflow display name is now **BIOS ABI and Rescue** (formerly **BIOS ABI
+probe**). The workflow file and `bios-probe` job/check remain unchanged.
+Rescue floppy/HDD and CD artifacts belong to this workflow; **HDD BIOS boot**
+publishes the separate `retroboot-hdd-bios` artifact. Active download guides
+and the embedded CD README identify the F6 action.
 
-The live F6 campaign adds 19 floppy boots / 194 states per language, plus four
-instrumented and three uninstrumented CD boots / 78 states per language.
-It checks paging, fresh repeats, F4/F5 transitions, absent/damaged HDDs,
-EDD/CHS, failed/changed discovery, read failures and stale-result clearing
-following a host mutation. An unread damaged FSInfo sector deliberately still
-allows a preliminary plan, testing its stated limit. Four new host tests bring
-the total to 190. Full rescue coverage is 280 boots / 2,130 UI states.
+The expanded native model has 113 scenarios / 574 assertions (`G=023E`) and
+an independently checked 2,188-read success trace. It includes complete boot
+areas, malformed FSInfo/copies, selected/older READY claims, pending states,
+42 read failures, valid changed bytes and exact container-limit behavior.
+Its model-only startup deadline is 60 seconds; ordinary startup/UI deadlines
+remain 15 seconds. Existing saved-boot and target models retain 325 and 178
+assertions respectively. Host coverage remains 190 tests plus reference layout.
 
-Both rescue languages reproduce. Payloads are 33,332 / 33,606 bytes; BSS ends
-at 55,646 / 55,920, below the 57,344 stack guard. The German build leaves
-1,424 bytes before that guard; the separate 8 KiB stack remains guarded in
-every UI state. Disk formats, HDD implementation and frozen specification
-are unchanged. Published checks and artifact verification belong to the PR.
-Manual confirmation of the new live F6 path is still pending.
+The live F6 campaign has 26 floppy boots / 264 states per language, plus five
+instrumented and four bare CD boots / 98 states per language. A host FSInfo
+mutation after success verifies stale-result clearing. Full rescue scope is
+298 boots / 2,310 states, with exact read sequences, full VGA, memory guards,
+unchanged source media and zero guest writes checked. Published CI and artifact
+verification are recorded in the PR.
+
+Both rescue languages reproduce. Payloads are 34,146 / 34,410 bytes EN/DE;
+BSS ends at 56,502 / 56,766, below the 57,344 stack guard. The German margin
+is now only **578 bytes**; further native features need an explicit memory
+budget review. Full-area scratch uses two bounded sector buffers on the
+existing guarded 8 KiB stack, alongside the unchanged 908-byte display result.
+The frozen specification, HDD implementation and disk formats are unchanged.
+Original-MBR provenance, current-MBR approval, serialization, export and
+restoration remain open; this is still a read-only preliminary plan.
 
 ## Numeric/byte display and F5 baseline
 
@@ -219,7 +240,7 @@ BIOS discovery and MBR/EBR diagnostic page. No HDD code or filesystem is needed
 to start. Enter reads drive `80h`; Enter repeats; Esc clears. The observed disk
 ID is explicitly not an independently verified identity. That initial baseline had no backup
 file reader. F4 now supplies one; disk writes, restore and HDD handoff remain
-unavailable. The current increment adds ISO packaging of the same floppy.
+unavailable. The later rescue ISO packages the same floppy.
 
 The [external rescue guide](ExternalRescue.md) contains the manual procedure,
 format, codes, trust boundary and evidence. CI publishes the two floppies as
@@ -237,13 +258,13 @@ Verification scope:
   Each native rescue model executes 28 assertions (`R=001C`).
   The additional checker models and file campaigns bring the current total to
   190 floppy boots and 1,244 UI states across both languages before F6.
-  F6 adds 38 floppy boots / 388 states. All CD campaigns total 52 boots /
-  498 states, bringing the combined scope to 280 / 2,130.
+  F6 now adds 52 floppy boots / 528 states. All CD campaigns total 56 boots /
+  538 states, bringing the combined scope to 298 / 2,310.
 - Every rescue UI state checks VGA, program bytes, BSS/stack guard,
   exact HDD reads and absence of writes. Source media and disposable HDD
   copies remain unchanged except for explicitly recorded host mutations in two
   F5 cases and one F6 case per language; no guest writes occur. Independent host vectors decode FAT12 packing
-  and file allocation. Current payload sizes: 33,332 bytes EN / 33,606 bytes DE.
+  and file allocation. Current payload sizes: 34,146 bytes EN / 34,410 bytes DE.
 - Existing HDD scope remains 104 boot cases, 47 identical EDD/CHS sector
   sequence pairs and 7,362 UI states across both languages. Native models
   retain 126 journal, 42 journal-reader, 80 allocation, 26 menu, 51 partition,
@@ -274,8 +295,8 @@ The frozen specification v0.2 and archives are unchanged.
    with the target-comparison core. Unique physical identity and recovery
    authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
-   The preliminary range/size plan now has a live rescue F6 path; complete
-   source capture and provenance remain open. The rescue ISO has automated CD-boot coverage and
+   The live rescue F6 path now validates complete supported FAT boot areas;
+   backup serialization, complete source capture and provenance remain open. The rescue ISO has automated CD-boot coverage and
    reported English VirtualBox F4/F5 success; broader manual and physical BIOS
    compatibility remain open.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion

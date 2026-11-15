@@ -157,6 +157,13 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     if (!r->status && sources) {
         sources->scan = work.audit.scan;
         for (i = 0; i < 4; ++i) { sources->record_lba[i] = work.audit.files[i + 2].first_lba; }
+        for (i = 0; i < work.state.state.count; ++i) {
+            if (work.state.state.entries[i].phase == RB_INSTALL_READY) {
+                sources->ready[sources->ready_count].start = work.state.state.entries[i].start;
+                sources->ready[sources->ready_count].vbr_crc = work.state.state.entries[i].vbr_crc;
+                sources->ready[sources->ready_count++].index = i;
+            }
+        }
     }
     clear(&work, sizeof(work));
 }

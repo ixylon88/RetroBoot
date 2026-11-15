@@ -1,11 +1,11 @@
 #include "backup_boot.h"
 #include "backup_saved.h"
 #include "volume.h"
+#include "fat_boot.h"
 
 static rb_u8 sector[512], first[512], continuation[512];
 
 static rb_u16 word(const rb_u8 *p) { return p[0] | ((rb_u16)p[1] << 8); }
-static rb_u32 dword(const rb_u8 *p) { return word(p) | ((rb_u32)word(p + 2) << 16); }
 static void copy(rb_u8 *out, const rb_u8 *in)
 {
     rb_u16 i;
@@ -61,22 +61,6 @@ static rb_u16 __cdecl read_first(rb_u32 lba, rb_u8 *out, void *opaque)
     if (lba != p->start) { return 1; }
     copy(out, first); return 0;
 }
-static rb_u16 fsinfo(rb_u32 clusters)
-{
-    rb_u16 i;
-    rb_u32 value;
-    if (dword(sector) != 0x41615252UL || dword(sector + 484) != 0x61417272UL
-            || dword(sector + 508) != 0xAA550000UL) { return 1; }
-    for (i = 4; i < 508; ++i) {
-        if ((i < 484 || i >= 496) && sector[i]) { return 2; }
-    }
-    value = dword(sector + 488);
-    if (value != 0xFFFFFFFFUL && value > clusters) { return 3; }
-    value = dword(sector + 492);
-    if (value != 0xFFFFFFFFUL && (value < 2 || value > clusters + 1)) { return 4; }
-    return 0;
-}
-
 const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, void *opaque, rb_u32 size)
 {
     rb_backup_records records;
@@ -136,7 +120,7 @@ const rb_backup *rb_backup_open_boot(rb_backup_boot *r, rb_sector_reader read, v
                 crc = crc_update(crc, sector);
                 if (volume.fat_bits != 32) { continue; }
                 if (relative == 1 || (backup && relative == (rb_u32)backup + 1)) {
-                    code = fsinfo(volume.clusters);
+                    code = rb_fat32_fsinfo(sector, volume.clusters);
                     if (code) { fail(r, RB_BBOOT_FSINFO, code, e->index, cursor + offset); return (const rb_backup *)0; }
                 } else if (relative == 2) {
                     if (word(sector + 510) != 0xAA55) {

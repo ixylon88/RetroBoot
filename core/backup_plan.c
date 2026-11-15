@@ -1,6 +1,8 @@
 #include "backup_plan.h"
 #include "config.h"
 #include "volume.h"
+#include "backup_boot.h"
+#include "fat_boot.h"
 
 static struct {
     rb_backup_sources sources;
@@ -18,6 +20,12 @@ static void clear(void *p, rb_u16 n)
     while (n) { bytes[--n] = 0; }
 }
 static rb_u16 word(const rb_u8 *p) { return p[0] | ((rb_u16)p[1] << 8); }
+static rb_u16 equal(const rb_u8 *a, const rb_u8 *b)
+{
+    rb_u16 i;
+    for (i = 0; i < 512; ++i) { if (a[i] != b[i]) { return 0; } }
+    return 1;
+}
 static void fail(rb_backup_plan *r, rb_u16 code, rb_u16 detail,
                  rb_u16 nested, rb_u16 index, rb_u32 lba)
 {
@@ -78,11 +86,65 @@ static rb_u16 append(rb_backup_plan *r, rb_u16 kind, rb_u16 index,
     e->lba = lba; e->sectors = sectors; e->owner_start = owner; e->owner_sectors = owner_sectors;
     r->live_sectors += sectors; return 0;
 }
+/* The complete plan and its size bound must exist before any full-area read.
+   Buffers are bounded stack scratch; no reserved area is retained in memory. */
+static rb_u16 check_boot(rb_backup_plan *r, const rb_partition *p,
+                        rb_u16 index, rb_u16 reserved)
+{
+    rb_u8 sector[512], continuation[512];
+    rb_volume_probe volume;
+    rb_u16 code, backup, offset, i;
+    rb_u32 lba, crc;
+    code = rb_probe_volume(&volume, p, header_read, (void *)0,
+        work.device.capacity_low, work.device.capacity_high);
+    if (code) {
+        fail(r, code == RB_VOLUME_IO ? RB_CAPTURE_IO : RB_CAPTURE_VOLUME,
+            code, 0, index, p->start); return 1;
+    }
+    if (word(work.header + 14) != reserved) {
+        fail(r, RB_CAPTURE_CHANGED, 0, 0, index, p->start); return 1;
+    }
+    backup = volume.fat_bits == 32 ? word(work.header + 50) : 0;
+    if (volume.fat_bits == 32 && (word(work.header + 48) != 1 || reserved < 3
+            || (backup && (backup < 3 || (rb_u32)backup + 3 > reserved)))) {
+        fail(r, RB_CAPTURE_FAT32_LAYOUT, 0, 0, index, p->start); return 1;
+    }
+    for (offset = 1; offset < reserved; ++offset) {
+        lba = p->start + offset;
+        if (tracked_read(lba, sector, (void *)0)) {
+            fail(r, RB_CAPTURE_IO, RB_VOLUME_IO, 0, index, lba); return 1;
+        }
+        if (volume.fat_bits != 32) { continue; }
+        if (offset == 1 || (backup && offset == backup + 1)) {
+            code = rb_fat32_fsinfo(sector, volume.clusters);
+            if (code) {
+                fail(r, RB_CAPTURE_BOOT, RB_BBOOT_FSINFO, code, index, lba); return 1;
+            }
+        } else if (offset == 2) {
+            if (word(sector + 510) != 0xAA55) {
+                fail(r, RB_CAPTURE_BOOT, RB_BBOOT_COPY, 3, index, lba); return 1;
+            }
+            for (i = 0; i < 512; ++i) { continuation[i] = sector[i]; }
+        } else if (backup && (offset == backup || offset == backup + 2)) {
+            if (!equal(sector, offset == backup ? work.header : continuation)) {
+                fail(r, RB_CAPTURE_BOOT, RB_BBOOT_COPY, offset == backup ? 1 : 2, index, lba); return 1;
+            }
+        }
+    }
+    crc = rb_crc32(work.header, 512);
+    for (i = 0; i < work.sources.ready_count; ++i) {
+        if (work.sources.ready[i].start == p->start && work.sources.ready[i].vbr_crc != crc) {
+            fail(r, RB_CAPTURE_BOOT, RB_BBOOT_READY, work.sources.ready[i].index, index, p->start);
+            return 1;
+        }
+    }
+    return 0;
+}
 static void acquire(rb_backup_plan *r)
 {
     rb_volume_probe volume;
     const rb_partition *p;
-    rb_u16 i, code, reserved, backup;
+    rb_u16 i, code, reserved, backup, extent;
     fail(r, RB_CAPTURE_OK, 0, 0, 0, 0);
     work.digest[0] = work.digest[1] = work.reads = 0;
     work.have_mbr = work.changed = 0;
@@ -118,6 +180,12 @@ static void acquire(rb_backup_plan *r)
     for (i = 0; i < 4; ++i) {
         if (append(r, RB_BACKUP_CONFIG_A + i, 0, work.sources.record_lba[i], 1,
                 r->observed.admin_start, r->observed.admin_sectors)) { return; }
+    }
+    extent = 1 + work.sources.scan.ebr_count;
+    for (i = 0; i < work.sources.scan.count; ++i) {
+        p = &work.sources.scan.entries[i];
+        if (!p->type || p->type == 5 || p->type == 15) { continue; }
+        if (check_boot(r, p, i, (rb_u16)r->entries[extent++].sectors)) { return; }
     }
     if (tracked_read(0, work.header, (void *)0)) {
         fail(r, work.changed ? RB_CAPTURE_CHANGED : RB_CAPTURE_IO, 0, 0, 0, 0); return;
