@@ -4,6 +4,18 @@ Updated: 15 November 2026.
 
 ## Saved baseline
 
+PR #32 (live installation-reference consistency) is merged into `historical`
+at `29b3f4b723161e48d326b4c9352107147ead2da8`. All four checks passed. Published
+rescue files, four ISOs and all 14 case/read/VGA reports matched local results
+(312 boots / 2,444 states). German VirtualBox reports on 15 November 2026
+confirmed intact F5 and both F6 pages, plus the new bad-reference rejection:
+F5 `0x0004 / 0x000B / 0x0000`, F6 `0x0000 / 0x0002 / 0x000B / 0x0000`,
+error LBA `0x00020000` and cleared success fields. The [manual evidence](BackupCapturePlan.md#manual-evidence)
+retains exact observations and coverage limits. Exact artifact revision, boot
+medium, VM/BIOS versions, F4 and complete Enter/Esc sequence were not separately
+established. The five supplied screenshots were discarded after recording the
+text evidence.
+
 PR #31 (saved-check buffer reuse) is merged into `historical` at
 `a5930936561398850dac44da656ad4c8914ec190`. All four checks passed; published
 rescue files, four ISOs and 14 case/read/VGA reports matched local results
@@ -107,7 +119,44 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: live installation-reference consistency
+## Current increment: native container metadata encoding
+
+Branch `codex/backup-metadata-encoder` adds a C/16 encoder for the existing
+version-1 header and four descriptor-table sectors. Explicit identity, roles,
+addresses, file offsets and payload CRCs are checked for valid framing; reserved
+bytes and unused slots are zeroed. No payload is collected or checked by this
+API. The preliminary current-MBR kind 0 is rejected, not promoted to an original
+or approved MBR. Every call validates the complete framing, supports arbitrary
+metadata-sector request order and clears output on failure. No static scratch,
+retained pointers, I/O callbacks or writer are added.
+
+The encoder is linked only into `backup-encode-model.img`. Shared private
+identity/descriptor/CRC helpers preserve the existing container reader's
+validation and read order. Normal rescue payloads increase by 72 bytes to
+34,348 / 34,612 bytes EN/DE; BSS remains 20,820 bytes and headroom is
+2,176 / 1,912 bytes above the unchanged 1,536-byte minimum. The encoder model
+has 6,544 bytes of static headroom. The fixed stack guard and 8 KiB stack remain.
+
+The [standalone procedure](BackupEncoding.md#manual-virtualbox-check) uses
+`rescue/backup-encode-model.img` (or `rescue-de/`) from
+`retroboot-rescue-diagnostics`; no HDD is required. Expected output is
+`H=04F2` and `RB BACKUP ENCODE PASS`: 64 scenarios / 1,266 assertions.
+Manual confirmation is pending. Normal rescue F4/F5/F6 have no new key or
+message; all three published target HDDs and synthetic backups are unchanged.
+
+Verification scope is 197 host tests plus the reference layout, both repeated
+rescue/CD builds, and 314 boots / 2,444 UI states. Exact byte oracles cover
+32-/64-bit wire values, table boundaries, EDD/CHS, files over 64 KiB and 1 MiB,
+invalid framing, output clearing, const inputs and guarded full-reader round
+trips. Deliberately incorrect payload CRC claims demonstrate the encoder's
+boundary. Prior native assertion counts and F5/F6 read oracles remain unchanged.
+Actual local, CI and published-artifact evidence is recorded in the PR.
+
+Complete source capture, payload CRC collection, original-MBR provenance,
+current-MBR approval, stable export and targeted restore remain open. The HDD
+implementation, frozen specification, disk formats and read-only scope remain.
+
+## Live installation-reference baseline (PR #32)
 
 Branch `codex/rescue-installation-links` extends both rescue F5 and F6 with
 selected configuration/state link validation. Individually valid record CRCs
@@ -130,8 +179,8 @@ configuration installation IDs and their checksums. With the current demo
 floppy/CD, F4 stays green; F5/F6 turn yellow at target LBA `0x00020000`.
 The intact `retroboot-rescue-target-hdd.img` and the distinct
 `retroboot-rescue-bad-fsinfo-hdd.img` are unchanged. The [manual procedure](BackupCapturePlan.md#installation-reference-check)
-uses exact filenames and codes. Manual confirmation of this new rejection
-is pending.
+uses exact filenames and codes. German manual confirmation is recorded in
+the saved baseline above.
 
 The shared helper adds 68 bytes to normal rescue payloads: 34,276 / 34,540
 bytes EN/DE. BSS remains 20,820 bytes; headroom is 2,248 / 1,984 bytes, above
@@ -406,7 +455,8 @@ The frozen specification v0.2 and archives are unchanged.
    authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
    The live rescue F6 path now validates complete supported FAT boot areas;
-   backup serialization, complete source capture and provenance remain open. The rescue ISO has automated CD-boot coverage and
+   metadata serialization has a standalone native model; complete source capture,
+   payload collection, file export and provenance remain open. The rescue ISO has automated CD-boot coverage and
    reported English VirtualBox F4/F5 success; broader manual and physical BIOS
    compatibility remain open.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion

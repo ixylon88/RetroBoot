@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (242 boots / 1,772 states) and CDs (56 boots / 538 states) in both languages |
+| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (250 boots / 1,830 states) and CDs (64 boots / 614 states) in both languages |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -55,7 +55,9 @@ remain stable. Rescue target HDDs belong to the rescue artifact.
   `rescue-test-de/`. Both normal floppies, both synthetic demo floppies and the
   matching `retroboot-rescue-target-hdd.img` (identical in both language folders)
   are published, together with the deliberately damaged
-  `retroboot-rescue-bad-fsinfo-hdd.img`. F6 evidence is under
+  `retroboot-rescue-bad-fsinfo-hdd.img` and `retroboot-rescue-bad-reference-hdd.img`.
+  The standalone `backup-plan-model.img` and new `backup-encode-model.img`
+  are included in both language folders. F6 evidence is under
   `rescue-plan-test*` and `rescue-plan-iso-test*`. F5 evidence is under `rescue-match-test/` and
   `rescue-match-test-de/`, including `match-results.json`.
 - `retroboot-hdd-bios`: englisches und deutsches HDD-Testimage, Binärdateien, Manifeste,
@@ -77,42 +79,50 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The base [external rescue campaign](ExternalRescue.md) has 71 boots per language,
-including 58 seven-state UI campaigns and thirteen terminal model/failure boots.
+The base [external rescue campaign](ExternalRescue.md) has 72 boots per language,
+including 58 seven-state UI campaigns and fourteen terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 190 tests. The
+dependency and run 197 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
-The [capture-plan model](BackupCapturePlan.md) has 574 native assertions and
+The [capture-plan model](BackupCapturePlan.md) has 692 native assertions and
 a 2,188-address oracle per language. Its standalone `backup-plan-model.img`
 is included under both language directories in the rescue artifact. It uses
 in-memory metadata and performs no actual HDD reads or writes.
 
-The separate [F5 campaign](RescueTargetCheck.md) adds 24 boots and 216 states
+The [metadata-encoder model](BackupEncoding.md) adds one terminal boot per
+language, included in the base total above. Its 64 scenarios / 1,266 assertions
+compare complete encoded sectors with independent Python wire images, check
+input/output guards and clearing, and feed synthetic payloads through the
+complete container reader. No HDD, file output or menu action is involved.
+Its `H=04F2` and `RB BACKUP ENCODE PASS` must appear on VGA and in the debug
+log; it shares the 60-second model deadline.
+
+The separate [F5 campaign](RescueTargetCheck.md) adds 25 boots and 225 states
 per language. A successful comparison requires two live acquisitions totaling
 1,058 HDD reads and two full saved-file validations totaling 267 floppy reads.
 The campaign checks discovery calls, exact reads, VGA/RAM, stale-field clearing,
 source hashes and zero guest writes. Two tests deliberately mutate disposable
 host fixtures after a first success; their reports distinguish those host
 changes from guest writes. `match-results.json` is written after all requested
-cases pass. The total is 95 boots / 622 states per language, 190 / 1,244 across
+cases pass. The total is 97 boots / 631 states per language, 194 / 1,262 across
 both. The [getting-started guide](GettingStarted.md) identifies the exact
 matching image pair and separates rescue F5 from HDD-menu F5/F10.
 
-The [CD campaign](RescueCD.md) adds 19 boots / 171 states per language without
-an attached floppy: ten with BIOS-call instrumentation, nine without it.
+The [CD campaign](RescueCD.md) adds 21 boots / 189 states per language without
+an attached floppy: eleven with BIOS-call instrumentation, ten without it.
 Both check actual optical startup, exact HDD reads, VGA/RAM and zero block
 writes; only the instrumented cases observe virtual-floppy BIOS calls.
 Published ISOs contain byte-identical existing floppies. Packaging repeats and
 host tests verify catalog routing, directory mapping and fixed timestamps.
-These F4/F5 and model campaigns total 228 boots / 1,586 states before live F6.
-The current F6 campaign adds 70 floppy/CD boots / 724 states across both
+These F4/F5 and model campaigns total 236 boots / 1,640 states before live F6.
+The current F6 campaign adds 78 floppy/CD boots / 804 states across both
 languages, including full reserved-area checks and bad-FSInfo CD boots with
-and without the BIOS observation ROM. Total rescue scope is **298 boots /
-2,310 states**. The expanded native planner has a 60-second model deadline;
+and without the BIOS observation ROM. Total rescue scope is **314 boots /
+2,444 states**. The expanded native planner has a 60-second model deadline;
 ordinary startup/UI deadlines remain 15 seconds. This reuses the ABI runner;
 no additional job or physical-hardware coverage is implied.
 

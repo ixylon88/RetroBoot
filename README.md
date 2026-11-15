@@ -26,6 +26,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Independent FAT12 rescue-floppy diagnosis and manual check](docs/ExternalRescue.md)
 - [Bootable rescue CD: ISO download, VirtualBox and verification](docs/RescueCD.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
+- [Native metadata encoding and standalone test floppy](docs/BackupEncoding.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
 - [F5 rescue file/HDD comparison and matching-image setup](docs/RescueTargetCheck.md)
 - [Read-only target-claim comparison core and its limits](docs/BackupTarget.md)

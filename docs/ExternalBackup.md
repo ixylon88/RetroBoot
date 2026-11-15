@@ -14,6 +14,10 @@ the wire-format validator and Python inspector described here retain their
 container-only boundary. The [FAT boot-area layer](BackupBootAreas.md) follows
 the record checks and validates supported saved reserved regions.
 
+The [native metadata encoder](BackupEncoding.md) now emits the five framing
+sectors from explicit claims. Its standalone model checks exact Python wire
+images; it does not collect payloads, establish provenance or write a backup.
+
 ## Validation boundary
 
 Successful validation establishes framing, canonical descriptor order, bounded
