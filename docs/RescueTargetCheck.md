@@ -111,6 +111,10 @@ The synchronous adapter in [rescue_backup.c](../core/rescue_backup.c) performs:
 2. Fresh BIOS discovery for drive `80h`, followed by the existing
    [target-comparison core](BackupTarget.md). Its two complete acquisitions
    discover live addresses independently from the current MBR/FAT16 directory.
+   Selected profile installation IDs must resolve to compatible selected state
+   entries; an approved profile requires `READY`. These shared saved/live
+   checks add no reads. The [bad-reference test](BackupCapturePlan.md#installation-reference-check)
+   supplies an intentionally inconsistent HDD with valid record checksums.
    Backup descriptor addresses never steer physical HDD reads.
 3. A second BIOS discovery. Drive, route, capacity and geometry must still
    equal the initial observation.
@@ -131,7 +135,9 @@ Sources must remain stable during the operation. Repeated reads and CRCs are
 neither an atomic snapshot nor authentication. Changes after the final read
 remain possible. Floppy errors identify a physical diskette LBA. A saved-file
 failure's disk LBA refers to a claim in the file; a target failure's disk LBA
-refers to an actual HDD read. Zero can also mean LBA 0 or no specific location.
+refers to live metadata. For an installation-reference failure it is the
+profile's target start, not a failed HDD read. Zero can also mean LBA 0 or no
+specific location.
 
 ## F5 codes
 
@@ -146,27 +152,30 @@ refers to an actual HDD read. Zero can also mean LBA 0 or no specific location.
 
 For example, `0x0004 / 0x0007 / 0x0000` means a capacity mismatch and
 `0x0004 / 0x0006 / 0x0004` means an observed identity differs from saved claims.
+`0x0004 / 0x000B / 0x0000` means the first selected profile has an incompatible
+installation reference.
 An unsupported or damaged live MBR/FAT/identity is rejected; the backup's
 addresses are never a fallback access path.
 
 ## Fixture and automated evidence
 
-The new HDD is a synthetic metadata fixture, not a collected/restorable backup
-or an installed RetroBoot system. Its MBR code, system boot areas, program
-contents and journal payloads are absent. The eight management-file chains
+The HDD is a synthetic metadata fixture, not a collected/restorable backup
+or an installed RetroBoot system. Its MBR code, program contents and journal
+payloads are absent. The published target now includes the synthetic complete
+FAT boot areas used by F6; F5 still does not read them. The eight management-file chains
 exist for the allocation audit; only the four configuration/state payloads
 are populated. Live record addresses differ from saved descriptor addresses
 on purpose, demonstrating independent discovery.
 
-`make rescue-test RB_LANGUAGE=en` and `RB_LANGUAGE=de` each add **24 boots and
-216 keyboard/VGA states** for F5. Together with the earlier campaigns, the
-floppy total is **188 boots / 1,244 states**; the host suite has **181 tests**.
-CD boot adds 38 boots / 342 states using the same adapter and checkers.
+`make rescue-test RB_LANGUAGE=en` and `RB_LANGUAGE=de` each add **25 boots and
+225 keyboard/VGA states** for F5. CD boot adds 42 boots / 378 states across
+both languages using the same adapter and checkers. The [project state](Arbeitsstand.md)
+records totals including F4/F6 and the shared native validators.
 The unchanged native target model retains 178 assertions per language.
 
 The F5 campaigns cover EDD and CHS success, missing HDD/file, invalid saved
 content, capacity/route/identity/layout differences, damaged live metadata,
-allocation/record errors, bounded BIOS retries, failed/changed reprobes,
+allocation/record/link errors, bounded BIOS retries, failed/changed reprobes,
 changed saved content and a correctly resealed header change. Two campaigns
 first succeed, then alter a disposable host fixture between invocations:
 missing floppy file and damaged HDD MBR. Old successful fields must disappear.
@@ -181,7 +190,8 @@ media hashes and zero BIOS/block writes are checked. Evidence is published in
 `rescue-match-test/` and `rescue-match-test-de/`; `match-results.json` is written
 only after all requested campaigns pass.
 
-Both language builds reproduce. Payloads are 29,686 / 29,908 bytes (EN/DE),
+At the preceding display baseline, both language builds reproduced with
+payloads of 29,686 / 29,908 bytes (EN/DE),
 with BSS ending at 50,440 / 50,662 below the 57,344 stack guard. Old test ROM
 modes 0..13 remain byte-identical; modes 14..17 inject only test faults.
 The display convention also applies to the HDD menu. Disk formats, BIOS

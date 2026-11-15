@@ -1,4 +1,5 @@
 #include "backup_saved.h"
+#include "backup_links.h"
 
 static rb_backup_saved saved;
 
@@ -112,8 +113,6 @@ void rb_backup_check_records(rb_backup_records *r, rb_sector_reader read,
     rb_u16 i, j, code, ebrs = 0, boots = 0, found;
     const rb_backup_extent *e;
     const rb_partition *p, *admin = (const rb_partition *)0;
-    const rb_profile *profile;
-    const rb_installation *installation;
     clear(&saved, sizeof(saved)); fail(r, RB_BREC_OK, 0, 0, 0, 0);
     saved.read = read; saved.opaque = opaque;
     code = rb_backup_validate(&saved.container, read, opaque, size);
@@ -165,21 +164,10 @@ void rb_backup_check_records(rb_backup_records *r, rb_sector_reader read,
         if (!found) { fail(r, RB_BREC_COVERAGE, RB_BREC_MISSING_START, RB_BACKUP_BOOT, RB_CONFIG_NONE, p->start); return; }
     }
     if (load_pair(r, RB_BACKUP_CONFIG_A, admin) || load_pair(r, RB_BACKUP_STATE_A, admin)) { return; }
-    for (i = 0; i < saved.config.config.count; ++i) {
-        profile = &saved.config.config.entries[i];
-        if (!profile->install_low && !profile->install_high) { continue; }
-        found = 0;
-        for (j = 0; j < saved.state.state.count; ++j) {
-            installation = &saved.state.state.entries[j];
-            if (profile->install_low == installation->install_low && profile->install_high == installation->install_high
-                    && profile->slot == installation->slot && profile->type == installation->type
-                    && profile->kind == installation->kind && profile->start == installation->start
-                    && profile->sectors == installation->sectors
-                    && (!profile->approved || installation->phase == RB_INSTALL_READY)) { found = 1; }
-        }
-        if (!found) {
-            fail(r, RB_BREC_INSTALLATION, i, RB_BACKUP_CONFIG_A + saved.config.source, 0, profile->start); return;
-        }
+    i = rb_backup_unlinked_profile(&saved.config.config, &saved.state.state);
+    if (i != RB_CONFIG_NONE) {
+        fail(r, RB_BREC_INSTALLATION, i, RB_BACKUP_CONFIG_A + saved.config.source,
+            0, saved.config.config.entries[i].start); return;
     }
     r->partitions = saved.scan.count; r->ebrs = ebrs; r->boot_areas = boots;
     r->config_source = saved.config.source; r->state_source = saved.state.source;

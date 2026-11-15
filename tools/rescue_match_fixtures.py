@@ -59,6 +59,8 @@ def disk(kind='match'):
         for r in records: r[48] ^= 1; r[:] = seal(r)
     elif kind=='config-crc': records[0][80] ^= 1
     elif kind=='state-crc': records[2][80] ^= 1
+    elif kind=='bad-reference':
+        for r in records[:2]:struct.pack_into('<I',r,108,2);r[:]=seal(r)
     elif kind=='missing-file': root[25*32] = 0xE5
     elif kind=='unowned': struct.pack_into('<H',fat,2000*2,0xFFFF)
     elif kind=='bad-mbr': mbr[510] = 0
@@ -108,7 +110,7 @@ def specs():
     for name,status,detail,nested in (
         ('capacity',4,7,0),('geometry',4,8,0),('identity',4,6,4),('layout',4,9,0),
         ('bad-mbr',4,6,1),('missing-file',4,3,4),('fat-copies',4,3,7),
-        ('unowned',4,3,9),('config-crc',4,4,4),('state-crc',4,5,4)):
+        ('unowned',4,3,9),('config-crc',4,4,4),('state-crc',4,5,4),('bad-reference',4,11,0)):
         add(name,status,detail,nested)
         if name=='geometry':result[name]['chs']=True;result[name]['saved_edd']=True
         else:result[name]['kind']=name
@@ -117,6 +119,7 @@ def specs():
     result['unowned']['disk_lba']=134
     result['config-crc']['disk_lba']=RECORDS[0]
     result['state-crc']['disk_lba']=RECORDS[2]
+    result['bad-reference']['disk_lba']=131072
     for name,lba in (('mbr-io',0),('record-io',RECORDS[0])):
         add(name,4,2,0 if not lba else 5,fault_lba=lba);result[name]['disk_lba']=lba
     for name,rom,code,detail in (('changed-probe',14,5,1),('failed-reprobe',15,3,2),
@@ -148,6 +151,7 @@ def hdd_reads(spec):
     if kind=='unowned':return reads[:reads.index(134)+2]
     if kind in ('config-crc','state-crc'):
         return reads[:reads.index(RECORDS[1 if kind=='config-crc' else 3])+1]
+    if kind=='bad-reference':return reads[:-1]
     return reads*2
 
 

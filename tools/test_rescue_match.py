@@ -26,7 +26,7 @@ except ImportError:
 
 ACTIONS = ((None,0),('f5',3),('ret',3),('f4',2),('f5',3),('esc',0),('ret',1),('f5',3),('esc',0))
 CD_CASES = ('match','chs','no-hdd','missing-backup','bad-backup','bad-saved-boot',
-            'capacity','identity','mbr-io','record-io')
+            'capacity','identity','mbr-io','record-io','bad-reference')
 
 
 def check_discovery_calls(text,spec):

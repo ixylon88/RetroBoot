@@ -1,15 +1,40 @@
 """Independent live fixture, read boundary and failed-result display checks."""
 import unittest
+import struct
+import zlib
 
 from tools.backup_boot_vectors import fixture
 from tools.backup_container import inspect
 from tools.rescue_match_fixtures import disk as old_disk, acquisition
+from tools.rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, RECORDS
 from tools.rescue_plan_fixtures import disk, specs, hdd_reads, ranges, SYSTEM
 from tools.rescue_text import load_catalog
 from tools.test_rescue_plan import check_discovery, check_plan_screen
 
 
 class RescuePlanTests(unittest.TestCase):
+    def test_unlinked_fixture_has_valid_crcs_but_different_installation_ids(self):
+        size,intact=disk();length,broken=disk('bad-reference')
+        self.assertEqual(size,length)
+        self.assertEqual({at for at in intact if intact[at]!=broken[at]},set(lba*512 for lba in RECORDS[:2]))
+        for lba in RECORDS:
+            record=broken[lba*512]
+            self.assertEqual(zlib.crc32(record[:508]),struct.unpack_from('<I',record,508)[0])
+            # All header identity/geometry claims and record targets are unchanged.
+            self.assertEqual(record[:108],intact[lba*512][:108])
+        config,state=broken[RECORDS[0]*512],broken[RECORDS[2]*512]
+        self.assertNotEqual(config[108:116],state[64:72])
+        self.assertEqual(config[68:76],state[72:80])
+        self.assertEqual(broken[RECORDS[0]*512],broken[RECORDS[1]*512])
+        self.assertEqual(broken[SYSTEM*512],intact[SYSTEM*512])
+        f6=specs()['bad-reference'];f5=match_specs()['bad-reference']
+        self.assertEqual((f6['status'],f6['detail'],f6['nested'],f6['lba']),(2,11,0,SYSTEM))
+        self.assertEqual((f5['status'],f5['detail'],f5['nested'],f5['disk_lba']),(4,11,0,SYSTEM))
+        self.assertEqual(hdd_reads(f6),acquisition()[:-1])
+        self.assertEqual(match_reads(f5),acquisition()[:-1])
+        self.assertEqual(len(hdd_reads(f6)),528)
+        self.assertNotIn(SYSTEM,hdd_reads(f6))
+
     def test_published_target_adds_only_the_saved_synthetic_reserved_area(self):
         size,base=old_disk();length,data=disk()
         self.assertEqual(size,length)

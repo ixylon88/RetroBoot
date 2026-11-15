@@ -16,7 +16,7 @@ SYSTEM = 131072
 
 
 def disk(kind='match'):
-    base = kind if kind in ('config-crc','unowned','fat-copies') else 'match'
+    base = kind if kind in ('config-crc','unowned','fat-copies','bad-reference') else 'match'
     size, extents = match_disk(base)
     raw = fixture(); _, entries = inspect(raw)
     e = next(e for e in entries if e['kind']==4 and e['lba']==SYSTEM)
@@ -33,7 +33,7 @@ def disk(kind='match'):
     elif kind=='bad-ready-crc':
         for lba in RECORDS[2:]:
             state=bytearray(extents[lba*512]);struct.pack_into('<I',state,84,0);extents[lba*512]=seal(state)
-    elif kind not in ('match','config-crc','unowned','fat-copies'):raise ValueError('Unknown plan HDD fixture')
+    elif kind not in ('match','config-crc','unowned','fat-copies','bad-reference'):raise ValueError('Unknown plan HDD fixture')
     # Full synthetic FAT32 reserved area, with no HDD loader or operating system.
     # F6 validates every reserved sector; no FAT or user payload is added.
     extents[SYSTEM*512]=bytes(area)
@@ -49,10 +49,11 @@ def specs():
     add('demo',demo=True,cross_view=True)
     add('chs',chs=True)
     add('changed-after-success',mutation=True)
+    add('changed-reference-after-success',mutation='reference')
     add('no-hdd',probe=1,absent=True)
     for name,status,detail,nested,lba in (
         ('unknown-mbr',2,6,1,0),('config-crc',2,4,4,RECORDS[0]),
-        ('unowned',2,3,9,134),('fat-copies',2,3,7,628),
+        ('unowned',2,3,9,134),('fat-copies',2,3,7,628),('bad-reference',2,11,0,SYSTEM),
         ('invalid-vbr',3,2,0,SYSTEM),('bad-fsinfo-layout',4,0,0,SYSTEM),
         ('oversized',5,4,0,SYSTEM),('bad-fsinfo',9,7,1,SYSTEM+1),
         ('bad-backup-fsinfo',9,7,4,SYSTEM+7),('bad-backup-vbr',9,8,1,SYSTEM+6),
@@ -78,6 +79,7 @@ def hdd_reads(spec):
     if kind=='config-crc':return reads[:reads.index(RECORDS[1])+1]
     if kind=='unowned':return reads[:reads.index(134)+2]
     if kind=='fat-copies':return reads[:-5]
+    if kind=='bad-reference':return reads[:-1]
     reads=reads*2+[SYSTEM,126]+list(range(SYSTEM,SYSTEM+32))+[126,0]
     if 'fault_lba' in spec:
         at=reads.index(spec['fault_lba']);return reads[:at]+[spec['fault_lba']]*3

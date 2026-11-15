@@ -137,7 +137,7 @@ def build(kind='rescue',language='en'):
     for name,source in (('rescue-ui','core/rescue.c'),('rescue-plan','core/rescue_plan.c'),('rescue-file','core/rescue_file.c'),
             ('rescue-file-tests','tests/rescue/file.c'),('rescue-backup','core/rescue_backup.c'),('backup','core/backup.c'),('backup-tests','tests/backup/model.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
-            ('fat-boot','core/fat_boot.c'),
+            ('fat-boot','core/fat_boot.c'),('backup-links','core/backup_links.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('backup-target','core/backup_target.c'),('backup-target-tests','tests/backup/target.c'),
             ('backup-plan','core/backup_plan.c'),('backup-plan-tests','tests/backup/plan.c'),
@@ -165,20 +165,20 @@ def build(kind='rescue',language='en'):
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
         extra=[destination/'model.obj'] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
         if name=='backup-records-model':
-            extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-record-tests')]
+            extra=[destination/(n+'.obj') for n in ('backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-record-tests')]
         if name=='backup-boot-model':
-            extra=[destination/(n+'.obj') for n in ('backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','fat-boot','backup-boot-tests')]
+            extra=[destination/(n+'.obj') for n in ('backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','fat-boot','backup-boot-tests')]
         if name=='rescue-file-model':
             extra=[destination/(n+'.obj') for n in ('rescue-file','rescue-file-tests')]
         if name=='backup-target-model':
-            extra=[destination/(n+'.obj') for n in ('backup-target','backup-target-tests','target-audit',
+            extra=[destination/(n+'.obj') for n in ('backup-target','backup-links','backup-target-tests','target-audit',
                 'saved-state','saved-record-io','saved-volume')]
         if name=='backup-plan-model':
-            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target','fat-boot',
+            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target','backup-links','fat-boot',
                 'target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
-                'backup','backup-records','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
+                'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
                 'backup-plan','rescue-plan','fat-boot')]
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
@@ -209,6 +209,7 @@ def build(kind='rescue',language='en'):
         size,extents=plan_disk(kind);p=destination/('disk-plan-'+kind+'.img');write_fixture(p,size,extents);remember(p)
     size,extents=plan_disk();p=destination/'retroboot-rescue-target-hdd.img';write_fixture(p,size,extents);remember(p)
     size,extents=plan_disk('bad-fsinfo');p=destination/'retroboot-rescue-bad-fsinfo-hdd.img';write_fixture(p,size,extents);remember(p)
+    size,extents=plan_disk('bad-reference');p=destination/'retroboot-rescue-bad-reference-hdd.img';write_fixture(p,size,extents);remember(p)
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
     changed_header=destination/'resealed-backup-header.raw';changed_header.write_bytes(match_backup(generation=2)[:512])

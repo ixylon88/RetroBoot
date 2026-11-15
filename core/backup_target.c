@@ -1,6 +1,7 @@
 #include "backup_target.h"
 #include "admin_audit.h"
 #include "state.h"
+#include "backup_links.h"
 
 static struct {
     rb_admin_audit audit;
@@ -117,6 +118,10 @@ static void acquire(rb_backup_target *r)
                 fail(r, RB_BTARGET_IDENTITY, 3, lba); return;
             }
         }
+    }
+    i = rb_backup_unlinked_profile(&work.config.config, &work.state.state);
+    if (i != RB_CONFIG_NONE) {
+        fail(r, RB_BTARGET_INSTALLATION, i, work.config.config.entries[i].start); return;
     }
     if (observed_read(0, work.a, (void *)0)) { io_failure(r, 0); return; }
     r->disk_id = dword(work.mbr + 440); r->layout_crc = rb_layout_crc(&work.audit.scan);
