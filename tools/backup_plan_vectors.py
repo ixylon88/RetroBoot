@@ -67,11 +67,12 @@ def cases():
     base = sectors(); result = []
 
     def add(name, status=0, detail=0, nested=0, index=0, lba=0,
-            reads=None, changed=None, start=1, io=0, device=0,
+            reads=None, changed=None, initial=None, start=1, io=0, device=0,
             reserved=32, length=71126):
         if reads is None:reads=2*(HEADERS+reserved+4)
         result.append(dict(name=name, status=status, detail=detail, nested=nested,
-            index=index, lba=lba, reads=reads, patches=patches(base, changed or base),
+            index=index, lba=lba, reads=reads, initial=patches(base, initial or base),
+            patches=patches({**base, **(initial or {})}, changed or {}),
             start=start, io=io, device=device, reserved=reserved, length=length))
 
     def edit(lba, offset, width, value):
@@ -209,6 +210,12 @@ def cases():
             record[64+i*52:116+i*52]=record[64:116];struct.pack_into('<I',record,64+i*52,i+1)
         multiple[lba]=seal(record)
     add('eight-profiles-one-installation',changed=multiple)
+    renamed={}
+    for lba in RECORDS[:2]:
+        record=bytearray(multiple[lba]);record[84+7*52]=ord('X');renamed[lba]=seal(record)
+    add('resealed-tail-stable',initial=multiple,changed=renamed)
+    add('resealed-tail-inner',2,10,reads=HEADERS,initial=multiple,changed=renamed,start=ACQUISITION+1)
+    add('resealed-tail-outer',6,initial=multiple,changed=renamed,start=PASS+1)
     for lba in RECORDS[:2]:
         record=bytearray(multiple[lba]);struct.pack_into('<I',record,108+7*52,2);multiple[lba]=seal(record)
     add('last-profile-unlinked',2,11,7,lba=SYSTEM,reads=ACQUISITION-1,changed=multiple)
@@ -236,7 +243,7 @@ def cases():
 
 
 def assertions():
-    return 5*len(cases())+12
+    return 5*len(cases())+15
 
 
 def model_header():
@@ -244,6 +251,7 @@ def model_header():
            'typedef struct { rb_u32 lba; rb_u16 offset; rb_u32 value; } rb_plan_patch;',
            'typedef struct { rb_u16 status, detail, nested, index; rb_u32 lba;',
            '    rb_u16 reads, start, io, device, reserved, config_generation, state_generation; rb_u32 length, layout_crc;',
+           '    const rb_plan_patch *initial; rb_u16 initial_count;',
            '    const rb_plan_patch *patches; rb_u16 count; } rb_plan_case;']
     def array(name, values):
         lines.append(f'static const rb_plan_patch {name}[] = {{')
@@ -251,26 +259,33 @@ def model_header():
         lines.append('};')
     base=sectors(); seed=patches({},base);array('rb_plan_seed',seed)
     vectors=cases()
-    for i,c in enumerate(vectors):array(f'rb_plan_edits_{i}',c['patches'])
+    arrays={}
+    for c in vectors:
+        for field in ('initial','patches'):
+            key=tuple(c[field])
+            if key not in arrays:
+                arrays[key]=f'rb_plan_edits_{len(arrays)}';array(arrays[key],key)
     lines.append('static const rb_plan_case rb_plan_cases[] = {')
     for i,c in enumerate(vectors):
         # Expected layout comes from the independently encoded record binding.
         record=bytearray(base[RECORDS[0]])
-        for lba,at,value in c['patches']:
+        for lba,at,value in c['initial']+c['patches']:
             if lba==RECORDS[0]:struct.pack_into('<I',record,at,value)
         crc=struct.unpack_from('<I',record,24)[0]
         fields=[str(c[k]) for k in ('status','detail','nested','index')]
         fields += [str(c['lba'])+'UL']
         fields += [str(c[k]) for k in ('reads','start','io','device','reserved')]
         records={lba:bytearray(base[lba]) for lba in RECORDS}
-        for lba,at,value in c['patches']:
+        for lba,at,value in c['initial']+c['patches']:
             if lba in records:struct.pack_into('<I',records[lba],at,value)
         fields += [str(max(struct.unpack_from('<I',records[lba],16)[0] for lba in group))
                    for group in (RECORDS[:2],RECORDS[2:])]
-        fields += [str(c['length'])+'UL',str(crc)+'UL',f'rb_plan_edits_{i}',str(len(c['patches']))]
+        fields += [str(c['length'])+'UL',str(crc)+'UL',arrays[tuple(c['initial'])],str(len(c['initial'])),
+                   arrays[tuple(c['patches'])],str(len(c['patches']))]
         lines.append('    {'+', '.join(fields)+'}, /* '+c['name']+' */')
     lines += ['};',f'#define RB_PLAN_SEED_COUNT {len(seed)}U',
               f'#define RB_PLAN_CASES {len(vectors)}U',f'#define RB_PLAN_ACQUISITION {ACQUISITION}U',
               f'#define RB_PLAN_READY_CRC {zlib.crc32(base[SYSTEM])}UL',
+              f'#define RB_PLAN_TAIL_CASE {next(i for i,c in enumerate(vectors) if c["name"]=="resealed-tail-inner")}U',
               f'#define RB_PLAN_LINK_CASE {next(i for i,c in enumerate(vectors) if c["name"]=="bad-reference")}U']
     return '\n'.join(lines)+'\n'

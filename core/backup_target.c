@@ -1,3 +1,4 @@
+#include "fingerprint.h"
 #include "backup_target.h"
 #include "admin_audit.h"
 #include "state.h"
@@ -37,13 +38,8 @@ static void fail(rb_backup_target *r, rb_u16 code, rb_u16 detail, rb_u32 lba)
 {
     clear(r, sizeof(*r)); r->status = code; r->detail = detail; r->error_lba = lba;
 }
-/* Include order, address and every byte in separate sector-half chains.
-   A CRC over a complete CRC-suffixed record has a constant residue, even
-   after a correctly resealed change. Keeping the halves separate avoids
-   that blind spot. CRCs still do not authenticate a source. */
 static rb_u16 __cdecl observed_read(rb_u32 lba, rb_u8 *out, void *opaque)
 {
-    rb_u32 tuple[3];
     rb_u16 i;
     (void)opaque;
     work.error_lba = lba;
@@ -54,10 +50,7 @@ static rb_u16 __cdecl observed_read(rb_u32 lba, rb_u8 *out, void *opaque)
         if (!work.have_mbr) { for (i = 0; i < 512; ++i) { work.mbr[i] = out[i]; } }
         work.have_mbr = 1;
     }
-    for (i = 0; i < 2; ++i) {
-        tuple[0] = work.digest[i]; tuple[1] = lba; tuple[2] = rb_crc32(out + i * 256, 256);
-        work.digest[i] = rb_crc32((const rb_u8 *)tuple, sizeof(tuple));
-    }
+    rb_fingerprint_sector(work.digest, lba, out);
     ++work.reads;
     return 0;
 }

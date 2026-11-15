@@ -78,11 +78,16 @@ For each of two complete acquisitions:
    canonical layout, management bounds and selected record generations.
 
 The two acquisitions must have equal read counts and matching ordered
-fingerprints. Each fingerprint consists of two separate CRC32 chains over the
-first and second 256-byte halves of every sector, including the physical LBA
-and previous chain value. Keeping these chains separate detects the tested
-case of a changed record with a correctly recalculated trailing CRC: hashing
-the complete CRC-suffixed sector alone would produce a constant residue.
+fingerprints. The shared [`rb_fingerprint_sector`](../core/fingerprint.c) chains
+CRC32 over bytes 0–507 separately from bytes 508–511, including the physical
+LBA and previous chain value in each chain. The trailing record CRC must stay
+separate from its body: a complete CRC-suffixed sector has a constant residue.
+The former 256/256 split also missed a resealed change confined to bytes
+256–507. The regression changes the eighth profile name at byte 448, reseals
+both configuration copies and preserves both old half-sector CRCs. Stable
+renamed records remain valid; changes between inner acquisitions or outer
+planning passes are rejected. CRC collisions remain possible; these checks
+are neither authentication nor an atomic snapshot.
 Padding, root timestamps and boot-code bytes are included when their sectors
 are read. Root sectors after the directory end marker are not acquired by the
 existing allocation audit and are not covered by this comparison.
@@ -144,7 +149,8 @@ records: mismatched ID halves/kinds, approved pending states, independently
 newer A/B selections, ignored older links, unbound drafts, empty lists, eight
 profiles sharing an installation, the last profile failing and changes in
 later acquisitions. A semantic failure after success must clear all source
-addresses and READY claims. It now has 136 scenarios / 692 assertions.
+addresses and READY claims. It now has 139 scenarios / 710 assertions, including
+resealed-tail changes and revocation of a previously successful source map.
 F5/F6 floppy and instrumented/bare CD campaigns cover the new published
 bad-reference fixture. A host mutation from intact to unlinked metadata also
 checks F6's stale-result clearing. Current suite totals are recorded in the

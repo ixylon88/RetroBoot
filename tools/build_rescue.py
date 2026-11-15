@@ -15,13 +15,13 @@ try:
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from .backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
-    from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
+    from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain
     from .backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from .journal_records import io_model_header
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from .backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
-    from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
+    from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 except ImportError:
     from build_abi_probe import inspect_map, prepare_output
@@ -30,13 +30,13 @@ except ImportError:
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
-    from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs
+    from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain
     from backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from journal_records import io_model_header
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
-    from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup
+    from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 
 IMAGE_BYTES = 1474560
@@ -142,7 +142,7 @@ def build(kind='rescue',language='en'):
             ('backup-format','core/backup_format.c'),('backup-encode','core/backup_encode.c'),
             ('backup-encode-tests','tests/backup/encode.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
-            ('fat-boot','core/fat_boot.c'),('backup-links','core/backup_links.c'),
+            ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('backup-target','core/backup_target.c'),('backup-target-tests','tests/backup/target.c'),
             ('backup-plan','core/backup_plan.c'),('backup-plan-tests','tests/backup/plan.c'),
@@ -190,6 +190,8 @@ def build(kind='rescue',language='en'):
                 'backup-plan','rescue-plan','fat-boot')]
         if destination/'backup.obj' in extra:
             extra.append(destination/'backup-format.obj')
+        if destination/'backup-target.obj' in extra:
+            extra.append(destination/'fingerprint.obj')
         linked=[obj,*objects[:-1],*extra,objects[-1]]
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -223,8 +225,13 @@ def build(kind='rescue',language='en'):
     for name in HDD_CASES:
         size,extents=hdd_fixture(name);p=destination/('disk-'+name+'.img');write_fixture(p,size,extents);remember(p)
     changed_header=destination/'resealed-backup-header.raw';changed_header.write_bytes(match_backup(generation=2)[:512])
-    for mode in range(18):
-        extra=['-DRB_RESEALED_HEADER="'+str(changed_header)+'"'] if mode==17 else []
+    changed_tail=destination/'resealed-original-tail.raw';changed_tail.write_bytes(resealed_original(True))
+    tail_image=(destination/'match-resealed-file-tail.img').read_bytes()
+    # Original-MBR payload is file sector five. Derive its physical address.
+    tail_lba=file_chain(tail_image)[5];cylinder,within=divmod(tail_lba,36);head,sector=divmod(within,18)
+    for mode in range(19):
+        extra=['-DRB_REPLACEMENT_SECTOR="'+str(changed_header if mode==17 else changed_tail)+'"'] if mode in (17,18) else []
+        if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
         p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,

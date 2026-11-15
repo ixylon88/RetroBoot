@@ -26,7 +26,7 @@ except ImportError:
 
 ACTIONS = ((None,0),('f5',3),('ret',3),('f4',2),('f5',3),('esc',0),('ret',1),('f5',3),('esc',0))
 CD_CASES = ('match','chs','no-hdd','missing-backup','bad-backup','bad-saved-boot',
-            'capacity','identity','mbr-io','record-io','bad-reference')
+            'capacity','identity','mbr-io','record-io','bad-reference','resealed-file-tail')
 
 
 def check_discovery_calls(text,spec):
@@ -94,7 +94,7 @@ def main():
     if manifest['ui']!=metadata(args.language) or manifest['rescue_match_cases']!=specs():raise ValueError('Stale rescue match build')
     cases=specs()
     if args.cdrom:
-        cases={k:v for k,v in cases.items() if k in CD_CASES and (not args.bare or k!='chs')}
+        cases={k:v for k,v in cases.items() if k in CD_CASES and (not args.bare or (k!='chs' and v['rom']<14))}
     if args.case:
         if set(args.case)-cases.keys():raise ValueError('Unknown match case')
         cases={k:v for k,v in cases.items() if k in args.case}

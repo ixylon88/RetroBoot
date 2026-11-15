@@ -11,8 +11,8 @@ org 0
 ; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer, 9=zero capacity.
 ; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
     dw 0xAA55
-%if RB_ROM_MODE == 17
-    db 2                       ; extra block for the replacement backup header
+%if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
+    db 2                       ; extra block for a replacement saved sector
 %else
     db 1
 %endif
@@ -106,8 +106,8 @@ handler:
     out 0xE9, al
     popad
 .trace_done:
-%if RB_ROM_MODE == 16 || RB_ROM_MODE == 17
-    ; After the second HDD discovery, alter the next backup header returned
+%if RB_ROM_MODE >= 16 && RB_ROM_MODE <= 18
+    ; After the second HDD discovery, alter one saved sector returned
     ; by the BIOS. The physical floppy remains unchanged. LBA 372 is the
     ; synthetic file's first cluster, not the rescue program's loader.
     cmp byte [cs:change_pending - handler], 0
@@ -116,9 +116,17 @@ handler:
     jne .saved_done
     cmp ah, 2
     jne .saved_done
-    cmp cx, 0x0A0D              ; cylinder 10, sector 13
+%if RB_ROM_MODE == 18
+    cmp cx, RB_SAVED_CX         ; generated original-payload address
+%else
+    cmp cx, 0x0A0D              ; LBA 372, cylinder 10, sector 13
+%endif
     jne .saved_done
+%if RB_ROM_MODE == 18
+    cmp dh, RB_SAVED_DH
+%else
     cmp dh, 0
+%endif
     jne .saved_done
     mov byte [cs:change_pending - handler], 0
     popf
@@ -138,7 +146,7 @@ handler:
     mov di, bx
     mov cx, 256
     cld
-    rep movsw                  ; valid new generation with a recalculated CRC
+    rep movsw                  ; valid sector with a recalculated trailing CRC
     pop cx
     pop di
     pop si
@@ -237,7 +245,7 @@ handler:
     jmp accepted
 %endif
 %endif
-%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 17
+%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 18
     cmp ah, 0x48
     jne chain
     inc byte [cs:probe_count - handler]
@@ -300,15 +308,15 @@ hex:
 %if RB_ROM_MODE >= 10 && RB_ROM_MODE <= 13
 floppy_failures: db 0
 %endif
-%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 17
+%if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 18
 probe_count: db 0
 change_pending: db 0
 %endif
-%if RB_ROM_MODE == 17
-replacement: incbin RB_RESEALED_HEADER
+%if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
+replacement: incbin RB_REPLACEMENT_SECTOR
 %endif
 old13: dd 0                   ; populated in reserved RAM, never written in ROM
-%if RB_ROM_MODE == 17
+%if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
     times 1023 - ($ - $$) db 0
 %else
     times 511 - ($ - $$) db 0

@@ -24,13 +24,23 @@ CHAINS = ([2, 3], [20, 300, 40, 500, 60], [2800], [2900], [3000], [3100],
           [3200, 3202], [3300, 3302])
 
 
-def backup(chs=False, generation=1, capacity=None):
+def resealed_original(changed=False):
+    """Opaque test payload with a trailing CRC; never a bootable original MBR."""
+    raw=fixture();_,entries=inspect(raw)
+    entry=next(e for e in entries if e['kind']==1)
+    sector=bytearray(raw[entry['file_sector']*512:(entry['file_sector']+1)*512])
+    if changed:sector[300]^=1
+    return seal(sector)
+
+
+def backup(chs=False, generation=1, capacity=None, sealed_original=False):
     raw = fixture(); identity, entries = inspect(raw)
     identity = replace(identity, generation=generation,
                        capacity=capacity or (CHS_CAPACITY if chs else CAPACITY),
                        route=2 if chs else 1, heads=16 if chs else 0,
                        sectors_per_track=63 if chs else 0)
     return encode(identity, [Chunk(e['kind'], e['index'], e['lba'],
+        resealed_original() if sealed_original and e['kind']==1 else
         raw[e['file_sector']*512:(e['file_sector']+e['sectors'])*512],
         e['owner_start'], e['owner_sectors']) for e in entries])
 
@@ -123,7 +133,8 @@ def specs():
     for name,lba in (('mbr-io',0),('record-io',RECORDS[0])):
         add(name,4,2,0 if not lba else 5,fault_lba=lba);result[name]['disk_lba']=lba
     for name,rom,code,detail in (('changed-probe',14,5,1),('failed-reprobe',15,3,2),
-                               ('changed-file',16,2,1),('resealed-file',17,5,2)):
+                               ('changed-file',16,2,1),('resealed-file',17,5,2),
+                               ('resealed-file-tail',18,5,2)):
         add(name,code,detail);result[name]['rom']=rom
     result['changed-file']['nested']=1;result['changed-file']['record']=3
     return result
@@ -136,7 +147,8 @@ def floppy(original,spec):
         from rescue_file_fixtures import make_fixture
     if spec.get('file_case'):return make_fixture(original,spec['file_case'])
     return bytes(put_backup(original,backup(spec.get('chs',False) and not spec.get('saved_edd',False),
-        capacity=CHS_CAPACITY if spec.get('saved_edd') else None))[0])
+        capacity=CHS_CAPACITY if spec.get('saved_edd') else None,
+        sealed_original=spec['rom']==18))[0])
 
 
 def hdd_reads(spec):
@@ -158,7 +170,7 @@ def hdd_reads(spec):
 def floppy_reads(image,spec):
     case=spec.get('file_case','file-demo')
     reads=expected_file_reads(image,case)
-    if not spec['status'] or spec['rom'] in (16,17):
+    if not spec['status'] or spec['rom'] in (16,17,18):
         # The map is reused; full content and then metadata are checked again.
         reads+=reads[33:34] if spec['rom']==16 else reads[33:]
     return reads

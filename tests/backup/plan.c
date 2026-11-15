@@ -54,6 +54,7 @@ static rb_u16 __cdecl read_mock(rb_u32 lba, rb_u8 *out, void *opaque)
     }
     if (reads == current->io) { return 1; }
     fill(out, 512, 0); apply(rb_plan_seed, RB_PLAN_SEED_COUNT, lba, out);
+    apply(current->initial, current->initial_count, lba, out);
     if (reads >= current->start) { apply(current->patches, current->count, lba, out); }
     return 0;
 }
@@ -155,5 +156,13 @@ rb_u16 __cdecl rb_backup_plan_selftest(void)
     CHECK(source_guard.before == 0x12345678UL && source_guard.after == 0x87654321UL);
     setup(0); rb_backup_observe_target(&observed, (rb_backup_sources *)0, &device, read_mock, &device);
     CHECK(!observed.status && reads == RB_PLAN_ACQUISITION * 2 && !unexpected);
+    /* A valid resealed tail rewrite must also revoke a prior successful map. */
+    setup(0); rb_backup_observe_target(&observed, s, &device, read_mock, &device);
+    reads = 0; current = &rb_plan_cases[RB_PLAN_TAIL_CASE];
+    rb_backup_observe_target(&observed, s, &device, read_mock, &device);
+    CHECK(observed.status == RB_BTARGET_CHANGED && !observed.detail && !observed.error_lba);
+    CHECK(reads == RB_PLAN_ACQUISITION * 2 && !unexpected
+        && zeros((rb_u8 *)&observed + 8, sizeof(observed) - 8) && zeros(s, sizeof(*s)));
+    CHECK(source_guard.before == 0x12345678UL && source_guard.after == 0x87654321UL);
     return report(n, 0);
 }

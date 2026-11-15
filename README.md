@@ -131,7 +131,7 @@ space-separated byte pairs in stored order. The [display convention](docs/Langua
 distinguishes numeric values from byte sequences. Decimal counters and debug
 markers keep their existing form.
 
-Automated rescue floppy checks cover 242 boots and 1,772 VGA/keyboard states across both
+Automated rescue floppy checks cover 252 boots and 1,848 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## Rescue CD

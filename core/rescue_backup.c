@@ -1,3 +1,4 @@
+#include "fingerprint.h"
 #include "rescue_file.h"
 #include "rescue_match.h"
 #include "config.h"
@@ -33,18 +34,11 @@ void rb_rescue_backup_check(rb_u16 boot, rb_u16 *status, rb_u32 *lba, rb_backup_
     close_file();
 }
 
-/* Separate half-sector chains also detect correctly resealed records.
-   Include file-relative addresses and read order; no descriptor becomes an
-   HDD read address. These checksums are not authentication. */
+/* File-relative addresses never become HDD read addresses. */
 static rb_u16 __cdecl saved_read(rb_u32 sector, rb_u8 *out, void *opaque)
 {
-    rb_u16 i;
-    rb_u32 tuple[3];
     if (rb_rescue_file_read(sector, out, opaque)) { return 1; }
-    for (i = 0; i < 2; ++i) {
-        tuple[0] = digest[i]; tuple[1] = sector; tuple[2] = rb_crc32(out + i * 256, 256);
-        digest[i] = rb_crc32((const rb_u8 *)tuple, sizeof(tuple));
-    }
+    rb_fingerprint_sector(digest, sector, out);
     ++reads; return 0;
 }
 static void fail(rb_rescue_match *r, rb_u16 status, rb_u16 detail, rb_u16 nested,
