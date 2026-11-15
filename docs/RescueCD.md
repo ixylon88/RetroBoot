@@ -1,7 +1,7 @@
 # Booting RetroBoot Rescue from CD
 
 The rescue CD starts the same read-only program as the rescue floppy. The BIOS
-presents an unchanged embedded diskette as drive A:, so Enter, F4 and F5 keep
+presents an unchanged embedded diskette as drive A:, so Enter, F4, F5 and F6 keep
 their existing meanings. A physical or virtual floppy drive is not required.
 This adds a boot medium, not backup creation or restoration.
 
@@ -46,8 +46,8 @@ Each ISO is 1,529,856 bytes. For the first CD check, select **`-demo.iso`**.
 F5 needs `retroboot-rescue-target-hdd.img` from **retroboot-rescue-diagnostics**
 in the same workflow run, converted to a separate VDI and attached as the
 first IDE HDD. The [F5 setup guide](RescueTargetCheck.md) gives the procedure
-and expected fields. Its bytes are unchanged from PR #24, so an unchanged
-matching VDI from that test can remain attached. The ordinary
+and expected fields. The current image retains the F5 metadata and adds the
+FAT32 reserved area required by F6; a new VDI is needed for the F6 test. The ordinary
 `retroboot-hdd.img` and `retroboot-handoff.img` are different fixtures.
 
 With no HDD attached, demo F4 still succeeds; F5 reports
@@ -60,6 +60,12 @@ A useful manual report records the workflow run, exact ISO path, language,
 VirtualBox version, attached HDD, confirmation that the old floppy was ejected,
 and F4/F5/Enter/Esc results. Screenshots are optional. EFI, USB boot and
 no-emulation CD boot are outside this path.
+
+F6 also opens the [preliminary read plan](BackupCapturePlan.md#manual-virtualbox-check)
+from either normal or demo CD. It needs the current target HDD converted into
+a new VDI; an older F5-only VDI lacks the required synthetic FAT32 header.
+Expected: four zero codes, eight ranges, two pages and an estimated 23,040 bytes.
+Left/Right pages, Enter/F6 repeats and Esc clears. No file is created.
 
 ## Manual evidence
 
@@ -135,7 +141,8 @@ These **38 boots / 342 states** supplemented the 188 floppy boots / 1,244
 states at the CD-packaging baseline. That increment changed no guest binaries,
 floppy/HDD images, validators, disk formats or UI catalogs. The subsequent
 [capture-plan model](BackupCapturePlan.md) adds two floppy boots; the combined
-scope is now 228 boots / 1,586 states. A green comparison still means
+scope at that baseline is 228 boots / 1,586 states. The later live F6
+campaign adds 52 boots / 544 states, bringing current coverage to 280 / 2,130. A green comparison still means
 supported metadata correspondence only, not unique physical identity,
 snapshot provenance or permission to restore.
 

@@ -233,6 +233,14 @@ def main():
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
                         if not match:raise ValueError('Missing capture-plan read evidence')
                         check_plan_reads([int(x,16) for x in match[1].split(',') if x])
+                        vga=out/(name+'-vga.bin')
+                        qmp.call('pmemsave',{'val':0xB8000,'size':4000,'filename':str(vga)})
+                        rows=screen_rows(vga.read_bytes());visible='\n'.join(rows)
+                        if f'G={plan_assertions():04X}' not in visible or 'RB BACKUP PLAN PASS' not in visible:
+                            raise ValueError('Capture-plan result is not visible on VGA')
+                        if 'L=' in visible or ',' in visible:
+                            raise ValueError('Capture-plan address trace leaked onto VGA')
+                        (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
                 qmp.call('quit')
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:

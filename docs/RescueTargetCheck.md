@@ -10,6 +10,11 @@ The operation reads only. It does not restore, install, change visibility or
 start an OS. A match describes the supported metadata; it does not distinguish
 physical disks with cloned identifiers or authorize a later write.
 
+The later [F6 read-plan preview](BackupCapturePlan.md) extends the published
+HDD fixture with its synthetic FAT32 reserved area. The F5 identities and
+expected comparison values remain the same. A VDI converted from the older
+F5-only image still supports F5, but a new conversion is required for F6.
+
 ## Manual VirtualBox check
 
 Use one successful **BIOS ABI probe** run containing the F5 increment. Download

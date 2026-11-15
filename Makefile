@@ -98,6 +98,7 @@ rescue-check:
 rescue-test: rescue-check
 	$(PYTHON) tools/test_rescue.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_rescue_plan.py --language $(RB_LANGUAGE)
 
 iso-deps:
 	$(PYTHON) -m pip install --require-hashes -r tools/requirements-iso.txt
@@ -108,3 +109,5 @@ rescue-iso:
 rescue-iso-test: rescue-iso
 	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE) --cdrom
 	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE) --cdrom --bare
+	$(PYTHON) tools/test_rescue_plan.py --language $(RB_LANGUAGE) --cdrom
+	$(PYTHON) tools/test_rescue_plan.py --language $(RB_LANGUAGE) --cdrom --bare

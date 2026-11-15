@@ -1,5 +1,6 @@
 #include "backup_plan.h"
 #include "config.h"
+#include "bios_ui.h"
 #include "backup_plan_vectors.h"
 
 static struct { rb_u32 before; rb_backup_plan result; rb_u32 after; } guarded;
@@ -14,6 +15,12 @@ static void hex(rb_u16 value)
     rb_u16 i;
     static const char digits[] = "0123456789ABCDEF";
     for (i = 4; i; ) { --i; rb_putc(digits[(value >> (i * 4)) & 15]); }
+}
+static void trace_hex(rb_u32 value)
+{
+    rb_u16 i;
+    static const char digits[] = "0123456789ABCDEF";
+    for (i = 8; i; ) { --i; rb_debug_putc(digits[(value >> (i * 4)) & 15]); }
 }
 static void fill(void *p, rb_u16 size, rb_u8 value)
 {
@@ -38,7 +45,7 @@ static void apply(const rb_plan_patch *patch, rb_u16 count, rb_u32 lba, rb_u8 *o
 static rb_u16 __cdecl read_mock(rb_u32 lba, rb_u8 *out, void *opaque)
 {
     ++reads;
-    if (trace) { hex((rb_u16)(lba >> 16)); hex((rb_u16)lba); rb_putc(','); }
+    if (trace) { trace_hex(lba); rb_debug_putc(','); }
     if (opaque != (void *)&device || reads > 2200
             || !(lba == 0 || lba == 63 || (lba >= 126 && lba <= 660)
                 || lba == 6257 || lba == 6457 || lba == 6657 || lba == 6857 || lba == 131072)) {
@@ -110,10 +117,10 @@ rb_u16 __cdecl rb_backup_plan_selftest(void)
     rb_backup_sources *s = &source_guard.result;
     for (number = 0; number < RB_PLAN_CASES; ++number) {
         setup(number);
-        if (!number) { trace = 1; rb_putc('L'); rb_putc('='); }
+        if (!number) { trace = 1; rb_debug_putc('L'); rb_debug_putc('='); }
         rb_backup_plan_capture(r, current->device == 4 ? (const rb_rescue_device *)0 : &device,
             current->device == 5 ? (rb_sector_reader)0 : read_mock, &device);
-        if (trace) { rb_putc(13); rb_putc(10); }
+        if (trace) { rb_debug_putc(13); rb_debug_putc(10); }
         CHECK(r->status == current->status && r->detail == current->detail && r->nested == current->nested);
         CHECK(r->index == current->index && r->error_lba == current->lba);
         CHECK(payload());

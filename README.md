@@ -130,7 +130,7 @@ space-separated byte pairs in stored order. The [display convention](docs/Langua
 distinguishes numeric values from byte sequences. Decimal counters and debug
 markers keep their existing form.
 
-Automated rescue floppy checks cover 190 boots and 1,244 VGA/keyboard states across both
+Automated rescue floppy checks cover 228 boots and 1,632 VGA/keyboard states across both
 languages. The original ABI floppy remains unchanged.
 
 ## Rescue CD
@@ -142,19 +142,26 @@ The BIOS emulates floppy A: from the CD, so F4/F5 and their expected results
 remain the same. Normal ISOs without the example backup are included too.
 The [CD guide](docs/RescueCD.md) covers direct ISO attachment in VirtualBox,
 the matching HDD and the build commands. No ISO-to-VDI conversion is needed.
-CD tests add 38 boots and 342 states, including starts without a test ROM.
+CD tests add 52 boots and 498 states, including starts without a test ROM.
 The English F4/F5 success pages were reported from a VirtualBox CD boot on
 14 November 2026. Exact ISO revision and old-floppy removal were not separately
 recorded; the [CD evidence](docs/RescueCD.md#manual-evidence) states the limits.
 
 ## Preliminary backup planning
 
-The [capture-plan core](docs/BackupCapturePlan.md) now lists live metadata
-ranges and estimates backup size. A native self-test covers 67 scenarios and
-343 assertions per language, including read failures and changing metadata.
-The rescue artifact includes `backup-plan-model.img` for an optional standalone
-floppy check; expected output is `G=0157` and `RB BACKUP PLAN PASS`.
-This increment adds no normal-menu action, backup writer or restore permission.
+**F6 in RetroBoot Rescue** now lists live HDD metadata ranges and estimates
+backup size. The [F6 guide](docs/BackupCapturePlan.md#manual-virtualbox-check)
+gives the exact files, keys and expected values. Both normal/demo floppies and
+CDs work; the current `retroboot-rescue-target-hdd.img` must be converted into
+a new VDI because it adds the synthetic FAT32 header absent from older builds.
+The expected plan has eight ranges, two pages and an estimated 23,040 bytes.
+No backup file is written. Enter/F6 repeats; Left/Right pages; Esc clears.
+
+The native model retains 67 scenarios / 343 assertions per language. Its
+optional `backup-plan-model.img` now shows only `G=0157` and
+`RB BACKUP PLAN PASS` on VGA, with the full address trace retained in debug logs.
+The live F6 tests cover 52 additional floppy/CD boots and 544 states across
+both languages, including failed repeats and zero disk writes.
 
 ## HDD builds and tests
 
