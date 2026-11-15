@@ -165,7 +165,56 @@ def cases():
     pending={}
     for lba in RECORDS[2:]:
         state=bytearray(base[lba]);state[83]=5;struct.pack_into('<I',state,84,0);pending[lba]=seal(state)
+    add('approved-pending-installation',2,11,lba=SYSTEM,reads=ACQUISITION-1,changed=pending)
+    for lba in RECORDS[:2]:
+        config=bytearray(base[lba]);config[79:81]=bytes((1,0));pending[lba]=seal(config)
     add('pending-installation',changed=pending)
+    # Independently valid records can still refer to incompatible installations.
+    # These cases exercise the shared saved/live rule after A/B selection.
+    def record_change(lbas, at, width, value):
+        return {lba:seal(edit(lba,at,width,value)[lba]) for lba in lbas}
+    bad_reference=record_change(RECORDS[:2],108,4,2)
+    add('bad-reference',2,11,lba=SYSTEM,reads=ACQUISITION-1,changed=bad_reference)
+    add('bad-reference-high',2,11,lba=SYSTEM,reads=ACQUISITION-1,
+        changed=record_change(RECORDS[:2],112,4,2))
+    add('different-installation-kind',2,11,lba=SYSTEM,reads=ACQUISITION-1,
+        changed=record_change(RECORDS[2:],82,1,2))
+    for phase in (1,2,3,4,7):
+        changed={}
+        for lba in RECORDS[2:]:
+            state=bytearray(base[lba]);state[83]=phase;struct.pack_into('<I',state,84,0);changed[lba]=seal(state)
+        add('approved-phase-'+str(phase),2,11,lba=SYSTEM,reads=ACQUISITION-1,changed=changed)
+    for family,lbas,at in (('config',RECORDS[:2],108),('state',RECORDS[2:],64)):
+        for copy,lba in enumerate(lbas):
+            invalid=bytearray(base[lba]);struct.pack_into('<I',invalid,at,2)
+            struct.pack_into('<I',invalid,16,2)
+            add(f'selected-{family}-{copy}-unlinked',2,11,lba=SYSTEM,reads=ACQUISITION-1,
+                changed={lba:seal(invalid)})
+            struct.pack_into('<I',invalid,16,1)
+            newer=bytearray(base[lbas[1-copy]]);struct.pack_into('<I',newer,16,2)
+            add(f'older-{family}-{copy}-unlinked',changed={lba:seal(invalid),lbas[1-copy]:seal(newer)})
+    empty={}
+    for lba in RECORDS:
+        record=bytearray(base[lba]);record[64:508]=bytes(444);struct.pack_into('<H',record,36,0)
+        struct.pack_into('<I',record,40,0);empty[lba]=seal(record)
+    add('empty-profile-and-state',changed=empty)
+    draft={}
+    for lba in RECORDS[:2]:
+        record=bytearray(base[lba]);record[79:81]=bytes(2);record[108:116]=bytes(8);draft[lba]=seal(record)
+    add('unbound-draft',changed=draft)
+    multiple={}
+    for lba in RECORDS[:2]:
+        record=bytearray(base[lba]);struct.pack_into('<H',record,36,8)
+        for i in range(8):
+            record[64+i*52:116+i*52]=record[64:116];struct.pack_into('<I',record,64+i*52,i+1)
+        multiple[lba]=seal(record)
+    add('eight-profiles-one-installation',changed=multiple)
+    for lba in RECORDS[:2]:
+        record=bytearray(multiple[lba]);struct.pack_into('<I',record,108+7*52,2);multiple[lba]=seal(record)
+    add('last-profile-unlinked',2,11,7,lba=SYSTEM,reads=ACQUISITION-1,changed=multiple)
+    for start,label in ((ACQUISITION+1,'inner'),(PASS+1,'outer')):
+        add('unlinked-second-'+label,2,11,lba=SYSTEM,reads=start+ACQUISITION-2,
+            changed=bad_reference,start=start)
     add('stale-backup-hints',changed=edit(SYSTEM+1,488,4,123))
     add('hint-boundaries',changed={**edit(SYSTEM+1,488,4,70000),**edit(SYSTEM+7,492,4,70001)})
     for name,changed in (
@@ -187,14 +236,14 @@ def cases():
 
 
 def assertions():
-    return 5*len(cases())+9
+    return 5*len(cases())+12
 
 
 def model_header():
     lines=['/* Generated owned model; no OS or disk writer. */',
            'typedef struct { rb_u32 lba; rb_u16 offset; rb_u32 value; } rb_plan_patch;',
            'typedef struct { rb_u16 status, detail, nested, index; rb_u32 lba;',
-           '    rb_u16 reads, start, io, device, reserved, state_generation; rb_u32 length, layout_crc;',
+           '    rb_u16 reads, start, io, device, reserved, config_generation, state_generation; rb_u32 length, layout_crc;',
            '    const rb_plan_patch *patches; rb_u16 count; } rb_plan_case;']
     def array(name, values):
         lines.append(f'static const rb_plan_patch {name}[] = {{')
@@ -213,10 +262,15 @@ def model_header():
         fields=[str(c[k]) for k in ('status','detail','nested','index')]
         fields += [str(c['lba'])+'UL']
         fields += [str(c[k]) for k in ('reads','start','io','device','reserved')]
-        fields += ['2' if c['name']=='older-ready-crc-ignored' else '1']
+        records={lba:bytearray(base[lba]) for lba in RECORDS}
+        for lba,at,value in c['patches']:
+            if lba in records:struct.pack_into('<I',records[lba],at,value)
+        fields += [str(max(struct.unpack_from('<I',records[lba],16)[0] for lba in group))
+                   for group in (RECORDS[:2],RECORDS[2:])]
         fields += [str(c['length'])+'UL',str(crc)+'UL',f'rb_plan_edits_{i}',str(len(c['patches']))]
         lines.append('    {'+', '.join(fields)+'}, /* '+c['name']+' */')
     lines += ['};',f'#define RB_PLAN_SEED_COUNT {len(seed)}U',
               f'#define RB_PLAN_CASES {len(vectors)}U',f'#define RB_PLAN_ACQUISITION {ACQUISITION}U',
-              f'#define RB_PLAN_READY_CRC {zlib.crc32(base[SYSTEM])}UL']
+              f'#define RB_PLAN_READY_CRC {zlib.crc32(base[SYSTEM])}UL',
+              f'#define RB_PLAN_LINK_CASE {next(i for i,c in enumerate(vectors) if c["name"]=="bad-reference")}U']
     return '\n'.join(lines)+'\n'

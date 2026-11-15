@@ -3,7 +3,8 @@
 **F6 in RetroBoot Rescue** builds a read plan from the first HDD, estimates the
 backup size and checks every sector in the supported FAT reserved boot areas.
 FAT32 FSInfo, primary/backup boot copies and selected READY first-VBR checksums
-are checked before a green result. Normal and demo rescue floppies/CDs share
+are checked before a green result. Selected profiles must also refer to compatible
+installation-state entries. Normal and demo rescue floppies/CDs share
 this action; no `RBBACKUP.RBB` is required. No backup file or disk write occurs.
 
 ## Manual VirtualBox check
@@ -16,16 +17,17 @@ contains both rescue artifacts. **HDD BIOS boot** instead publishes
 | Artifact | German path | Purpose |
 | --- | --- | --- |
 | `retroboot-rescue-diagnostics` | `rescue-de/retroboot-rescue-demo.img` | Boot floppy with synthetic saved backup |
-| `retroboot-rescue-diagnostics` | `rescue-de/retroboot-rescue-target-hdd.img` | Good synthetic target HDD |
+| `retroboot-rescue-diagnostics` | `rescue-de/retroboot-rescue-target-hdd.img` | Intact synthetic target HDD |
 | `retroboot-rescue-diagnostics` | `rescue-de/retroboot-rescue-bad-fsinfo-hdd.img` | Same target with deliberately broken FSInfo |
+| `retroboot-rescue-diagnostics` | `rescue-de/retroboot-rescue-bad-reference-hdd.img` | Same target with a deliberately wrong installation reference |
 | `retroboot-rescue-cd` | `rescue-iso-de/retroboot-rescue-demo.iso` | Equivalent boot CD |
 
 English paths use `rescue/` and `rescue-iso/`. Both languages contain identical
 HDD fixtures. The normal rescue image also supports F6; the demo additionally
 supports the existing successful F4/F5 checks.
 
-1. With the VM powered off, a **new VDI converted from the current good target
-   IMG** is attached as the first IDE HDD. Earlier F5-only targets lack the
+1. With the VM powered off, a **new VDI converted from the current intact
+   `retroboot-rescue-target-hdd.img`** is attached as the first IDE HDD. Earlier F5-only targets lack the
    FAT32 reserved area; the ordinary HDD/handoff images are different fixtures.
    Conversion and attachment are described in the [F5 setup](RescueTargetCheck.md#manual-virtualbox-check).
 2. The current rescue floppy or ISO boots with legacy BIOS. For a CD check,
@@ -36,14 +38,14 @@ supports the existing successful F4/F5 checks.
    **Left** returns. Further arrows at either end stay on the current page.
 4. **Enter/F6** performs a fresh check and returns to page one. **Esc** clears
    the result and returns to diagnosis. Paging itself performs no reads.
-5. After shutdown, the good VDI is replaced by a separately converted
+5. After shutdown, the intact target VDI is replaced by a separately converted
    **`retroboot-rescue-bad-fsinfo-hdd.img`**. F6 must now show a yellow rejection:
    `0x0000 / 0x0009 / 0x0007 / 0x0001`, error LBA `0x00020001`, index `0x0000`.
    Ranges, size and page count must be blank. This is an intentional failure.
 6. Optionally, with the HDD detached before startup, F6 must report
    `0x0001 / 0x0000 / 0x0000 / 0x0000`, also without range/size fields.
 
-| F6 field | Expected good-target value |
+| F6 field | Expected intact-target value |
 | --- | --- |
 | BIOS / plan / detail / nested | `0x0000 / 0x0000 / 0x0000 / 0x0000` |
 | Error LBA / index | `0x00000000 / 0x0000` |
@@ -57,7 +59,40 @@ The eight ranges cover the current MBR, EBR, two FAT reserved areas, `RBCFG.A`,
 boot-area checks do not change these ranges or size. Rescue F6 is distinct
 from installation-state F6 in the HDD program, whose title is **RetroBoot**.
 
+### Installation-reference check
+
+The current demo rescue floppy/CD and the intact `retroboot-rescue-target-hdd.img`
+must still show green F4, F5 and F6 results. For the new negative check, the VM
+is shut down and its first HDD is replaced by a separately converted
+**`retroboot-rescue-bad-reference-hdd.img`** from the same build. Both config
+copies have valid checksums but refer to an absent installation ID.
+
+| Action on the bad-reference target | Expected result |
+| --- | --- |
+| F4 | Green: the separate saved backup remains intact |
+| F5 | Yellow: `0x0004 / 0x000B / 0x0000`; disk error LBA `0x00020000` |
+| F6 | Yellow: `0x0000 / 0x0002 / 0x000B / 0x0000`; error LBA `0x00020000`, index `0x0000`; ranges/counts/size blank |
+| Enter on F6 | Same rejection after a fresh check |
+| Esc | Diagnosis page |
+
+Here the LBA identifies the profile's target, not damaged FAT boot bytes.
+This fixture differs from **`retroboot-rescue-bad-fsinfo-hdd.img`**, whose F6
+failure remains at `0x00020001`. No file is created or disk written in either test.
+
 ## Manual evidence
+
+After PR #31, English VirtualBox screenshots confirmed the intact target's
+F4/F5/F6 success: all diagnostic/error fields zero; F6 has eight ranges,
+two volumes, 39 live / 45 estimated container sectors and 23,040 bytes, with
+the expected first page. F4 has volumes 2/1/1, 33 reserved sectors and one
+READY match. The preceding damaged-target report confirmed F4/F5 success
+and the expected F6 bad-FSInfo rejection (`0x0000 / 0x0009 / 0x0007 / 0x0001`,
+LBA `0x00020001`, no retained ranges). The target variants were clarified
+in the report. Exact artifact revision, boot medium, VM/BIOS versions,
+page two and complete Enter/Esc sequence were not separately established.
+The supplied screenshots were discarded after retaining this text evidence.
+This confirms the buffer-reuse baseline; the new installation-reference
+rejection still requires its own manual check.
 
 On 15 November 2026, the expanded full boot-area checks were also reported
 successful under VirtualBox. The German good-target screenshot shows the green
@@ -91,11 +126,11 @@ separately reported; the supplied image was discarded after retaining evidence.
 without an HDD. The expanded in-memory model now displays:
 
 ```text
-G=023E
+G=02B4
 RB BACKUP PLAN PASS
 ```
 
-`023E` counts **574 assertions** in hexadecimal. No attached HDD is scanned and
+`02B4` counts **692 assertions** in hexadecimal. No attached HDD is scanned and
 no file is created. No keyboard input is required; a restart exits the halted
 program. Its exact address trace remains in the emulator debug log, not VGA.
 
@@ -123,7 +158,9 @@ No BIOS discovery occurs inside the core. Each of two planning passes:
 1. Performs the existing two complete MBR/EBR/allocation/config/state
    acquisitions through `rb_backup_observe_target`. Success exposes the scan,
    four audited record addresses and READY first-VBR claims from the selected
-   validated installation-state copy. Older copies are not selected claims.
+   validated installation-state copy. Selected configuration/state references
+   must pass the shared [installation-link rules](BackupTarget.md#acquisition-and-comparison).
+   Older copies are not selected claims.
 2. Lists the current MBR and EBRs; probes every nonempty data partition,
    including management, to obtain its complete reserved-sector count.
    FAT32 requires FSInfo at offset 1, at least three reserved sectors and
@@ -182,33 +219,39 @@ backup VBR, 2 backup continuation, 3 primary continuation signature. Detail
 entry. The error LBA is the physical failing sector. Zero can identify the
 MBR or a whole-pass mismatch without one failing address.
 
+For status `0x0002`, detail `0x000B` identifies an incompatible selected
+installation reference. Nested is the zero-based profile index; error LBA is
+that profile's target start. No ranges/counts/size are retained.
+
 ## Automated evidence and remaining work
 
-The native model has **113 scenarios / 574 assertions** per language. It covers
+The native model has **136 scenarios / 692 assertions** per language. It covers
 FAT16/FAT32, EDD/CHS, geometry/capacity limits, reserved areas over 64 KiB, the
 exact 1 MiB boundary, malformed FSInfo/copies, selected and older READY claims,
-pending installations, 42 selected read failures and structurally valid changes
+unapproved pending installations, selected profile/state references,
+42 selected read failures and structurally valid changes
 between passes. Guards and complete failure clearing are checked. The successful
 fixture's independent **2,188-read** oracle contains two 1,094-read passes:
 two 529-read metadata acquisitions, two sizing VBRs, 32 system reserved sectors,
 one management VBR and one closing MBR. The exact-limit case streams 6,194 reads;
 a one-sector-too-large plan stops after 1,060 sizing/metadata reads.
 
-The live F6 campaign has **26 floppy boots / 264 UI states per language**.
+The live F6 campaign has **28 floppy boots / 284 UI states per language**.
 It exercises paging, repeats, F4/F5 transitions, missing/damaged HDDs, EDD/CHS,
 BIOS changes, reserved-area I/O failures and the new boot-content failures.
 A host FSInfo mutation after success must discard prior ranges on the next
-check. CD checks add five instrumented and four bare boots / 98 states per
-language, including the actual published good and bad-FSInfo HDDs. Both
+check; another mutation introduces a correctly resealed wrong installation ID.
+CD checks add six instrumented and five bare boots / 118 states per language,
+including the actual published intact, bad-FSInfo and bad-reference HDDs. Both
 languages use complete VGA, code/BSS/stack guards, exact reads, unchanged media
 and zero-write checks. F6 itself never reads the saved backup file.
 
-The complete rescue scope is **298 boots / 2,310 UI states**, including the
-unchanged F4/F5 campaigns and native saved-file validators. Local and published
+The complete rescue scope is **312 boots / 2,444 UI states**, including the
+F4/F5 campaigns and native saved-file validators. Local and published
 run results are recorded in the PR; reports remain under `build/rescue-*test*`.
 Host tests retain independent fixture, read-boundary and stale-field checks.
 
-Full FAT boot-area validation does not resolve profile/state cross-links,
+Full FAT boot-area and profile/state validation does not resolve
 original-MBR provenance, current-MBR approval, backup-file serialization,
 a writable export destination or targeted restore. No program, journal payload
 or user-data backup is claimed. An intact owned management layout remains

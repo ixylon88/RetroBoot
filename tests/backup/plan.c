@@ -87,7 +87,7 @@ static rb_u16 payload(void)
             || r->observed.status || r->observed.detail || r->observed.error_lba
             || r->observed.disk_id != 0x52425431UL || r->observed.layout_crc != current->layout_crc
             || r->observed.admin_start != 126 || r->observed.admin_sectors != 128457UL
-            || r->observed.config_generation != 1
+            || r->observed.config_generation != current->config_generation
             || r->observed.state_generation != current->state_generation) { return 0; }
     for (i = 0; i < sizeof(device); ++i) {
         if (((rb_u8 *)&r->device)[i] != ((rb_u8 *)&device)[i]) { return 0; }
@@ -136,6 +136,14 @@ rb_u16 __cdecl rb_backup_plan_selftest(void)
     CHECK(s->record_lba[0] == 6257 && s->record_lba[1] == 6457 && s->record_lba[2] == 6657 && s->record_lba[3] == 6857);
     CHECK(s->ready_count == 1 && s->ready[0].start == 131072UL && s->ready[0].vbr_crc == RB_PLAN_READY_CRC
         && !s->ready[0].index && zeros(s->ready + 1, 3 * sizeof(*s->ready)));
+    /* A semantic failure must revoke the previously exposed source addresses
+       and READY claims, even though each record's own CRC is valid. */
+    reads = 0; current = &rb_plan_cases[RB_PLAN_LINK_CASE];
+    rb_backup_observe_target(&observed, s, &device, read_mock, &device);
+    CHECK(observed.status == RB_BTARGET_INSTALLATION && !observed.detail && observed.error_lba == 131072UL);
+    CHECK(reads == RB_PLAN_ACQUISITION - 1 && !unexpected
+        && zeros((rb_u8 *)&observed + 8, sizeof(observed) - 8) && zeros(s, sizeof(*s)));
+    CHECK(source_guard.before == 0x12345678UL && source_guard.after == 0x87654321UL);
     /* A failure after prior success must clear the exposed address map. */
     reads = 0; device.drive = 0x81; rb_backup_observe_target(&observed, s, &device, read_mock, &device);
     CHECK(observed.status == RB_BTARGET_PARAMS && observed.detail == 2 && !reads

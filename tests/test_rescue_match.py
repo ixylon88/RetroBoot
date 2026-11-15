@@ -45,7 +45,7 @@ class RescueMatchTests(unittest.TestCase):
         size,base=disk()
         expected={'capacity':set(),'bad-mbr':{0},'missing-file':{629*512},
             'fat-copies':{378*512},'unowned':{127*512,378*512},
-            'config-crc':{6257*512},'state-crc':{6657*512},
+            'config-crc':{6257*512},'state-crc':{6657*512},'bad-reference':{6257*512,6457*512},
             'identity':{n*512 for n in (6257,6457,6657,6857)},
             'layout':{n*512 for n in (0,6257,6457,6657,6857)}}
         for name,changed in expected.items():
@@ -53,7 +53,7 @@ class RescueMatchTests(unittest.TestCase):
             self.assertEqual(length,size+(512 if name=='capacity' else 0))
             self.assertEqual(data.keys(),base.keys())
             self.assertEqual({k for k in base if data[k]!=base[k]},changed)
-        for name in ('identity','layout'):
+        for name in ('identity','layout','bad-reference'):
             data=disk(name)[1]
             for lba in (6257,6457,6657,6857):
                 record=data[lba*512]

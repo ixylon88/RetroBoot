@@ -37,6 +37,9 @@ generations do not need to equal each other or the container generation.
 The check does not establish a durable update history. Several profiles may
 refer to one matching installation. An unapproved profile with no installation
 ID does not assert an installation; empty profile/state lists are permitted.
+The [shared helper](../core/backup_links.c) also applies these same rules to
+live metadata in rescue F5/F6. Saved-record diagnostics and read order remain
+unchanged.
 
 During semantic reads, each complete MBR, EBR or configuration/state sector is
 checked again against its descriptor's payload CRC. A read failure or changed

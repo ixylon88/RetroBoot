@@ -72,6 +72,8 @@ jobs:
             build/rescue-de/retroboot-rescue-target-hdd.img
             build/rescue/retroboot-rescue-bad-fsinfo-hdd.img
             build/rescue-de/retroboot-rescue-bad-fsinfo-hdd.img
+            build/rescue/retroboot-rescue-bad-reference-hdd.img
+            build/rescue-de/retroboot-rescue-bad-reference-hdd.img
             build/rescue/*.bin
             build/rescue-de/*.bin
             build/rescue/*.map

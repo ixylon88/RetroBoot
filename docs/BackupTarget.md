@@ -63,7 +63,17 @@ For each of two complete acquisitions:
    rejected. Both configurations must be version 2 and carry the same media
    identity. Both state copies must carry that identity too. Newer valid record
    generations are accepted; they need not equal a backup generation.
-4. Reread LBA 0. Every MBR read within this acquisition must match its initial
+4. Check installation references between the independently selected newest
+   configuration and state. Every nonzero profile installation ID must resolve
+   to an entry with the same slot, type, kind, start and length. An approved
+   profile requires a `READY` entry. The shared
+   [saved/live helper](../core/backup_links.c) preserves the existing
+   [saved-record rules](BackupRecords.md): unbound drafts, empty lists and
+   several profiles for one installation remain valid. Unapproved references
+   may resolve to pending entries. Older copies must still validate individually,
+   but their links are not selected claims; configuration and state generations
+   need not match. No additional sector reads occur.
+5. Reread LBA 0. Every MBR read within this acquisition must match its initial
    512 bytes exactly. Return the independently observed disk/media IDs,
    canonical layout, management bounds and selected record generations.
 
@@ -100,11 +110,15 @@ its outer check code is `0004`. They are not F4 file-status codes.
 | `0008` | `GEOMETRY` | Exact route, heads or sectors per track differ; no reads |
 | `0009` | `LAYOUT` | Canonical layout or management-volume bounds differ |
 | `000A` | `CHANGED` | MBR changed within acquisition, or the successful acquisitions differ |
+| `000B` | `INSTALLATION` | Unresolved/incompatible selected installation reference; detail is the zero-based profile index |
 
 Record-copy errors identify the failing physical file sector. Pair conflicts
 have no single failing copy and use error LBA zero. Zero can also identify the
 MBR; status and detail give the context. An I/O failure inside the allocation
 audit remains `ALLOCATION`, with that audit's status and physical error LBA.
+For `INSTALLATION`, error LBA identifies the profile's target start, not a
+failed sector read. F5 displays `0x0004 / 0x000B / index`; rescue F6 displays
+`0x0000 / 0x0002 / 0x000B / index`. Both clear prior successful output.
 
 ## Evidence and limitations
 
@@ -121,11 +135,20 @@ The successful fixture emits its complete **542-read** sequence, two identical
 addresses, including both complete FATs and the final MBR reread. No program,
 journal payload or system-volume VBR is read. Three new host tests verify the
 seed records, oracle boundaries and rejection of incomplete/redirected traces.
-The F5 integration adds real floppy/HDD campaigns and five host tests. The
-current total is 175 host tests and 188 rescue boots / 1,244 UI states across
-both languages. Both rescue builds reproduce exactly. The live F5 fixture
+The F5 integration adds real floppy/HDD campaigns and host tests. The live F5 fixture
 has larger FATs and therefore a separate 1,058-read oracle; the model
 retains its 542-read sequence.
+
+The expanded capture-plan model exercises the same observer with nonempty
+records: mismatched ID halves/kinds, approved pending states, independently
+newer A/B selections, ignored older links, unbound drafts, empty lists, eight
+profiles sharing an installation, the last profile failing and changes in
+later acquisitions. A semantic failure after success must clear all source
+addresses and READY claims. It now has 136 scenarios / 692 assertions.
+F5/F6 floppy and instrumented/bare CD campaigns cover the new published
+bad-reference fixture. A host mutation from intact to unlinked metadata also
+checks F6's stale-result clearing. Current suite totals are recorded in the
+[project state](Arbeitsstand.md).
 
 This establishes comparison behavior for the supported intact metadata, not
 unique physical-device identity. A disk clone with copied identifiers and the
@@ -135,8 +158,9 @@ reads do not make a snapshot atomic. Changes after a final read remain possible.
 The `RBL1` layout CRC normalizes visibility types and excludes active flags,
 CHS table bytes and boot code. A match therefore does not prove equality to an
 approved MBR, authorize a visibility change or establish original-MBR provenance.
-Program contents, journal contents, current system VBRs and installation/profile
-cross-links need their separate checks. The model does not establish complete
+Program contents, journal contents and current system VBRs need their separate
+checks. Installation links establish record consistency, not actual installed
+OS contents, readiness or authorization. The model does not establish complete
 backup coverage, ownership history or recoverability.
 
 Damaged or absent live MBR/FAT/identity metadata is rejected. A different,

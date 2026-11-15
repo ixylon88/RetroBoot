@@ -11,7 +11,7 @@ from pathlib import Path
 try:
     from .build_rescue import ROOT, prepare_output, sha256
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
-    from .rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM
+    from .rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM, disk as plan_disk, RECORDS
     from .rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, floppy_reads as match_floppy
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .test_rescue import check_memory, check_screen, check_file_screen, trace_reads, floppy_reads
@@ -20,7 +20,7 @@ try:
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
-    from rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM
+    from rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM, disk as plan_disk, RECORDS
     from rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, floppy_reads as match_floppy
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from test_rescue import check_memory, check_screen, check_file_screen, trace_reads, floppy_reads
@@ -28,7 +28,7 @@ except ImportError:
     from test_menu import Qmp, screen_rows, wait_marker
 
 ACTIONS=((None,0),('f6',4),('right',4),('right',4),('left',4),('left',4),('ret',4),('esc',0),('f6',4),('esc',0))
-CD_CASES=('plan','demo','chs','no-hdd','bad-fsinfo')
+CD_CASES=('plan','demo','chs','no-hdd','bad-fsinfo','bad-reference')
 
 
 def check_discovery(text,spec):
@@ -112,7 +112,8 @@ def main():
         work=None;expected_work=None
         if not spec.get('absent'):
             disk=source/('retroboot-rescue-target-hdd.img' if spec['kind']=='match' else
-                'retroboot-rescue-bad-fsinfo-hdd.img' if spec['kind']=='bad-fsinfo' else 'disk-plan-'+spec['kind']+'.img')
+                'retroboot-rescue-'+spec['kind']+'-hdd.img' if spec['kind'] in ('bad-fsinfo','bad-reference')
+                else 'disk-plan-'+spec['kind']+'.img')
             before[str(disk)]=sha256(disk)
             if before[str(disk)]!=manifest['artifacts'][disk.name]['sha256']:raise ValueError('Changed plan source HDD')
             work=out/(name+'-hdd.img');shutil.copyfile(disk,work);expected_work=sha256(work);drive=str(work)
@@ -132,7 +133,9 @@ def main():
                 for serial,(key,view) in enumerate(actions):
                     planning=view==4 and key in ('f6','ret')
                     if planning:
-                        if spec.get('mutation') and serial>1:spec.update(kind='bad-fsinfo',status=9,detail=7,nested=1,lba=SYSTEM+1)
+                        if spec.get('mutation') and serial>1:
+                            if spec['mutation']=='reference':spec.update(kind='bad-reference',status=2,detail=11,nested=0,lba=SYSTEM)
+                            else:spec.update(kind='bad-fsinfo',status=9,detail=7,nested=1,lba=SYSTEM+1)
                         expected+=hdd_reads(spec);page=0
                         markers.append(f'RB PLAN probe={spec["probe"]:04X} status={spec["status"]:04X} detail={spec["detail"]:04X} nested={spec["nested"]:04X}')
                     elif key in ('left','right') and not(spec['probe'] or spec['status']):page=max(0,min(1,page+(1 if key=='right' else -1)))
@@ -162,7 +165,11 @@ def main():
                     if not args.bare and floppy_reads(log.read_text())!=expected_floppy:raise ValueError('Plan unexpectedly read a saved file')
                     screens.append(dict(key=key,view=view,page=page,vga_sha256=sha256(paths['vga']),probe=spec['probe'],status=spec['status']))
                     if serial==1 and spec.get('mutation'):
-                        with work.open('r+b') as f:f.seek((SYSTEM+1)*512);f.write(bytes(4))
+                        with work.open('r+b') as f:
+                            if spec['mutation']=='reference':
+                                _,changed=plan_disk('bad-reference')
+                                for lba in RECORDS[:2]:f.seek(lba*512);f.write(changed[lba*512])
+                            else:f.seek((SYSTEM+1)*512);f.write(bytes(4))
                         expected_work=sha256(work)
                     qmp.call('cont')
                 qmp.call('quit')

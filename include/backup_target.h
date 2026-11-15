@@ -8,7 +8,7 @@ enum {
     RB_BTARGET_OK, RB_BTARGET_PARAMS, RB_BTARGET_IO, RB_BTARGET_ALLOCATION,
     RB_BTARGET_CONFIG, RB_BTARGET_STATE, RB_BTARGET_IDENTITY,
     RB_BTARGET_CAPACITY, RB_BTARGET_GEOMETRY, RB_BTARGET_LAYOUT,
-    RB_BTARGET_CHANGED
+    RB_BTARGET_CHANGED, RB_BTARGET_INSTALLATION
 };
 
 typedef struct {
@@ -35,6 +35,9 @@ typedef struct {
 /* Independent observation, without saved identity claims. Performs the same
    two acquisitions as the comparison below. Optional sources are published
    only on success and cleared on failure, including selected READY VBR claims.
+   Selected profile installation references must resolve to compatible selected
+   state entries; approved profiles require READY. Status INSTALLATION reports
+   the first profile index in detail and its target start in error_lba.
    Result, sources and inputs must not
    overlap; result is required. No boot-area contents or MBR provenance check. */
 void rb_backup_observe_target(rb_backup_target *result, rb_backup_sources *sources,
@@ -43,7 +46,8 @@ void rb_backup_observe_target(rb_backup_target *result, rb_backup_sources *sourc
 /* Read-only comparison with a freshly discovered BIOS device. All disk addresses
    come from live MBR/EBR/FAT metadata, never from the backup's extent list.
    The caller must validate the complete saved file separately. This API checks
-   only its identity/geometry claims against two live metadata acquisitions.
+   its identity/geometry claims against two live metadata acquisitions, including
+   consistency of selected live configuration/state installation references.
    Matching copied identifiers cannot distinguish a cloned disk. Success is
    neither a complete backup check, a physical-device identity nor restore or
    boot authority. Stable sources and a non-reentrant call are required;

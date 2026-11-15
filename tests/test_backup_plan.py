@@ -8,6 +8,32 @@ from tools.config_records import FIXTURE_MEDIA_ID, layout_crc
 
 
 class BackupPlanTests(unittest.TestCase):
+    def test_link_vectors_select_independent_generations_and_last_profile(self):
+        base=sectors();vectors={c['name']:c for c in cases()}
+        def record(case,lba):
+            data=bytearray(base[lba])
+            for sector,at,value in case['patches']:
+                if sector==lba:struct.pack_into('<I',data,at,value)
+            self.assertEqual(zlib.crc32(data[:508]),struct.unpack_from('<I',data,508)[0])
+            return data
+        for family,lbas,offset in (('config',(6257,6457),108),('state',(6657,6857),64)):
+            for copy,lba in enumerate(lbas):
+                older=vectors[f'older-{family}-{copy}-unlinked']
+                self.assertEqual(older['status'],0)
+                bad,new=(record(older,n) for n in (lba,lbas[1-copy]))
+                self.assertEqual(struct.unpack_from('<I',bad,16)[0],1)
+                self.assertEqual(struct.unpack_from('<I',new,16)[0],2)
+                self.assertNotEqual(bad[offset:offset+8],new[offset:offset+8])
+                selected=vectors[f'selected-{family}-{copy}-unlinked']
+                self.assertEqual((selected['status'],selected['detail'],selected['reads']),(2,11,528))
+                self.assertEqual(struct.unpack_from('<I',record(selected,lba),16)[0],2)
+        last=vectors['last-profile-unlinked'];config=record(last,6257)
+        self.assertEqual((last['status'],last['detail'],last['nested'],last['lba']),(2,11,7,131072))
+        self.assertEqual(struct.unpack_from('<H',config,36)[0],8)
+        self.assertEqual([struct.unpack_from('<I',config,64+i*52)[0] for i in range(8)],list(range(1,9)))
+        self.assertTrue(all(config[108+i*52:116+i*52]==base[6257][108:116] for i in range(7)))
+        self.assertNotEqual(config[472:480],base[6257][108:116])
+
     def test_live_fixture_records_and_vbr_bindings(self):
         for bits, reserved, kind in ((32,32,None),(16,1,None),(16,4,None),
                                      (32,130,None),(32,2035,None),(32,32,0x1B)):

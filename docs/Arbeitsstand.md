@@ -4,6 +4,21 @@ Updated: 15 November 2026.
 
 ## Saved baseline
 
+PR #31 (saved-check buffer reuse) is merged into `historical` at
+`a5930936561398850dac44da656ad4c8914ec190`. All four checks passed; published
+rescue files, four ISOs and 14 case/read/VGA reports matched local results
+(298 boots / 2,310 states). English VirtualBox reports on 15 November 2026
+confirmed F4/F5/F6 success with the intact target and the expected F6
+bad-FSInfo rejection with the deliberately damaged target. The intact F6
+shows four zero codes, eight ranges and 23,040 bytes. The damaged result has
+`0x0000 / 0x0009 / 0x0007 / 0x0001`, LBA `0x00020001`, no retained ranges.
+The [manual evidence](BackupCapturePlan.md#manual-evidence) records exact
+observations and coverage limits; no exact revision, boot medium, VM/BIOS
+versions, page two or complete key sequence is inferred. Supplied screenshots
+were discarded after retaining text evidence. Future procedures distinguish
+`retroboot-rescue-target-hdd.img` (intact) from each deliberately damaged fixture
+by its complete filename.
+
 PR #30 (complete live FAT boot-area validation) is merged into `historical` at
 `09ebfccf4825eccfc134c7014e14e1659d882d7c`. All four PR checks passed. Published
 rescue files, four ISOs and all 14 case/read/VGA reports matched local results
@@ -92,9 +107,53 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: reuse saved-check sector buffers
+## Current increment: live installation-reference consistency
 
-Branch `codex/rescue-buffer-reuse` addresses the narrow static-memory margin
+Branch `codex/rescue-installation-links` extends both rescue F5 and F6 with
+selected configuration/state link validation. Individually valid record CRCs
+are insufficient when a profile references an absent or incompatible
+installation. The existing saved-record rule now lives in one shared helper:
+nonzero IDs must match slot/type/kind/start/length; approved profiles require
+READY. Drafts without IDs, unapproved pending references, empty lists and
+multiple profiles for one installation remain valid. A/B generations are
+selected independently; older copies still validate, but are not selected
+link claims. F4 behavior remains unchanged.
+
+The appended target status `0x000B` reports the first failing profile index
+and target start. F5 maps it to `0x0004 / 0x000B / index`; F6 maps it to
+`0x0000 / 0x0002 / 0x000B / index`. Failures clear source addresses, READY
+claims and display results. No additional disk reads occur; intact success
+oracles remain 1,058 for F5 and 2,188 for F6.
+
+The new published `retroboot-rescue-bad-reference-hdd.img` changes only both
+configuration installation IDs and their checksums. With the current demo
+floppy/CD, F4 stays green; F5/F6 turn yellow at target LBA `0x00020000`.
+The intact `retroboot-rescue-target-hdd.img` and the distinct
+`retroboot-rescue-bad-fsinfo-hdd.img` are unchanged. The [manual procedure](BackupCapturePlan.md#installation-reference-check)
+uses exact filenames and codes. Manual confirmation of this new rejection
+is pending.
+
+The shared helper adds 68 bytes to normal rescue payloads: 34,276 / 34,540
+bytes EN/DE. BSS remains 20,820 bytes; headroom is 2,248 / 1,984 bytes, above
+the unchanged 1,536-byte build minimum and below the fixed `0xE000` guard.
+Disk formats, frozen specification, HDD implementation and read-only scope
+remain unchanged. Original-MBR provenance, current-MBR approval, serialization,
+export and restoration remain open.
+
+Verification scope is 194 host tests plus the reference layout; the native
+capture-plan model has 136 scenarios / 692 assertions (`G=02B4`). It covers
+selected/older A/B links, both ID halves, incompatible kinds, approved pending
+states, drafts, empty lists, eight profiles, last-index errors, later-pass
+changes and source clearing after prior success. Saved-record, saved-boot and
+target models retain 296, 396 and 178 assertions. Full rescue regression is
+312 boots / 2,444 UI states across both languages and floppy/CD paths; F6
+includes a success-to-unlinked host mutation. Exact reads, VGA, memory guards,
+unchanged source media and zero guest writes remain required. Actual local,
+CI and published-artifact results are recorded in the PR.
+
+## Saved-check sector-buffer baseline (PR #31)
+
+Merged PR #31 addresses the narrow static-memory margin
 before further rescue features. Saved-record checking and subsequent saved FAT
 boot-area checking share three 512-byte buffers in an explicit union. The
 record phase completes before the boot phase starts. Container descriptors,
@@ -102,7 +161,7 @@ partition scan, selected config/state and reader context remain separate and
 valid for F5. Every new record check clears the complete context; each boot
 buffer is filled before use. The existing non-reentrant contract remains.
 
-| Normal rescue measure | PR #30 EN / DE | Current EN / DE |
+| Normal rescue measure | PR #30 EN / DE | PR #31 EN / DE |
 | --- | --- | --- |
 | Payload bytes | 34,146 / 34,410 | 34,208 / 34,472 |
 | BSS bytes | 22,356 / 22,356 | 20,820 / 20,820 |
@@ -125,7 +184,7 @@ repeats, exact reads, VGA, memory guards and zero-write checks. Validation and
 published artifact evidence are recorded in the PR.
 
 Manual regression uses the current demo rescue floppy or ISO and the matching
-good target HDD: F4, F5, F6, then F4 and Enter again should remain green; Esc
+intact `retroboot-rescue-target-hdd.img`: F4, F5, F6, then F4 and Enter again should remain green; Esc
 returns to diagnosis. There is no new key or visible feature in this increment.
 The [saved-check lifetime](BackupBootAreas.md#shared-sector-buffer-lifetime)
 explains the bounded reuse. The frozen specification, HDD implementation,
@@ -173,7 +232,7 @@ verification are recorded in the PR.
 
 At PR #30, both rescue languages reproduced. Payloads were 34,146 / 34,410
 bytes EN/DE; BSS ended at 56,502 / 56,766, below the 57,344 stack guard.
-The German margin of only **578 bytes** prompted the current buffer-reuse
+The German margin of only **578 bytes** prompted the PR #31 buffer-reuse
 increment. Full-area scratch uses two bounded sector buffers on the
 existing guarded 8 KiB stack, alongside the unchanged 908-byte display result.
 The frozen specification, HDD implementation and disk formats are unchanged.
