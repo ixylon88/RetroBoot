@@ -119,9 +119,11 @@ The synchronous adapter in [rescue_backup.c](../core/rescue_backup.c) performs:
 3. A second BIOS discovery. Drive, route, capacity and geometry must still
    equal the initial observation.
 4. A second complete saved-file validation and floppy metadata recheck. Read
-   count and two ordered half-sector CRC chains must equal the first pass.
-   The chains include file-relative sector addresses and detect tested changes
-   even when a modified record/header has a newly valid trailing CRC.
+   count and two ordered CRC chains must equal the first pass. The shared
+   [fingerprint](BackupTarget.md) separates bytes 0–507 from bytes 508–511
+   and includes file-relative sector addresses. It detects tested changes
+   with newly valid trailing CRCs, including changes missed by the former
+   256/256 split. CRC collisions remain possible.
 5. Closure of the temporary file map. Every failure clears observed device,
    identity, layout and generation fields, retaining only error diagnostics.
 
@@ -167,8 +169,8 @@ exist for the allocation audit; only the four configuration/state payloads
 are populated. Live record addresses differ from saved descriptor addresses
 on purpose, demonstrating independent discovery.
 
-`make rescue-test RB_LANGUAGE=en` and `RB_LANGUAGE=de` each add **25 boots and
-225 keyboard/VGA states** for F5. CD boot adds 42 boots / 378 states across
+`make rescue-test RB_LANGUAGE=en` and `RB_LANGUAGE=de` each add **26 boots and
+234 keyboard/VGA states** for F5. CD boot adds 44 boots / 396 states across
 both languages using the same adapter and checkers. The [project state](Arbeitsstand.md)
 records totals including F4/F6 and the shared native validators.
 The unchanged native target model retains 178 assertions per language.
@@ -176,7 +178,15 @@ The unchanged native target model retains 178 assertions per language.
 The F5 campaigns cover EDD and CHS success, missing HDD/file, invalid saved
 content, capacity/route/identity/layout differences, damaged live metadata,
 allocation/record/link errors, bounded BIOS retries, failed/changed reprobes,
-changed saved content and a correctly resealed header change. Two campaigns
+changed saved content and correctly resealed header/payload changes. The
+new `resealed-file-tail` case substitutes byte 300 plus a new trailing CRC
+in the opaque original-MBR test payload after HDD reprobe. Container framing
+and both former half-sector CRCs remain unchanged; F5 must reject the second
+full check with `0x0005 / 0x0002 / 0x0000` and cleared success fields. The
+source medium is unchanged, and F4 still accepts its stored contents. This
+fault is tested with a floppy and an instrumented CD in both languages.
+The synthetic original payload is not bootable or proof of MBR provenance.
+Two campaigns
 first succeed, then alter a disposable host fixture between invocations:
 missing floppy file and damaged HDD MBR. Old successful fields must disappear.
 These intentional host mutations are recorded separately; guest writes remain

@@ -6,7 +6,7 @@ import zlib
 
 from tools.backup_container import inspect
 from tools.config_records import FIXTURE_MEDIA_ID
-from tools.rescue_match_fixtures import backup, disk, acquisition, specs, floppy, hdd_reads, floppy_reads
+from tools.rescue_match_fixtures import backup, disk, acquisition, specs, floppy, hdd_reads, floppy_reads, resealed_original
 from tools.rescue_file_fixtures import file_chain
 from tools.rescue_text import load_catalog
 from tools.test_rescue_match import check_match_screen, check_discovery_calls
@@ -90,6 +90,24 @@ class RescueMatchTests(unittest.TestCase):
         # A whole-sector CRC alone cannot detect this legitimate rewrite.
         self.assertEqual(zlib.crc32(original[:512]),zlib.crc32(changed[:512]))
         chs,_=inspect(backup(True));self.assertEqual((chs.capacity,chs.route,chs.heads,chs.sectors_per_track),(261072,2,16,63))
+
+    def test_resealed_payload_tail_preserves_container_and_old_half_crcs(self):
+        before,after=resealed_original(),resealed_original(True)
+        self.assertNotEqual(before,after)
+        self.assertEqual(before[:300],after[:300]);self.assertEqual(before[301:508],after[301:508])
+        for start,length in ((0,512),(0,256),(256,256)):
+            self.assertEqual(zlib.crc32(before[start:start+length]),zlib.crc32(after[start:start+length]))
+        self.assertNotEqual(zlib.crc32(before[:508]),zlib.crc32(after[:508]))
+        raw=backup(sealed_original=True);identity,entries=inspect(raw)
+        entry=next(e for e in entries if e['kind']==1);at=entry['file_sector']*512
+        self.assertEqual(raw[at:at+512],before)
+        changed=raw[:at]+after+raw[at+512:]
+        self.assertEqual(inspect(changed),(identity,entries))
+        base=make_image(boot(),payload(30001));spec=specs()['resealed-file-tail']
+        image=floppy(base,spec);mapping=file_chain(image)
+        self.assertEqual(b''.join(image[n*512:(n+1)*512] for n in mapping),raw)
+        self.assertEqual((spec['status'],spec['detail'],spec['rom']),(5,2,18))
+        self.assertEqual(len(floppy_reads(image,spec)),267)
 
     def test_failed_match_page_rejects_stale_identity_and_geometry(self):
         s=load_catalog('en');spec=specs()['missing-backup'];data=bytearray(b' \x17'*2000)

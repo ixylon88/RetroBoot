@@ -1,3 +1,4 @@
+#include "fingerprint.h"
 #include "backup_plan.h"
 #include "config.h"
 #include "volume.h"
@@ -32,13 +33,10 @@ static void fail(rb_backup_plan *r, rb_u16 code, rb_u16 detail,
     clear(r, sizeof(*r)); r->status = code; r->detail = detail;
     r->nested = nested; r->index = index; r->error_lba = lba;
 }
-/* The outer fingerprint includes the VBR reads between target observations.
-   Sector halves stay separate to avoid CRC-suffixed-record residue cancellation.
-   This detects observed changes, not adversarial changes or an atomic snapshot. */
+/* Track every observed byte, physical address and read order. */
 static rb_u16 __cdecl tracked_read(rb_u32 lba, rb_u8 *out, void *opaque)
 {
     rb_u16 i;
-    rb_u32 tuple[3];
     (void)opaque; work.error_lba = lba;
     if ((!work.device.capacity_high && lba >= work.device.capacity_low)
             || work.read(lba, out, work.opaque)) { return 1; }
@@ -49,10 +47,7 @@ static rb_u16 __cdecl tracked_read(rb_u32 lba, rb_u8 *out, void *opaque)
         }
         work.have_mbr = 1;
     }
-    for (i = 0; i < 2; ++i) {
-        tuple[0] = work.digest[i]; tuple[1] = lba; tuple[2] = rb_crc32(out + i * 256, 256);
-        work.digest[i] = rb_crc32((const rb_u8 *)tuple, sizeof(tuple));
-    }
+    rb_fingerprint_sector(work.digest, lba, out);
     ++work.reads; return 0;
 }
 static rb_u16 __cdecl header_read(rb_u32 lba, rb_u8 *out, void *opaque)

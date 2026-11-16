@@ -8,6 +8,27 @@ from tools.config_records import FIXTURE_MEDIA_ID, layout_crc
 
 
 class BackupPlanTests(unittest.TestCase):
+    def test_valid_tail_rename_preserves_both_old_half_sector_crcs(self):
+        vectors={c['name']:c for c in cases()};base=sectors()
+        for name,status,detail in (('resealed-tail-stable',0,0),
+                                  ('resealed-tail-inner',2,10),('resealed-tail-outer',6,0)):
+            case=vectors[name];self.assertEqual((case['status'],case['detail']),(status,detail))
+            for lba in (6257,6457):
+                before=bytearray(base[lba])
+                for sector,at,value in case['initial']:
+                    if sector==lba:struct.pack_into('<I',before,at,value)
+                after=bytearray(before)
+                for sector,at,value in case['patches']:
+                    if sector==lba:struct.pack_into('<I',after,at,value)
+                self.assertEqual(struct.unpack_from('<H',before,36)[0],8)
+                self.assertNotEqual(before[448],after[448]) # eighth profile name
+                self.assertEqual(before[:448],after[:448]);self.assertEqual(before[449:508],after[449:508])
+                for record in (before,after):
+                    self.assertEqual(zlib.crc32(record[:508]),struct.unpack_from('<I',record,508)[0])
+                self.assertEqual([zlib.crc32(before[i:i+256]) for i in (0,256)],
+                                 [zlib.crc32(after[i:i+256]) for i in (0,256)])
+                self.assertNotEqual(zlib.crc32(before[:508]),zlib.crc32(after[:508]))
+
     def test_link_vectors_select_independent_generations_and_last_profile(self):
         base=sectors();vectors={c['name']:c for c in cases()}
         def record(case,lba):

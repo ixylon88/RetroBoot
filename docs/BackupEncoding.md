@@ -29,7 +29,9 @@ It is not part of the separate `retroboot-hdd-bios` artifact.
 `04F2` is the hexadecimal count of **1,266 assertions in 64 scenarios**.
 Both language builds use the same stable ASCII marker. The model uses only
 in-memory synthetic bytes; it never scans an attached HDD or creates a file.
-Manual confirmation of this new model is pending.
+On 15 November 2026, the expected `H=04F2` and `RB BACKUP ENCODE PASS`
+result was reported as matching. The exact downloaded revision, language
+folder, attached drives and VM/BIOS versions were not separately reported.
 
 ## Interface and boundaries
 

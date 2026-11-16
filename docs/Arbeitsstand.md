@@ -4,6 +4,14 @@ Updated: 15 November 2026.
 
 ## Saved baseline
 
+PR #33 (native metadata-sector encoding) is merged into `historical` at
+`68cb5ac28e57a7a35f02245f65374315ef5af3ea`. All four checks passed. Published
+rescue files, four ISOs, 14 case/read/VGA reports and native model logs matched
+local results (314 boots / 2,444 states). The encoder result was confirmed on
+15 November 2026: `H=04F2` and `RB BACKUP ENCODE PASS`. Exact artifact revision,
+language folder, attached drives and VM/BIOS versions were not separately
+reported. This confirms the standalone encoder, not complete source capture.
+
 PR #32 (live installation-reference consistency) is merged into `historical`
 at `29b3f4b723161e48d326b4c9352107147ead2da8`. All four checks passed. Published
 rescue files, four ISOs and all 14 case/read/VGA reports matched local results
@@ -119,7 +127,43 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: native container metadata encoding
+## Current increment: detect resealed tail changes
+
+Branch `codex/rescue-crc-tail-checks` fixes an observed gap in F5/F6 change
+checks before further backup collection work. A record rewrite confined to
+its second half, followed by recalculation of the trailing CRC, preserved both
+former half-sector fingerprints. A valid eighth-profile rename reproduced
+this in the native live observer; a BIOS-injected opaque saved-payload rewrite
+reproduced it in F5. Both regressions accepted the changed bytes before the fix.
+
+The shared `rb_fingerprint_sector` chains the first 508 and last four bytes
+separately, retaining addresses and read order. Live acquisitions, outer F6
+passes and F5 saved-file revalidation use the same helper. Status meanings,
+read sequences and file formats remain unchanged. This closes the reproduced
+CRC-residue gap; collisions remain possible, and no authentication or atomic
+snapshot is claimed. Complete capture and original-MBR provenance remain open.
+
+The native planner now has 139 scenarios / 710 assertions. A stable renamed
+record is accepted; inner/outer changes are rejected with cleared claims.
+F5 adds one nine-state fault case per language on floppy and instrumented CD,
+including F4 success and repeated F5 rejection. Local verification passed:
+199 host tests plus reference layout, repeated EN/DE rescue/CD builds, and
+318 boots / 2,480 UI states. All 314 previous cases retained their structured
+read/VGA observations. CI and published-artifact evidence are recorded in the PR.
+
+Normal rescue payloads shrink by 108 bytes to 34,240 / 34,504 bytes EN/DE.
+BSS remains 20,820 bytes; static headroom is 2,284 / 2,020 bytes against the
+unchanged 1,536-byte minimum. Stack guards and 8 KiB stack remain unchanged.
+The standalone planner has 13,034 bytes of static headroom.
+
+Manual check: boot `rescue/backup-plan-model.img` (or `rescue-de/`) from the
+new `retroboot-rescue-diagnostics` artifact, with no HDD required. Expected:
+`G=02C6` and `RB BACKUP PLAN PASS`. The program halts; restart or VM shutdown
+exits. This new result is not yet manually confirmed. Normal rescue has no new
+key or message. The three published target HDDs and synthetic backups remain
+unchanged; the BIOS-only fault fixture is separate.
+
+## Native metadata encoding baseline (PR #33)
 
 Branch `codex/backup-metadata-encoder` adds a C/16 encoder for the existing
 version-1 header and four descriptor-table sectors. Explicit identity, roles,
@@ -141,8 +185,8 @@ The [standalone procedure](BackupEncoding.md#manual-virtualbox-check) uses
 `rescue/backup-encode-model.img` (or `rescue-de/`) from
 `retroboot-rescue-diagnostics`; no HDD is required. Expected output is
 `H=04F2` and `RB BACKUP ENCODE PASS`: 64 scenarios / 1,266 assertions.
-Manual confirmation is pending. Normal rescue F4/F5/F6 have no new key or
-message; all three published target HDDs and synthetic backups are unchanged.
+The standalone result was confirmed on 15 November 2026; coverage limits are
+recorded above. Normal rescue F4/F5/F6 have no new key or message; all three published target HDDs and synthetic backups are unchanged.
 
 Verification scope is 197 host tests plus the reference layout, both repeated
 rescue/CD builds, and 314 boots / 2,444 UI states. Exact byte oracles cover
@@ -245,7 +289,8 @@ Merged PR #30 strengthens the existing rescue F6 path.
 After the entire range plan fits, every supported FAT reserved sector is read.
 FAT32 FSInfo structures, primary/backup boot copies and selected READY
 first-VBR CRC claims must agree with the supported rules. Two complete passes
-also compare ordered half-sector fingerprints, including padding bytes.
+also compare ordered fingerprints, including padding bytes. The current
+increment corrects the original half-sector split to a 508/4 body/tail split.
 Failure clears every range/count/size field. Plan status `0x0009` adds precise
 content diagnostics; existing status values and disk formats remain stable.
 The shared FSInfo helper retains saved-file F4 behavior and test coverage.
@@ -294,7 +339,8 @@ Merged PR #24 integrates the existing comparison core
 with the normal rescue program. F5 opens and fully validates `RBBACKUP.RBB`,
 rediscovers the first HDD, performs two independent live-metadata acquisitions,
 reprobes the device and revalidates the complete saved file before success.
-Ordered half-sector fingerprints also reject tested correctly resealed changes.
+Ordered fingerprints reject tested correctly resealed changes. The current
+increment closes the late-record blind spot in the original half-sector split.
 Every failure clears successful device/identity/layout/generation fields.
 Enter repeats; F4 selects the file-only check; Esc clears to diagnosis.
 There are no writes, restore actions or OS starts.

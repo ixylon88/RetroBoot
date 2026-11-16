@@ -140,11 +140,11 @@ separately reported; the supplied image was discarded after retaining evidence.
 without an HDD. The expanded in-memory model now displays:
 
 ```text
-G=02B4
+G=02C6
 RB BACKUP PLAN PASS
 ```
 
-`02B4` counts **692 assertions** in hexadecimal. No attached HDD is scanned and
+`02C6` counts **710 assertions** in hexadecimal. No attached HDD is scanned and
 no file is created. No keyboard input is required; a restart exits the halted
 program. Its exact address trace remains in the emulator debug log, not VGA.
 
@@ -200,8 +200,10 @@ sector. No file offsets, payload CRC list, generation or serialized container
 are produced. Current-MBR kind **0** deliberately differs from both on-disk
 MBR roles, and cannot be encoded as an original or approved MBR.
 
-Both passes must have identical read counts and ordered half-sector CRC32
-fingerprints. Every observed byte and physical LBA enters those chains,
+Both passes must have identical read counts and ordered CRC32 fingerprints.
+The shared [body/tail split](BackupTarget.md) keeps the first 508 bytes separate
+from the final four, so a recalculated trailing record CRC cannot cancel the
+tested late-profile change. Every observed byte and physical LBA enters those chains,
 including all reserved-sector padding. Every MBR read within a pass must also
 match exactly. These checks detect observed changes; CRCs do not authenticate
 data and repeated reads do not produce an atomic snapshot or a later write
@@ -239,12 +241,15 @@ that profile's target start. No ranges/counts/size are retained.
 
 ## Automated evidence and remaining work
 
-The native model has **136 scenarios / 692 assertions** per language. It covers
+The native model has **139 scenarios / 710 assertions** per language. It covers
 FAT16/FAT32, EDD/CHS, geometry/capacity limits, reserved areas over 64 KiB, the
 exact 1 MiB boundary, malformed FSInfo/copies, selected and older READY claims,
 unapproved pending installations, selected profile/state references,
 42 selected read failures and structurally valid changes
-between passes. Guards and complete failure clearing are checked. The successful
+between passes. A valid eighth-profile rename remains accepted when stable,
+but is rejected if it occurs between inner acquisitions or outer passes, even
+though both former half-sector CRCs are unchanged. Guards, complete failure
+clearing and revocation of a prior successful source map are checked. The successful
 fixture's independent **2,188-read** oracle contains two 1,094-read passes:
 two 529-read metadata acquisitions, two sizing VBRs, 32 system reserved sectors,
 one management VBR and one closing MBR. The exact-limit case streams 6,194 reads;
@@ -260,7 +265,7 @@ including the actual published intact, bad-FSInfo and bad-reference HDDs. Both
 languages use complete VGA, code/BSS/stack guards, exact reads, unchanged media
 and zero-write checks. F6 itself never reads the saved backup file.
 
-The complete rescue scope is **312 boots / 2,444 UI states**, including the
+The complete rescue scope is **318 boots / 2,480 UI states**, including the
 F4/F5 campaigns and native saved-file validators. Local and published
 run results are recorded in the PR; reports remain under `build/rescue-*test*`.
 Host tests retain independent fixture, read-boundary and stale-field checks.
