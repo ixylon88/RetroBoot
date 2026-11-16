@@ -246,7 +246,7 @@ def assertions():
     return 5*len(cases())+15
 
 
-def model_header():
+def model_header(vectors=None):
     lines=['/* Generated owned model; no OS or disk writer. */',
            'typedef struct { rb_u32 lba; rb_u16 offset; rb_u32 value; } rb_plan_patch;',
            'typedef struct { rb_u16 status, detail, nested, index; rb_u32 lba;',
@@ -258,7 +258,7 @@ def model_header():
         lines.extend(f'    {{{lba}UL, {at}, {value}UL}},' for lba,at,value in values or [(0,0,0)])
         lines.append('};')
     base=sectors(); seed=patches({},base);array('rb_plan_seed',seed)
-    vectors=cases()
+    vectors=cases() if vectors is None else vectors
     arrays={}
     for c in vectors:
         for field in ('initial','patches'):

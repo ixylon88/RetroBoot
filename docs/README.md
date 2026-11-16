@@ -15,6 +15,7 @@
 | [Rescue target comparison](RescueTargetCheck.md) | F5 file/HDD comparison, matching synthetic image pair and manual setup |
 | [Target-claim comparison core](BackupTarget.md) | Independent current metadata acquisition, comparison codes and limits |
 | [Preliminary capture plan](BackupCapturePlan.md) | Live ranges, size and complete FAT boot-area checks; no backup writer |
+| [Live payload checksums](BackupPayloads.md) | Streamed extent CRCs, two validated passes and standalone test floppy |
 | [Saved FAT boot areas](BackupBootAreas.md) | Complete reserved regions, FAT32 copies/FSInfo and selected READY VBR CRCs |
 | [Saved backup records](BackupRecords.md) | Native approved-layout, A/B record and installation-reference consistency |
 | [Festplattenstart](HDD_Boot.md) | EDD-/CHS-Ladeweg, C-Startvertrag, VirtualBox-Anleitung und Fehlerfälle |

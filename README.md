@@ -27,6 +27,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Bootable rescue CD: ISO download, VirtualBox and verification](docs/RescueCD.md)
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [Native metadata encoding and standalone test floppy](docs/BackupEncoding.md)
+- [Live payload checksums and standalone test floppy](docs/BackupPayloads.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
 - [F5 rescue file/HDD comparison and matching-image setup](docs/RescueTargetCheck.md)
 - [Read-only target-claim comparison core and its limits](docs/BackupTarget.md)
@@ -160,12 +161,17 @@ ranges, two pages and 23,040 bytes. The new `retroboot-rescue-bad-fsinfo-hdd.img
 must produce `0x0000 / 0x0009 / 0x0007 / 0x0001` and no ranges. No backup file
 is written. Enter/F6 repeats; Left/Right pages; Esc clears.
 
-The expanded native model has 113 scenarios / 574 assertions per language.
-Its optional `backup-plan-model.img` shows `G=023E` and `RB BACKUP PLAN PASS`
+The expanded native model has 139 scenarios / 710 assertions per language.
+Its optional `backup-plan-model.img` shows `G=02C6` and `RB BACKUP PLAN PASS`
 on VGA; the 2,188-address success trace remains in debug logs. Live F6 tests
-cover 70 floppy/CD boots and 724 states across both languages. The preceding
+cover 78 floppy/CD boots and 804 states across both languages. The preceding
 German range preview was confirmed under VirtualBox on 15 November 2026;
 manual evidence and its limits are retained in the F6 guide.
+
+The separate [payload observer](docs/BackupPayloads.md) adds per-extent CRCs
+from two freshly validated passes. Its standalone `backup-payload-model.img`
+shows `I=03F6` and `RB BACKUP PAYLOAD PASS` without an attached HDD. No payload
+bytes are retained, no MBR role is approved and no backup file is written.
 
 ## HDD builds and tests
 

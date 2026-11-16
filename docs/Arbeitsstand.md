@@ -1,8 +1,49 @@
 # Project state and resumption
 
-Updated: 15 November 2026.
+Updated: 16 November 2026.
+
+## Pending payload-observation increment
+
+The [payload observer](BackupPayloads.md) builds a fresh validated plan in each
+of two passes, streams every live extent and returns its ordinary CRC32.
+Every added read also enters the ordered body/tail fingerprints. Failure
+clears all plan claims and CRCs. Current-MBR kind 0 remains unapproved;
+payload retention, serialization, original-MBR provenance and restore remain
+open. F4/F5/F6 actions and their read sequences are unchanged.
+
+Local validation on the PR #35 baseline passed 203 host tests, the reference
+layout report, repeated EN/DE rescue and ISO builds, and all 14 rescue
+campaigns: 320 boots / 2,480 UI states. Each new native model runs 202 scenarios
+and 1,014 assertions (`I=03F6`, `RB BACKUP PAYLOAD PASS`), including per-sector
+payload I/O failures in both passes and transient resealed record changes.
+The existing planner still reports `G=02C6`. The test environment is the QEMU
+10.0.13/SeaBIOS, 486/16 MiB environment recorded below. No manual result for
+the new payload model is established yet.
+
+Normal rescue payload sizes are 34,582 bytes EN / 34,846 bytes DE; BSS remains
+20,820 bytes. Static headroom is 1,942 / 1,678 bytes, above the unchanged
+1,536-byte minimum. The payload model has 3,280 bytes of static headroom.
+Further UI/core growth must retain these budgets. HDD code is unchanged and
+the separate HDD boot campaign was not rerun for this increment.
+
+Hosted CI is intentionally skipped for this increment to conserve the
+available Actions allowance. A local test bundle contains the verified
+`backup-payload-model.img`, source revision and SHA-256. The normal workflow
+also includes this image in both language folders when run explicitly.
 
 ## Saved baseline
+
+PR #35 (PR/manual CI triggers) is merged at
+`e75bc0329186c874b7be471c2f840e75a19ab3f7`. The duplicate post-merge runs are
+disabled; PR and manual runs retain their complete jobs. That trigger-only
+revision intentionally skipped hosted CI, with local YAML/diff validation.
+
+PR #34 (body/tail fingerprints) is merged at
+`c687bd432a1fd0a2f3335259777d307594ed3cd3`. On 16 November 2026, the manual
+follow-up explicitly confirmed `G=02C6` and `RB BACKUP PLAN PASS`. Exact
+downloaded revision, language folder, attached drives and VM/BIOS versions
+were not separately reported. The [plan guide](BackupCapturePlan.md#manual-evidence)
+records this evidence.
 
 PR #33 (native metadata-sector encoding) is merged into `historical` at
 `68cb5ac28e57a7a35f02245f65374315ef5af3ea`. All four checks passed. Published
@@ -502,7 +543,9 @@ The frozen specification v0.2 and archives are unchanged.
    and interruption tests. Diagnosis alone does not satisfy this requirement.
    The live rescue F6 path now validates complete supported FAT boot areas;
    metadata serialization has a standalone native model; complete source capture,
-   payload collection, file export and provenance remain open. The rescue ISO has automated CD-boot coverage and
+   payload byte emission, file export and provenance remain open. The separate
+   [payload observer](BackupPayloads.md) now collects whole-extent CRCs within
+   two freshly validated passes, retaining no payload bytes. The rescue ISO has automated CD-boot coverage and
    reported English VirtualBox F4/F5 success; broader manual and physical BIOS
    compatibility remain open.
 2. Add fresh ownership/identity checks and verified prepare/MBR/completion
