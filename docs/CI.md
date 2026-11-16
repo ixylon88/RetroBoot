@@ -216,7 +216,22 @@ numeric/byte display were also confirmed; the linked rescue guides record
 their exact scope. English CD F4/F5 and the German F6 preview were subsequently
 confirmed; the CD and F6 guides retain their precise manual coverage limits.
 
-Alle drei Workflows lesen das Repo mit `contents: read`, benötigen keine
-privaten Schlüssel und verändern keine Branches. Sie lösen weder einen
-Merge noch eine Installation aus. Neben PRs laufen sie auch bei Änderungen
-an `historical` und können über `workflow_dispatch` manuell gestartet werden.
+## Workflow triggers and compute usage
+
+All three workflows run for pull requests targeting `historical` and remain
+available through `workflow_dispatch`. PR updates rerun the complete checks.
+They do not start automatically on a push or merge to `historical`, avoiding a
+second full campaign after an already checked PR.
+
+A direct push to `historical` also has no automatic CI. Exceptional direct
+updates require a manual run on that revision. Manual runs also provide a
+fresh check or fresh artifacts when needed. Normal development uses PRs.
+
+The build, test and upload steps, both language variants and both host
+platforms remain unchanged. The repeated builds within a campaign still
+check reproducibility; only the extra post-merge workflow run is removed.
+Test downloads and evidence come from the successful PR run or a manual run;
+a merge alone does not produce new artifacts.
+
+All workflows use `contents: read`, require no private keys, modify no branches
+and perform no merge or installation.

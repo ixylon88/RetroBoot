@@ -3,8 +3,6 @@ name: Host checks
 on:
   pull_request:
     branches: [historical]
-  push:
-    branches: [historical]
   workflow_dispatch:
 
 permissions:
