@@ -56,7 +56,8 @@ remain stable. Rescue target HDDs belong to the rescue artifact.
   matching `retroboot-rescue-target-hdd.img` (identical in both language folders)
   are published, together with the deliberately damaged
   `retroboot-rescue-bad-fsinfo-hdd.img` and `retroboot-rescue-bad-reference-hdd.img`.
-  The standalone `backup-plan-model.img` and new `backup-encode-model.img`
+  The standalone `backup-plan-model.img`, `backup-encode-model.img` and
+  `backup-payload-model.img`
   are included in both language folders. F6 evidence is under
   `rescue-plan-test*` and `rescue-plan-iso-test*`. F5 evidence is under `rescue-match-test/` and
   `rescue-match-test-de/`, including `match-results.json`.
@@ -79,13 +80,13 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The base [external rescue campaign](ExternalRescue.md) has 72 boots per language,
-including 58 seven-state UI campaigns and fourteen terminal model/failure boots.
+The base [external rescue campaign](ExternalRescue.md) has 73 boots per language,
+including 58 seven-state UI campaigns and fifteen terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 199 tests. The
+dependency and run 203 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 The [capture-plan model](BackupCapturePlan.md) has 710 native assertions and
@@ -100,6 +101,13 @@ input/output guards and clearing, and feed synthetic payloads through the
 complete container reader. No HDD, file output or menu action is involved.
 Its `H=04F2` and `RB BACKUP ENCODE PASS` must appear on VGA and in the debug
 log; it shares the 60-second model deadline.
+
+The [payload observer model](BackupPayloads.md) adds one terminal boot per
+language, included above. Its 202 scenarios / 1,014 assertions compare streamed
+extent CRCs with Python oracles, test each payload-sector read failure in both
+passes, and reject transient resealed changes. `I=03F6` and
+`RB BACKUP PAYLOAD PASS` must appear on VGA; the 2,266-address trace remains
+in the debug log. It shares the 60-second model deadline.
 
 The separate [F5 campaign](RescueTargetCheck.md) adds 26 boots and 234 states
 per language. A successful comparison requires two live acquisitions totaling
@@ -118,10 +126,10 @@ Both check actual optical startup, exact HDD reads, VGA/RAM and zero block
 writes; only the instrumented cases observe virtual-floppy BIOS calls.
 Published ISOs contain byte-identical existing floppies. Packaging repeats and
 host tests verify catalog routing, directory mapping and fixed timestamps.
-These F4/F5 and model campaigns total 240 boots / 1,676 states before live F6.
+These F4/F5 and model campaigns total 242 boots / 1,676 states before live F6.
 The current F6 campaign adds 78 floppy/CD boots / 804 states across both
 languages, including full reserved-area checks and bad-FSInfo CD boots with
-and without the BIOS observation ROM. Total rescue scope is **318 boots /
+and without the BIOS observation ROM. Total rescue scope is **320 boots /
 2,480 states**. The expanded native planner has a 60-second model deadline;
 ordinary startup/UI deadlines remain 15 seconds. This reuses the ABI runner;
 no additional job or physical-hardware coverage is implied.

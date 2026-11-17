@@ -21,6 +21,7 @@ try:
     from .journal_records import io_model_header
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from .backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
+    from .backup_payload_vectors import model_header as payload_header, assertions as payload_assertions, expected_reads as payload_reads, cases as payload_cases
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 except ImportError:
@@ -36,6 +37,7 @@ except ImportError:
     from journal_records import io_model_header
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, expected_reads as target_reads
     from backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
+    from backup_payload_vectors import model_header as payload_header, assertions as payload_assertions, expected_reads as payload_reads, cases as payload_cases
     from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 
@@ -133,6 +135,7 @@ def build(kind='rescue',language='en'):
     (destination/'backup_boot_vectors.h').write_text(boot_header(),encoding='ascii')
     (destination/'journal_io_fixture.h').write_text(io_model_header(),encoding='ascii')
     (destination/'backup_plan_vectors.h').write_text(plan_header(),encoding='ascii')
+    (destination/'backup_payload_vectors.h').write_text(payload_header(),encoding='ascii')
     objects=[]
     for name,source in (('runtime','core/rescue_runtime.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
@@ -146,6 +149,7 @@ def build(kind='rescue',language='en'):
             ('backup-records','core/backup_records.c'),('backup-record-tests','tests/backup/records.c'),
             ('backup-target','core/backup_target.c'),('backup-target-tests','tests/backup/target.c'),
             ('backup-plan','core/backup_plan.c'),('backup-plan-tests','tests/backup/plan.c'),
+            ('backup-payload-tests','tests/backup/payload.c'),
             ('target-audit','core/admin_audit.c'),
             ('saved-state','core/state.c'),('saved-record-io','core/record_io.c'),('saved-volume','core/volume.c')):
         run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),
@@ -166,6 +170,7 @@ def build(kind='rescue',language='en'):
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
             ('backup-plan-model',['-DRB_RESCUE_PLAN_MODEL=1']),
+            ('backup-payload-model',['-DRB_RESCUE_PAYLOAD_MODEL=1']),
             ('rescue-file-model',['-DRB_RESCUE_FILE_MODEL=1'])):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
@@ -181,14 +186,15 @@ def build(kind='rescue',language='en'):
         if name=='backup-target-model':
             extra=[destination/(n+'.obj') for n in ('backup-target','backup-links','backup-target-tests','target-audit',
                 'saved-state','saved-record-io','saved-volume')]
-        if name=='backup-plan-model':
-            extra=[destination/(n+'.obj') for n in ('backup-plan','backup-plan-tests','backup-target','backup-links','fat-boot',
+        if name in ('backup-plan-model','backup-payload-model'):
+            test_object='backup-payload-tests' if name=='backup-payload-model' else 'backup-plan-tests'
+            extra=[destination/(n+'.obj') for n in ('backup-plan',test_object,'backup-target','backup-links','fat-boot',
                 'target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
                 'backup-plan','rescue-plan','fat-boot')]
-        if destination/'backup.obj' in extra:
+        if destination/'backup.obj' in extra or destination/'backup-plan.obj' in extra:
             extra.append(destination/'backup-format.obj')
         if destination/'backup-target.obj' in extra:
             extra.append(destination/'fingerprint.obj')
@@ -250,6 +256,8 @@ def build(kind='rescue',language='en'):
         scope='two live metadata acquisitions compared with supplied claims; model only, no file import or restore')
     manifest['backup_plan_model']=dict(assertions=plan_assertions(),read_lbas=plan_reads(),
         cases=plan_cases(),scope='preliminary live ranges and complete FAT boot-area checks; no backup file, MBR approval or restore')
+    manifest['backup_payload_model']=dict(assertions=payload_assertions(),read_lbas=payload_reads(),
+        cases=payload_cases(),scope='validated live ranges and streamed payload CRCs; no retained bytes, MBR approval, export or restore')
     manifest['rescue_match_cases']=match_specs()
     manifest['rescue_plan_cases']=plan_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=6*len(boot_cases()),

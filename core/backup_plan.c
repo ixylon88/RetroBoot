@@ -1,5 +1,7 @@
 #include "fingerprint.h"
 #include "backup_plan.h"
+#include "backup_payload.h"
+#include "backup_format.h"
 #include "config.h"
 #include "volume.h"
 #include "backup_boot.h"
@@ -135,12 +137,36 @@ static rb_u16 check_boot(rb_backup_plan *r, const rb_partition *p,
     }
     return 0;
 }
-static void acquire(rb_backup_plan *r)
+/* Called only after the complete plan is bounded and its boot areas checked.
+   Reads join the same ordered fingerprints as the semantic validation reads. */
+static rb_u16 collect(rb_backup_plan *r, rb_u32 *payload_crc)
+{
+    rb_u8 sector[512];
+    const rb_capture_extent *e;
+    rb_u16 i;
+    rb_u32 offset, crc, lba;
+    for (i = 0; i < r->count; ++i) {
+        e = &r->entries[i]; crc = 0xFFFFFFFFUL;
+        for (offset = 0; offset < e->sectors; ++offset) {
+            lba = e->lba + offset;
+            if (tracked_read(lba, sector, (void *)0)) {
+                fail(r, work.changed ? RB_CAPTURE_CHANGED : RB_CAPTURE_PAYLOAD_IO,
+                    e->kind, 0, e->index, lba); return 1;
+            }
+            crc = rb_backup_crc_update(crc, sector, 512);
+        }
+        payload_crc[i] = crc ^ 0xFFFFFFFFUL;
+    }
+    return 0;
+}
+
+static void acquire(rb_backup_plan *r, rb_u32 *payload_crc)
 {
     rb_volume_probe volume;
     const rb_partition *p;
     rb_u16 i, code, reserved, backup, extent;
     fail(r, RB_CAPTURE_OK, 0, 0, 0, 0);
+    if (payload_crc) { clear(payload_crc, RB_CAPTURE_MAX * sizeof(*payload_crc)); }
     work.digest[0] = work.digest[1] = work.reads = 0;
     work.have_mbr = work.changed = 0;
     rb_backup_observe_target(&r->observed, &work.sources, &work.device, tracked_read, (void *)0);
@@ -182,26 +208,41 @@ static void acquire(rb_backup_plan *r)
         if (!p->type || p->type == 5 || p->type == 15) { continue; }
         if (check_boot(r, p, i, (rb_u16)r->entries[extent++].sectors)) { return; }
     }
+    if (payload_crc && collect(r, payload_crc)) { return; }
     if (tracked_read(0, work.header, (void *)0)) {
         fail(r, work.changed ? RB_CAPTURE_CHANGED : RB_CAPTURE_IO, 0, 0, 0, 0); return;
     }
     r->device = work.device; r->estimated_container_sectors = r->live_sectors + 6;
 }
 
-void rb_backup_plan_capture(rb_backup_plan *r, const rb_rescue_device *d,
-    rb_sector_reader read, void *opaque)
+static void capture(rb_backup_plan *r, rb_u32 *payload_crc,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque)
 {
     rb_u32 digest[2], reads;
     clear(&work, sizeof(work)); fail(r, RB_CAPTURE_PARAMS, 0, 0, 0, 0);
+    if (payload_crc) { clear(payload_crc, RB_CAPTURE_MAX * sizeof(*payload_crc)); }
     if (!d || !read) { return; }
     work.device = *d; work.read = read; work.opaque = opaque;
-    acquire(r);
+    acquire(r, payload_crc);
     if (!r->status) {
         digest[0] = work.digest[0]; digest[1] = work.digest[1]; reads = work.reads;
-        acquire(r);
+        acquire(r, payload_crc);
         if (!r->status && (work.digest[0] != digest[0] || work.digest[1] != digest[1] || work.reads != reads)) {
             fail(r, RB_CAPTURE_CHANGED, 0, 0, 0, 0);
         }
     }
+    if (r->status && payload_crc) { clear(payload_crc, RB_CAPTURE_MAX * sizeof(*payload_crc)); }
     clear(&work, sizeof(work));
+}
+
+void rb_backup_plan_capture(rb_backup_plan *r, const rb_rescue_device *d,
+    rb_sector_reader read, void *opaque)
+{
+    capture(r, (rb_u32 *)0, d, read, opaque);
+}
+
+void rb_backup_payload_capture(rb_backup_payloads *r, const rb_rescue_device *d,
+    rb_sector_reader read, void *opaque)
+{
+    capture(&r->plan, r->crc, d, read, opaque);
 }

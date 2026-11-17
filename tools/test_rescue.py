@@ -21,6 +21,7 @@ try:
     from .backup_record_vectors import cases as record_cases
     from .backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
     from .backup_plan_vectors import assertions as plan_assertions, check_reads as check_plan_reads
+    from .backup_payload_vectors import assertions as payload_assertions, check_reads as check_payload_reads
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
@@ -33,6 +34,7 @@ except ImportError:
     from backup_record_vectors import cases as record_cases
     from backup_target_vectors import ASSERTIONS as TARGET_ASSERTIONS, check_reads as check_target_reads
     from backup_plan_vectors import assertions as plan_assertions, check_reads as check_plan_reads
+    from backup_payload_vectors import assertions as payload_assertions, check_reads as check_payload_reads
 
 REASONS=('OK','NO_DISK','PARAMS','GEOMETRY','IO','CHANGED')
 FILE_ACTIONS=((None,0),('f4',2),('ret',2),('esc',0),('ret',1),('f4',2),('esc',0))
@@ -127,6 +129,7 @@ def scenarios():
             ('backup-records-model','RB BACKUP RECORDS PASS'),('backup-boot-model','RB BACKUP BOOT PASS'),('rescue-file-model','RB RESCUE FILE PASS'),
             ('backup-target-model','RB BACKUP TARGET PASS'),
             ('backup-plan-model','RB BACKUP PLAN PASS'),
+            ('backup-payload-model','RB BACKUP PAYLOAD PASS'),
             ('backup-encode-model','RB BACKUP ENCODE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
@@ -192,7 +195,7 @@ def main():
                 # Complete boot-area fault/boundary vectors stream substantially
                 # more model sectors; ordinary startup/UI deadlines stay at 15s.
                 wait_marker(process,log,case.get('marker','RB RESCUE READY'),
-                    timeout=60 if name in ('backup-plan-model','backup-encode-model') else 15)
+                    timeout=60 if name in ('backup-plan-model','backup-encode-model','backup-payload-model') else 15)
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0
@@ -245,6 +248,21 @@ def main():
                         visible='\n'.join(screen_rows(paths['vga'].read_bytes()))
                         if marker not in visible or 'RB BACKUP ENCODE PASS' not in visible or '!' in visible:
                             raise ValueError('Metadata-encoder result is not visible on VGA')
+                        (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
+                    if case['name']=='backup-payload-model':
+                        marker=f'I={payload_assertions():04X}'
+                        if marker not in log.read_text():raise ValueError('Missing native payload assertions')
+                        match=re.search(r'^P=([0-9A-F,]+)$',log.read_text(),re.M)
+                        if not match:raise ValueError('Missing payload read evidence')
+                        check_payload_reads([int(x,16) for x in match[1].split(',') if x])
+                        paths={k:out/f'{name}-{k}.bin' for k in ('ram','vga')}
+                        for k,address,length in (('ram',0x10000,0x10000),('vga',0xB8000,4000)):
+                            qmp.call('pmemsave',{'val':address,'size':length,'filename':str(paths[k])})
+                        check_memory(paths['ram'].read_bytes(),(source/(name+'.bin')).read_bytes(),manifest['memory'][name],zero_bss=False)
+                        visible='\n'.join(screen_rows(paths['vga'].read_bytes()))
+                        if marker not in visible or 'RB BACKUP PAYLOAD PASS' not in visible or '!' in visible:
+                            raise ValueError('Payload result is not visible on VGA')
+                        if 'P=' in visible or ',' in visible:raise ValueError('Payload address trace leaked onto VGA')
                         (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
                     if case['name']=='backup-plan-model':
                         if f'G={plan_assertions():04X}' not in log.read_text():raise ValueError('Missing native capture-plan assertions')

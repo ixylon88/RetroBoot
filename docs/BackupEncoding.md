@@ -83,7 +83,11 @@ in both languages. The model's result is checked on VGA as well as in the log;
 code/BSS bounds, stack guard, unchanged media and zero writes remain checked.
 Actual local, CI and published-artifact results are recorded in the PR.
 
-Complete source capture, payload checksumming, original-MBR provenance,
+The separate [payload observer](BackupPayloads.md) now obtains per-extent CRCs
+from two freshly validated live passes. It does not connect the encoder to an
+export destination or promote the current-MBR kind to a stored MBR role.
+
+Complete source capture and byte emission, original-MBR provenance,
 current-MBR approval, stable export, independently verified destination and
 targeted restore remain separate work. Valid metadata sectors alone do not
 establish any of these properties.

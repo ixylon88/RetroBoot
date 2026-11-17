@@ -81,6 +81,11 @@ failure remains at `0x00020001`. No file is created or disk written in either te
 
 ## Manual evidence
 
+On 16 November 2026, `G=02C6` and `RB BACKUP PLAN PASS` were explicitly
+confirmed for the PR #34 follow-up check. This records the standalone
+planner's 710-assertion result. Exact downloaded revision, language folder,
+attached drives and VM/BIOS versions were not separately supplied.
+
 After PR #32 was merged at `29b3f4b723161e48d326b4c9352107147ead2da8`,
 German VirtualBox results reported on 15 November 2026 confirmed the
 installation-reference check. The intact target shows green F5 and both F6
@@ -275,3 +280,7 @@ original-MBR provenance, current-MBR approval, backup-file serialization,
 a writable export destination or targeted restore. No program, journal payload
 or user-data backup is claimed. An intact owned management layout remains
 required; damaged metadata is rejected without using untrusted saved addresses.
+
+The separate [payload observer](BackupPayloads.md) now repeats these validations
+while collecting per-extent CRCs. F6 still calls the original plan-only API and
+retains its existing read sequence and display.
