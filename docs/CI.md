@@ -80,13 +80,13 @@ liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
-The base [external rescue campaign](ExternalRescue.md) has 73 boots per language,
-including 58 seven-state UI campaigns and fifteen terminal model/failure boots.
+The base [external rescue campaign](ExternalRescue.md) has 74 boots per language,
+including 58 seven-state UI campaigns and sixteen terminal model/failure boots.
 Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 204 tests. The
+dependency and run 207 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 The [capture-plan model](BackupCapturePlan.md) has 710 native assertions and
@@ -109,6 +109,14 @@ passes, and reject transient resealed changes. `I=03F6` and
 `RB BACKUP PAYLOAD PASS` must appear on VGA; the 2,266-address trace remains
 in the debug log. It shares the 60-second model deadline.
 
+The [stream assembler model](BackupStreaming.md) adds one terminal boot per
+language. Its 199 scenarios / 995 assertions check every emitted byte against
+Python wire oracles, strict source/sink order, failure clearing and late
+resealed changes. `J=03E3` and `RB BACKUP STREAM PASS` must appear on VGA and
+in the log. Code/BSS/stack guards, unchanged media and zero writes are checked;
+the model shares the 60-second deadline. Its image is included under both
+language folders in `retroboot-rescue-diagnostics`.
+
 The separate [F5 campaign](RescueTargetCheck.md) adds 26 boots and 234 states
 per language. A successful comparison requires two live acquisitions totaling
 1,058 HDD reads and two full saved-file validations totaling 267 floppy reads.
@@ -116,7 +124,7 @@ The campaign checks discovery calls, exact reads, VGA/RAM, stale-field clearing,
 source hashes and zero guest writes. Two tests deliberately mutate disposable
 host fixtures after a first success; their reports distinguish those host
 changes from guest writes. `match-results.json` is written after all requested
-cases pass. The total is 98 boots / 640 states per language, 196 / 1,280 across
+cases pass. Base plus F5 totals 100 boots / 640 states per language, 200 / 1,280 across
 both. The [getting-started guide](GettingStarted.md) identifies the exact
 matching image pair and separates rescue F5 from HDD-menu F5/F10.
 

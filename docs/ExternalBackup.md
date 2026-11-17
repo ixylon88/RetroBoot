@@ -17,6 +17,9 @@ the record checks and validates supported saved reserved regions.
 The [native metadata encoder](BackupEncoding.md) now emits the five framing
 sectors from explicit claims. Its standalone model checks exact Python wire
 images; it does not collect payloads, establish provenance or write a backup.
+The [stream assembler](BackupStreaming.md) adds bounded provisional output
+from explicit source roles, with payload CRC and two-pass change checks.
+It has a standalone model and no live backup or file-writing command.
 
 ## Validation boundary
 

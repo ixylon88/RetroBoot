@@ -87,7 +87,11 @@ The separate [payload observer](BackupPayloads.md) now obtains per-extent CRCs
 from two freshly validated live passes. It does not connect the encoder to an
 export destination or promote the current-MBR kind to a stored MBR role.
 
-Complete source capture and byte emission, original-MBR provenance,
+The separate [stream assembler](BackupStreaming.md) now joins encoded metadata
+and explicit payload sources with two-pass checks and provisional output.
+It does not connect the live observer or resolve the MBR roles.
+
+Complete live source capture and byte emission, original-MBR provenance,
 current-MBR approval, stable export, independently verified destination and
 targeted restore remain separate work. Valid metadata sectors alone do not
 establish any of these properties.
