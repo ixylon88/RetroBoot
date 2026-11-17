@@ -167,13 +167,14 @@ static void draw_match(const rb_rescue_match *r)
     text(21, 4, RB_RS_T_HELP, 0x17); text(22, 4, RB_RS_T_BOUNDARY, 0x17);
 }
 
-static void draw_plan(rb_u16 probe, const rb_backup_plan *r, rb_u16 page)
+static void draw_plan(rb_u16 probe, const rb_backup_payloads *payload, rb_u16 page)
 {
     static const char * const kinds[] = {
         RB_RS_P_MBR, "", "", "EBR", RB_RS_P_BOOT,
         "RBCFG.A", "RBCFG.B", "RBSTATE.A", "RBSTATE.B"
     };
     rb_u16 i, at;
+    const rb_backup_plan *r = &payload->plan;
     const rb_capture_extent *e;
     const char *reason = probe ? reasons[probe] : r->status == RB_CAPTURE_CHANGED
         ? RB_RS_T_CHANGED : r->status ? RB_RS_P_BAD : RB_RS_P_OK;
@@ -199,6 +200,7 @@ static void draw_plan(rb_u16 probe, const rb_backup_plan *r, rb_u16 page)
             e = &r->entries[at];
             hex(14 + i, 4, at + 1, 4); text(14 + i, 13, kinds[e->kind], 0x17);
             hex(14 + i, 32, e->lba, 8); hex(14 + i, 49, e->sectors, 8);
+            hex(14 + i, 64, payload->crc[at], 8);
         }
         text(19, 4, RB_RS_P_PAGE, 0x17);
         hex(19, 32, page + 1, 4); text(19, 39, "/", 0x17); hex(19, 41, (r->count + 4) / 5, 4);
@@ -212,7 +214,7 @@ void __cdecl rb_rescue_run(rb_u16 boot)
     rb_rescue_result result;
     rb_backup_boot backup;
     rb_rescue_match match;
-    rb_backup_plan plan;
+    rb_backup_payloads plan;
     rb_u16 plan_probe = 0, page = 0;
     rb_u16 file_status = 0;
     rb_u32 file_lba = 0;
@@ -229,13 +231,13 @@ void __cdecl rb_rescue_run(rb_u16 boot)
             clear(&device, sizeof(device)); clear(&result, sizeof(result)); clear(&backup, sizeof(backup));
             clear(&match, sizeof(match)); file_status = 0; file_lba = 0; page = 0;
             debug("RB PLAN BEGIN\r\n");
-            plan_probe = rb_rescue_capture_plan(&plan); view = 4;
-            debug("RB PLAN probe="); debug_hex(plan_probe); debug(" status="); debug_hex(plan.status);
-            debug(" detail="); debug_hex(plan.detail); debug(" nested="); debug_hex(plan.nested); debug("\r\n");
+            plan_probe = rb_rescue_capture_payloads(&plan); view = 4;
+            debug("RB PLAN probe="); debug_hex(plan_probe); debug(" status="); debug_hex(plan.plan.status);
+            debug(" detail="); debug_hex(plan.plan.detail); debug(" nested="); debug_hex(plan.plan.nested); debug("\r\n");
         } else if (view == 4 && ((key >> 8) == 0x4B || (key >> 8) == 0x4D)) {
-            if (!plan_probe && !plan.status) {
+            if (!plan_probe && !plan.plan.status) {
                 if ((key >> 8) == 0x4B && page) { --page; }
-                else if ((key >> 8) == 0x4D && (page + 1) * 5 < plan.count) { ++page; }
+                else if ((key >> 8) == 0x4D && (page + 1) * 5 < plan.plan.count) { ++page; }
             }
         } else if ((key >> 8) == 0x3F || ((key & 0xFF) == 13 && view == 3)) {
             clear(&device, sizeof(device)); clear(&result, sizeof(result)); clear(&backup, sizeof(backup));

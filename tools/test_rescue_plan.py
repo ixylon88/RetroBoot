@@ -11,7 +11,7 @@ from pathlib import Path
 try:
     from .build_rescue import ROOT, prepare_output, sha256
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
-    from .rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM, disk as plan_disk, RECORDS
+    from .rescue_plan_fixtures import specs, hdd_reads, ranges, payload_crcs, SYSTEM, disk as plan_disk, RECORDS
     from .rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, floppy_reads as match_floppy
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .test_rescue import check_memory, check_screen, check_file_screen, trace_reads, floppy_reads
@@ -20,7 +20,7 @@ try:
 except ImportError:
     from build_rescue import ROOT, prepare_output, sha256
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
-    from rescue_plan_fixtures import specs, hdd_reads, ranges, SYSTEM, disk as plan_disk, RECORDS
+    from rescue_plan_fixtures import specs, hdd_reads, ranges, payload_crcs, SYSTEM, disk as plan_disk, RECORDS
     from rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, floppy_reads as match_floppy
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from test_rescue import check_memory, check_screen, check_file_screen, trace_reads, floppy_reads
@@ -28,7 +28,7 @@ except ImportError:
     from test_menu import Qmp, screen_rows, wait_marker
 
 ACTIONS=((None,0),('f6',4),('right',4),('right',4),('left',4),('left',4),('ret',4),('esc',0),('f6',4),('esc',0))
-CD_CASES=('plan','demo','chs','no-hdd','bad-fsinfo','bad-reference')
+CD_CASES=('plan','demo','chs','no-hdd','bad-fsinfo','bad-reference','changed-reserved-after-success')
 
 
 def check_discovery(text,spec):
@@ -57,9 +57,11 @@ def check_plan_screen(data,s,spec,page):
             (12,4,s['P_SECTORS']),(12,32,'0x00000027 / 0x0000002D'),(13,4,s['P_TABLE']),
             (19,4,s['P_PAGE']),(19,32,f'0x{page+1:04X} / 0x0002')]
         shown=ranges()[page*5:page*5+5]
+        crcs=payload_crcs(spec['kind'])
         for i,(kind,lba,count) in enumerate(shown):
             cells += [(14+i,4,f'0x{page*5+i+1:04X}'),(14+i,13,s.get(kind,kind)),
-                      (14+i,32,f'0x{lba:08X}'),(14+i,49,f'0x{count:08X}')]
+                      (14+i,32,f'0x{lba:08X}'),(14+i,49,f'0x{count:08X}'),
+                      (14+i,64,f'0x{crcs[page*5+i]:08X}')]
         blank+=list(range(14+len(shown),19))
     for row,col,value in cells:
         if rows[row][col:col+len(value)]!=value:raise ValueError(f'Plan VGA {row},{col}: expected {value!r}, got {rows[row]!r}')
@@ -135,6 +137,7 @@ def main():
                     if planning:
                         if spec.get('mutation') and serial>1:
                             if spec['mutation']=='reference':spec.update(kind='bad-reference',status=2,detail=11,nested=0,lba=SYSTEM)
+                            elif spec['mutation']=='reserved':spec.update(kind='reserved-tail')
                             else:spec.update(kind='bad-fsinfo',status=9,detail=7,nested=1,lba=SYSTEM+1)
                         expected+=hdd_reads(spec);page=0
                         markers.append(f'RB PLAN probe={spec["probe"]:04X} status={spec["status"]:04X} detail={spec["detail"]:04X} nested={spec["nested"]:04X}')
@@ -169,6 +172,7 @@ def main():
                             if spec['mutation']=='reference':
                                 _,changed=plan_disk('bad-reference')
                                 for lba in RECORDS[:2]:f.seek(lba*512);f.write(changed[lba*512])
+                            elif spec['mutation']=='reserved':f.seek((SYSTEM+31)*512+100);f.write(b'\xCC')
                             else:f.seek((SYSTEM+1)*512);f.write(bytes(4))
                         expected_work=sha256(work)
                     qmp.call('cont')

@@ -7,7 +7,7 @@ from tools.backup_boot_vectors import fixture
 from tools.backup_container import inspect
 from tools.rescue_match_fixtures import disk as old_disk, acquisition
 from tools.rescue_match_fixtures import specs as match_specs, hdd_reads as match_reads, RECORDS
-from tools.rescue_plan_fixtures import disk, specs, hdd_reads, ranges, SYSTEM
+from tools.rescue_plan_fixtures import disk, specs, hdd_reads, ranges, payload_crcs, SYSTEM
 from tools.rescue_text import load_catalog
 from tools.test_rescue_plan import check_discovery, check_plan_screen
 
@@ -50,8 +50,9 @@ class RescuePlanTests(unittest.TestCase):
 
     def test_plan_reads_complete_boot_areas_and_discovers_twice(self):
         cases=specs();reads=hdd_reads(cases['plan'])
-        self.assertEqual(len(reads),2188)
-        self.assertEqual(reads,(acquisition()*2+[SYSTEM,126,*range(SYSTEM,SYSTEM+32),126,0])*2)
+        self.assertEqual(len(reads),2266)
+        payload=[0,63,*range(SYSTEM,SYSTEM+32),126,*RECORDS]
+        self.assertEqual(reads,(acquisition()*2+[SYSTEM,126,*range(SYSTEM,SYSTEM+32),126]+payload+[0])*2)
         self.assertNotIn(SYSTEM+32,reads)
         calls=['41','48']+['42']*len(reads)+['41','48']
         text=lambda c:''.join('@'+n+'\n' for n in c)
@@ -62,6 +63,19 @@ class RescuePlanTests(unittest.TestCase):
         self.assertEqual(hdd_reads(cases['mbr-io']),[0,0,0])
         self.assertEqual(hdd_reads(cases['vbr-io']),acquisition()*2+[SYSTEM]*3)
         self.assertEqual(hdd_reads(cases['failed-reprobe']),reads)
+        self.assertEqual(hdd_reads(cases['changed-during-payload']),reads)
+        check_discovery(text(calls[:-2]),cases['changed-during-payload'])
+
+    def test_live_payload_crc_oracle_and_changed_reserved_byte(self):
+        original=payload_crcs();changed=payload_crcs('reserved-tail')
+        self.assertEqual(original,[0x4878B9CD,0x18AAED8C,0xD49A4683,0x013A13BA,
+            0x2144DF1C,0x2144DF1C,0x2144DF1C,0x2144DF1C])
+        self.assertEqual([i for i,(a,b) in enumerate(zip(original,changed)) if a!=b],[2])
+        _,before=disk();_,after=disk('reserved-tail')
+        area=after[SYSTEM*512]
+        self.assertEqual(changed[2],zlib.crc32(area))
+        self.assertEqual(sum(a!=b for a,b in zip(before[SYSTEM*512],area)),1)
+        self.assertEqual(area[31*512+100],0xCC)
 
     def test_bad_fsinfo_is_rejected_at_its_physical_sector(self):
         size,good=disk();length,bad=disk('bad-fsinfo')
@@ -93,8 +107,9 @@ class RescuePlanTests(unittest.TestCase):
                 (10,32,'0x00000000 / 0x0000'),(21,4,s['P_HELP']),(22,4,s['P_BOUNDARY'])):put(row,col,value)
             data[2*(8*80+4)+1]=0x1E;check_plan_screen(data,s,spec,0)
             for row in range(11,20):
-                bad=bytearray(data);bad[2*(row*80+32)]=ord('1')
-                with self.assertRaises(ValueError):check_plan_screen(bad,s,spec,0)
+                for col in (32,64):
+                    bad=bytearray(data);bad[2*(row*80+col)]=ord('1')
+                    with self.assertRaises(ValueError):check_plan_screen(bad,s,spec,0)
 
 
 if __name__=='__main__':unittest.main()

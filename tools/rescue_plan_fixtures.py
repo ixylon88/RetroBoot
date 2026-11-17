@@ -1,5 +1,6 @@
 """Owned live-HDD fixtures and independent expectations for rescue F6."""
 import struct
+import zlib
 
 try:
     from .backup_boot_vectors import fixture
@@ -27,6 +28,7 @@ def disk(kind='match'):
     elif kind=='bad-fsinfo-layout':struct.pack_into('<H',area,48,2)
     elif kind=='oversized':struct.pack_into('<H',area,14,4096)
     elif kind=='bad-fsinfo':area[512:1024]=bytes(512)
+    elif kind=='reserved-tail':area[31*512+100]=0xCC
     elif kind=='bad-backup-fsinfo':struct.pack_into('<I',area,7*512+492,1)
     elif kind=='bad-backup-vbr':area[6*512+100]=0xCC
     elif kind=='bad-backup-continuation':area[8*512+100]=0xCC
@@ -50,6 +52,8 @@ def specs():
     add('chs',chs=True)
     add('changed-after-success',mutation=True)
     add('changed-reference-after-success',mutation='reference')
+    add('changed-reserved-after-success',mutation='reserved')
+    add('changed-during-payload',status=6);result['changed-during-payload']['rom']=19
     add('no-hdd',probe=1,absent=True)
     for name,status,detail,nested,lba in (
         ('unknown-mbr',2,6,1,0),('config-crc',2,4,4,RECORDS[0]),
@@ -87,9 +91,24 @@ def hdd_reads(spec):
     for name,offset in (('bad-fsinfo',1),('bad-backup-fsinfo',7),('bad-backup-vbr',6),
                         ('bad-backup-continuation',8),('bad-ready-crc',31)):
         if kind==name:return reads[:1061+offset]
-    return reads*2
+    payload=[lba+offset for _,lba,count in ranges() for offset in range(count)]
+    return (reads[:-1]+payload+reads[-1:])*2
 
 
 def ranges():
     return [('P_MBR',0,1),('EBR',63,1),('P_BOOT',SYSTEM,32),('P_BOOT',126,1),
             *[(name,lba,1) for name,lba in zip(('RBCFG.A','RBCFG.B','RBSTATE.A','RBSTATE.B'),RECORDS)]]
+
+
+def payload_crcs(kind='match'):
+    """CRC every byte in each live range from the independent sparse fixture."""
+    _,extents=disk(kind)
+    result=[]
+    for _,lba,count in ranges():
+        payload=bytearray(count*512)
+        start,end=lba*512,(lba+count)*512
+        for offset,data in extents.items():
+            lo,hi=max(start,offset),min(end,offset+len(data))
+            if lo<hi:payload[lo-start:hi-start]=data[lo-offset:hi-offset]
+        result.append(zlib.crc32(payload))
+    return result

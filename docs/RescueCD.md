@@ -66,7 +66,8 @@ from either normal or demo CD. It needs the current target HDD converted into
 a new VDI; an older F5-only VDI lacks the required synthetic FAT32 header.
 Expected: four zero codes, eight ranges, two pages and an estimated 23,040 bytes.
 Left/Right pages, Enter/F6 repeats and Esc clears. No file is created. F6 now
-also validates complete supported FAT boot areas; the F6 guide includes the
+also validates complete supported FAT boot areas and shows live range CRC32
+values after two matching read passes; the F6 guide includes the
 separate bad-FSInfo target and its expected rejection.
 
 ## Manual evidence
@@ -144,8 +145,9 @@ states at the CD-packaging baseline. That increment changed no guest binaries,
 floppy/HDD images, validators, disk formats or UI catalogs. The subsequent
 [capture-plan model](BackupCapturePlan.md) adds two floppy boots; the combined
 scope at that baseline is 228 boots / 1,586 states. The later live F6
-campaign, including complete boot-area checks, now adds 70 boots / 724 states,
-bringing current coverage to 298 / 2,310. A green comparison still means
+campaign, including complete boot-area and payload checks, now adds 86 boots /
+884 states. Together with the later models and F5 cases, current coverage is
+328 boots / 2,560 states; [CI.md](CI.md) records the breakdown. A green comparison still means
 supported metadata correspondence only, not unique physical identity,
 snapshot provenance or permission to restore.
 

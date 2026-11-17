@@ -1,8 +1,40 @@
 # Project state and resumption
 
-Updated: 16 November 2026.
+Updated: 17 November 2026.
 
-## Pending payload-observation increment
+## Pending live F6 CRC32 increment
+
+F6 now calls the validated payload observer through fresh BIOS discovery and
+displays one whole-range CRC32 per row on both pages. Enter/F6 rereads the
+source; paging preserves the completed observation without new I/O. Probe,
+capture and changed-device failures clear the complete result, including all
+CRCs. No saved-file access, backup creation, MBR approval or write is added.
+The [F6 guide](BackupCapturePlan.md) contains the exact eight expected CRCs and
+explains the equal residues of records with embedded trailing CRC fields.
+
+Local validation passed 204 host tests, the reference layout report, repeated
+EN/DE rescue and ISO builds, and all 14 rescue campaigns: 328 boots / 2,560
+UI states. F6 uses exactly 2,266 HDD reads on the intact fixture. New tests
+cover a fresh CRC after a stable reserved-byte change and a transient change
+only during the second payload pass. VGA fields/colors, source hashes,
+read traces, code/BSS/stack guards and zero guest writes remain checked.
+The existing BIOS test ROM modes 0–18 are byte-identical; mode 19 adds the
+transient read-buffer mutation. The standalone planner and payload markers
+remain `G=02C6` and `I=03F6` respectively.
+
+Normal rescue binaries are 34,644 bytes EN / 34,912 bytes DE. BSS remains
+20,820 bytes; static headroom is 1,880 / 1,612 bytes, with the unchanged
+1,536-byte minimum. The 1,072-byte display result is on the existing guarded
+8 KiB stack. Further growth needs to preserve these limits. HDD code is
+unchanged; its separate boot campaign was not rerun locally.
+
+The proposed code commit uses the normal PR workflows without a skip marker.
+Hosted results are recorded in the PR separately from the local evidence.
+The new live CRC32 display still requires manual confirmation.
+
+## Payload-observation baseline (PR #36)
+
+PR #36 is merged at `8fa54d4d3d1abfe697c15d95dcccaaf46f60682a`.
 
 The [payload observer](BackupPayloads.md) builds a fresh validated plan in each
 of two passes, streams every live extent and returns its ordinary CRC32.
@@ -17,8 +49,10 @@ campaigns: 320 boots / 2,480 UI states. Each new native model runs 202 scenarios
 and 1,014 assertions (`I=03F6`, `RB BACKUP PAYLOAD PASS`), including per-sector
 payload I/O failures in both passes and transient resealed record changes.
 The existing planner still reports `G=02C6`. The test environment is the QEMU
-10.0.13/SeaBIOS, 486/16 MiB environment recorded below. No manual result for
-the new payload model is established yet.
+10.0.13/SeaBIOS, 486/16 MiB environment recorded below. On 17 November 2026,
+the supplied `I=03F6 / RB BACKUP PAYLOAD PASS` procedure was confirmed.
+Exact downloaded revision, attached drives and VM/BIOS versions were not
+separately reported; the [payload guide](BackupPayloads.md) records the scope.
 
 Normal rescue payload sizes are 34,582 bytes EN / 34,846 bytes DE; BSS remains
 20,820 bytes. Static headroom is 1,942 / 1,678 bytes, above the unchanged
@@ -26,10 +60,13 @@ Normal rescue payload sizes are 34,582 bytes EN / 34,846 bytes DE; BSS remains
 Further UI/core growth must retain these budgets. HDD code is unchanged and
 the separate HDD boot campaign was not rerun for this increment.
 
-Hosted CI is intentionally skipped for this increment to conserve the
+Hosted CI was intentionally skipped for PR #36 to conserve the
 available Actions allowance. A local test bundle contains the verified
 `backup-payload-model.img`, source revision and SHA-256. The normal workflow
 also includes this image in both language folders when run explicitly.
+Subsequent code PRs use the normal full PR workflows without a skip marker;
+the PR/manual trigger policy from PR #35 remains in place. Local verification
+and hosted check results are recorded separately.
 
 ## Saved baseline
 
@@ -168,7 +205,7 @@ start was established. Earlier reports cover the ABI floppy, HDD/C startup,
 menu, partition scanner, English/German builds, F3, isolated T07, F5/F6 and
 German F7. Their coverage remains limited to the reported results.
 
-## Current increment: detect resealed tail changes
+## Body/tail fingerprint baseline (PR #34)
 
 Branch `codex/rescue-crc-tail-checks` fixes an observed gap in F5/F6 change
 checks before further backup collection work. A record rewrite confined to
@@ -200,7 +237,7 @@ The standalone planner has 13,034 bytes of static headroom.
 Manual check: boot `rescue/backup-plan-model.img` (or `rescue-de/`) from the
 new `retroboot-rescue-diagnostics` artifact, with no HDD required. Expected:
 `G=02C6` and `RB BACKUP PLAN PASS`. The program halts; restart or VM shutdown
-exits. This new result is not yet manually confirmed. Normal rescue has no new
+exits. Subsequent manual confirmation is recorded above. Normal rescue has no new
 key or message. The three published target HDDs and synthetic backups remain
 unchanged; the BIOS-only fault fixture is separate.
 
