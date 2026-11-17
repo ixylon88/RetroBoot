@@ -72,6 +72,8 @@ jobs:
             build/rescue-de/backup-payload-model.img
             build/rescue/backup-stream-model.img
             build/rescue-de/backup-stream-model.img
+            build/rescue/backup-live-model.img
+            build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img
             build/rescue-de/retroboot-rescue-target-hdd.img
             build/rescue/retroboot-rescue-bad-fsinfo-hdd.img

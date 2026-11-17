@@ -2,8 +2,10 @@
 
 The native stream assembler joins the existing five metadata sectors and
 explicit payload sources into a sequential version-1 container. This is a
-bounded output protocol, not a live backup command. It is linked only into
-**`backup-stream-model.img`**; normal rescue F4/F5/F6 and HDD code are unchanged.
+bounded output protocol, not a live backup command. It is linked into
+**`backup-stream-model.img`** and the separate
+[live-source model](BackupLiveSources.md); normal rescue F4/F5/F6 and HDD code
+are unchanged.
 
 ## Manual VirtualBox check
 
@@ -115,8 +117,10 @@ program bytes, BSS/stack boundaries, unchanged media and zero guest writes.
 Both language builds retain the existing 8 KiB stack and static reserve.
 Actual local and hosted results are recorded separately in the PR.
 
-The [live payload observer](BackupPayloads.md) and this assembler are not yet
-connected. Resolving original-MBR provenance, approving the current MBR,
-binding fresh live observations to explicit source roles, checking saved
-semantics, writing and independently verifying a destination, and targeted
-restore remain separate work. Normal rescue still creates no backup file.
+The [live-source adapter](BackupLiveSources.md) now connects the
+[payload observer](BackupPayloads.md) and this assembler in a separate native
+model. It matches independently acquired live extents, keeps both MBR roles
+explicit and revalidates the live source after emission. Fresh BIOS integration,
+normal-image memory work, original-MBR provenance, MBR approval, saved semantics,
+destination persistence/readback and targeted restore remain separate work.
+Normal rescue still creates no backup file.

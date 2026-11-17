@@ -2,6 +2,35 @@
 
 Updated: 17 November 2026.
 
+## Core live-source binding (#42)
+
+PR #58 is merged at `bdac84344288318507d310eb5d57d9019f568b5c`.
+Its [host checks](https://github.com/ixylon88/RetroBoot/actions/runs/44144347295),
+[BIOS/Rescue](https://github.com/ixylon88/RetroBoot/actions/runs/44144347394)
+and [HDD campaign](https://github.com/ixylon88/RetroBoot/actions/runs/44144347277)
+passed all four jobs. The stale-input investigation is complete.
+
+The [live-source core](BackupLiveSources.md) now binds one provisional stream
+to freshly captured identity, layout and exact live extents. Both MBR roles
+remain explicitly supplied; the live current MBR is never implicitly promoted.
+Closing capture failures and changed ordered fingerprints revoke success even
+after every output sector was delivered. The API does not discover the BIOS
+device, authenticate MBR roles, create a file or authorize a write/restore.
+
+The new standalone model has 123 scenarios / 615 assertions and a 4,608-read
+ordinary-fixture trace. Local host validation passed 215 tests and the layout
+report. Both native language builds passed byte oracles, VGA/RAM guards and
+no-write checks. EN/DE rescue and ISO repeat builds are identical; all 310
+prior artifact hashes, 114 published rescue files and four ISOs match PR #58.
+Hosted validation is recorded in the implementation PR.
+
+Normal rescue's code and memory budgets remain unchanged. German headroom is
+1,612 bytes, only 76 above the 1,536-byte minimum. The new standalone model has
+3,284 bytes of headroom, which does not establish that the normal image can
+absorb the module. #42 remains open for fresh BIOS integration and separately
+measured memory work. MBR provenance/approval, saved semantic verification,
+destination storage/readback and targeted restore remain later gates.
+
 ## Rescue build inputs and stale local stream artifacts (#41)
 
 PR #39 is merged at `011b4532ff52f5df1d4096506a6885fbc9140a79`.

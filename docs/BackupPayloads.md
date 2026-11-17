@@ -103,5 +103,7 @@ This API returns observations and checksums, not a serialized backup. Actual
 live byte emission requires fresh source binding and independent destination
 verification. The separate [stream assembler](BackupStreaming.md) now supplies
 a bounded provisional-output protocol for explicit metadata and payload sources;
-it is not yet connected to this live observer. Original-MBR sourcing, current-MBR
-approval, complete container assembly and targeted restore remain open.
+the [live-source adapter](BackupLiveSources.md) connects them in a separate
+native model with fresh extent binding and a closing source recheck.
+BIOS integration, original-MBR sourcing/approval, destination persistence and
+targeted restore remain open.
