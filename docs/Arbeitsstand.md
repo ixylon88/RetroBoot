@@ -2,7 +2,22 @@
 
 Updated: 17 November 2026.
 
-## Pending provisional container-output increment
+## BIOS/Rescue CI completion
+
+PR #38's [BIOS/Rescue run](https://github.com/ixylon88/RetroBoot/actions/runs/44118318719)
+completed the ABI and both floppy campaigns, then was cancelled during the
+German CD checks at the 15-minute job limit. The host checks and HDD job
+passed. Partial uploads do not establish complete CD success.
+
+The BIOS/Rescue job limit is now 25 minutes, matching the existing HDD job
+ceiling. All test commands, per-case deadlines, language variants, triggers
+and artifact paths remain unchanged. This adds room for the expanded campaign
+and its evidence uploads; it does not reserve 25 minutes of runner time.
+Hosted validation of this workflow change belongs to its own PR run.
+
+## Provisional container-output baseline (PR #38)
+
+PR #38 is merged at `d5ef0063f416c861e6b0c70482059c030c77868a`.
 
 The [stream assembler](BackupStreaming.md) joins explicit metadata and payload
 sources into a sequential container. A complete preflight verifies framing and
@@ -22,9 +37,12 @@ bytes of static headroom and uses the existing guarded 8 KiB stack.
 Local host validation passed 207 tests and the reference layout report.
 Both rescue builds reproduced exactly; all 152 prior artifacts per language
 remain byte-identical, including normal/demo images and previous native models.
-Normal memory budgets are unchanged. Full boot-campaign and hosted results
-are recorded in the PR. The separate HDD campaign is left to normal hosted
-CI because its code is unchanged. No skip marker or CI trigger change is used.
+All 14 local rescue campaigns passed: 330 boots / 2,560 UI states. Normal
+memory budgets are unchanged. The separate HDD campaign passed in hosted CI;
+the BIOS/Rescue cancellation is recorded above. No skip marker or CI trigger
+change was used. On 17 November 2026, the supplied stream-test procedure was
+confirmed; the [manual evidence](BackupStreaming.md#manual-evidence) records
+its exact scope.
 
 Live-source binding, MBR provenance/approval, saved semantic checks, destination
 storage and independent readback remain open. This is a standalone protocol

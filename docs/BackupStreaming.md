@@ -27,6 +27,16 @@ The separate `retroboot-hdd-bios` artifact does not contain this test floppy.
 uses synthetic memory sources and consumes output in memory without writing
 a disk or creating a file. It does not need either live target HDD fixture.
 
+## Manual evidence
+
+On 17 November 2026, the supplied VirtualBox procedure was reported as
+confirmed, including the expected `J=03E3` and `RB BACKUP STREAM PASS` result.
+The supplied test bundle was tied to PR #38's head
+`eff84c13235ffc0f43216620720478e661a66610`. The exact image used, language
+folder and VM/BIOS versions were not independently recorded. This confirms
+the reported standalone synthetic stream test; it adds no live-source,
+destination-storage or restore evidence.
+
 ## Interface and output lifetime
 
 [`rb_backup_stream`](../include/backup_stream.h) takes an explicit `rb_backup`,

@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (258 boots / 1,888 states) and CDs (70 boots / 672 states) in both languages |
+| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (260 boots / 1,888 states) and CDs (70 boots / 672 states) in both languages |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -34,6 +34,15 @@ ein roter Schritt zeigt seinen ausgeführten Befehl und dessen Ausgabe.
 Ein Buildfehler unterscheidet sich dort von einem fehlgeschlagenen Hosttest
 oder einem unerwarteten Bootergebnis. Ein Abbruch durch Zeitlimit ist ebenfalls
 kein bestandener Test.
+
+The BIOS/Rescue job has a **25-minute ceiling**, matching the HDD job. PR #38's
+[run](https://github.com/ixylon88/RetroBoot/actions/runs/44118318719) completed
+the ABI and both floppy campaigns, then reached the old 15-minute limit during
+the German CD checks. The larger ceiling accommodates the complete campaign
+and evidence uploads. Individual model/startup deadlines and every test remain
+unchanged; a larger ceiling does not reserve runner time. Only the actual job
+duration is consumed. A timeout or cancelled run still requires a complete
+successful run before its full coverage can be claimed.
 
 Im Workflow-Lauf unter **Artifacts** liegen die erzeugten Dateien:
 
@@ -56,8 +65,8 @@ remain stable. Rescue target HDDs belong to the rescue artifact.
   matching `retroboot-rescue-target-hdd.img` (identical in both language folders)
   are published, together with the deliberately damaged
   `retroboot-rescue-bad-fsinfo-hdd.img` and `retroboot-rescue-bad-reference-hdd.img`.
-  The standalone `backup-plan-model.img`, `backup-encode-model.img` and
-  `backup-payload-model.img`
+  The standalone `backup-plan-model.img`, `backup-encode-model.img`,
+  `backup-payload-model.img` and `backup-stream-model.img`
   are included in both language folders. F6 evidence is under
   `rescue-plan-test*` and `rescue-plan-iso-test*`. F5 evidence is under `rescue-match-test/` and
   `rescue-match-test-de/`, including `match-results.json`.
@@ -134,14 +143,14 @@ Both check actual optical startup, exact HDD reads, VGA/RAM and zero block
 writes; only the instrumented cases observe virtual-floppy BIOS calls.
 Published ISOs contain byte-identical existing floppies. Packaging repeats and
 host tests verify catalog routing, directory mapping and fixed timestamps.
-These F4/F5 and model campaigns total 242 boots / 1,676 states before live F6.
+These F4/F5 and model campaigns total 244 boots / 1,676 states before live F6.
 The current F6 campaign adds 86 floppy/CD boots / 884 states across both
 languages, including full reserved-area checks and bad-FSInfo CD boots with
 and without the BIOS observation ROM. CRC32 columns are checked against
 independent live-fixture bytes. A reserved-byte change after success produces
 a fresh CRC on repeat, including CD boots; a transient second-pass payload
 change injected by ROM mode 19 clears all results. Total rescue scope is
-**328 boots / 2,560 states**. The expanded native planner has a 60-second model deadline;
+**330 boots / 2,560 states**. The expanded native planner has a 60-second model deadline;
 ordinary startup/UI deadlines remain 15 seconds. This reuses the ABI runner;
 no additional job or physical-hardware coverage is implied.
 
