@@ -21,6 +21,10 @@ extern _rb_backup_encode_selftest
 extern _rb_backup_payload_selftest
 %define RB_RESCUE_ANY_MODEL 1
 %endif
+%ifdef RB_RESCUE_STREAM_MODEL
+extern _rb_backup_stream_selftest
+%define RB_RESCUE_ANY_MODEL 1
+%endif
 %ifdef RB_RESCUE_RECORD_MODEL
 extern _rb_backup_records_selftest
 %define RB_RESCUE_ANY_MODEL 1
@@ -77,7 +81,9 @@ rb_entry:
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
     jne failed
 %ifdef RB_RESCUE_ANY_MODEL
-%ifdef RB_RESCUE_PAYLOAD_MODEL
+%ifdef RB_RESCUE_STREAM_MODEL
+    call _rb_backup_stream_selftest
+%elifdef RB_RESCUE_PAYLOAD_MODEL
     call _rb_backup_payload_selftest
 %elifdef RB_RESCUE_ENCODE_MODEL
     call _rb_backup_encode_selftest
@@ -136,7 +142,9 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_PAYLOAD_MODEL
+%ifdef RB_RESCUE_STREAM_MODEL
+model_pass db 'RB BACKUP STREAM PASS', 13, 10, 0
+%elifdef RB_RESCUE_PAYLOAD_MODEL
 model_pass db 'RB BACKUP PAYLOAD PASS', 13, 10, 0
 %elifdef RB_RESCUE_ENCODE_MODEL
 model_pass db 'RB BACKUP ENCODE PASS', 13, 10, 0

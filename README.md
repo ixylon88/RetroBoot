@@ -28,6 +28,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [External metadata container and native validation boundary](docs/ExternalBackup.md)
 - [Native metadata encoding and standalone test floppy](docs/BackupEncoding.md)
 - [Live payload checksums and standalone test floppy](docs/BackupPayloads.md)
+- [Provisional container output and standalone test floppy](docs/BackupStreaming.md)
 - [Saved partition/record consistency and remaining recovery checks](docs/BackupRecords.md)
 - [F5 rescue file/HDD comparison and matching-image setup](docs/RescueTargetCheck.md)
 - [Read-only target-claim comparison core and its limits](docs/BackupTarget.md)
@@ -173,6 +174,14 @@ The [payload observer](docs/BackupPayloads.md), now used by F6, adds per-extent 
 from two freshly validated passes. Its standalone `backup-payload-model.img`
 shows `I=03F6` and `RB BACKUP PAYLOAD PASS` without an attached HDD. No payload
 bytes are retained, no MBR role is approved and no backup file is written.
+
+The separate [stream assembler](docs/BackupStreaming.md) emits complete
+container bytes from explicitly described sources into a provisional sink.
+It checks payload CRCs before output and again during output, and rejects
+different body/tail fingerprints or callback failures. Its standalone
+`backup-stream-model.img` shows `J=03E3` and `RB BACKUP STREAM PASS` without an
+HDD. Normal rescue remains unchanged; live source binding, MBR provenance,
+destination storage/readback and restore are still open.
 
 ## HDD builds and tests
 

@@ -2,7 +2,37 @@
 
 Updated: 17 November 2026.
 
-## Pending live F6 CRC32 increment
+## Pending provisional container-output increment
+
+The [stream assembler](BackupStreaming.md) joins explicit metadata and payload
+sources into a sequential container. A complete preflight verifies framing and
+payload CRCs before any sink call. The second pass emits provisional bytes,
+checks CRCs again and compares ordered body/tail fingerprints. Any failure
+clears the result's sector-count claim; the caller must discard all output,
+including bytes delivered before a final-sector failure. Original/approved
+MBR sources remain explicit roles, without inferred provenance or approval.
+
+Only `backup-stream-model.img` links the new code. Its 199 scenarios / 995
+assertions show `J=03E3` and `RB BACKUP STREAM PASS`. Independent Python wire
+oracles check full output bytes, source/sink coordinates and order, every
+ordinary-fixture read and output failure boundary, resealed-record changes,
+64 KiB crossings, the 1 MiB limit, clearing and guards. The model has 17,040
+bytes of static headroom and uses the existing guarded 8 KiB stack.
+
+Local host validation passed 207 tests and the reference layout report.
+Both rescue builds reproduced exactly; all 152 prior artifacts per language
+remain byte-identical, including normal/demo images and previous native models.
+Normal memory budgets are unchanged. Full boot-campaign and hosted results
+are recorded in the PR. The separate HDD campaign is left to normal hosted
+CI because its code is unchanged. No skip marker or CI trigger change is used.
+
+Live-source binding, MBR provenance/approval, saved semantic checks, destination
+storage and independent readback remain open. This is a standalone protocol
+model; normal rescue still has no backup-file output command.
+
+## Live F6 CRC32 baseline (PR #37)
+
+PR #37 is merged at `712b69bfb2f8d3f7b15abf459b2a21bb398b2fe7`.
 
 F6 now calls the validated payload observer through fresh BIOS discovery and
 displays one whole-range CRC32 per row on both pages. Enter/F6 rereads the
@@ -28,9 +58,12 @@ Normal rescue binaries are 34,644 bytes EN / 34,912 bytes DE. BSS remains
 8 KiB stack. Further growth needs to preserve these limits. HDD code is
 unchanged; its separate boot campaign was not rerun locally.
 
-The proposed code commit uses the normal PR workflows without a skip marker.
-Hosted results are recorded in the PR separately from the local evidence.
-The new live CRC32 display still requires manual confirmation.
+All three hosted workflows (four jobs) passed. Downloaded artifacts matched
+112 local binaries/media and all 14 case/read/VGA reports. On 17 November
+2026, the manual F6 procedure was confirmed; German VirtualBox screenshots
+show both intact CRC pages and the expected bad-FSInfo rejection with cleared
+fields. The [manual evidence](BackupCapturePlan.md#manual-evidence) records the
+exact values and the limits of the screenshots and reported procedure.
 
 ## Payload-observation baseline (PR #36)
 
@@ -579,8 +612,9 @@ The frozen specification v0.2 and archives are unchanged.
    authorization remain outside that result. Add verified, explicitly confirmed targeted restore
    and interruption tests. Diagnosis alone does not satisfy this requirement.
    The live rescue F6 path now validates complete supported FAT boot areas;
-   metadata serialization has a standalone native model; complete source capture,
-   payload byte emission, file export and provenance remain open. The separate
+   metadata serialization and provisional container output have standalone native
+   models; connecting fresh live sources to explicit MBR roles, destination
+   storage/readback and provenance remain open. The separate
    [payload observer](BackupPayloads.md) now collects whole-extent CRCs within
    two freshly validated passes, retaining no payload bytes. The rescue ISO has automated CD-boot coverage and
    reported English VirtualBox F4/F5 success; broader manual and physical BIOS

@@ -100,6 +100,8 @@ zero disk writes. Four host tests separately check the byte/read oracles and
 the whole-record CRC cancellation example.
 
 This API returns observations and checksums, not a serialized backup. Actual
-byte emission requires a bounded export protocol with fresh validation and
-independent destination verification. Original-MBR sourcing, current-MBR
+live byte emission requires fresh source binding and independent destination
+verification. The separate [stream assembler](BackupStreaming.md) now supplies
+a bounded provisional-output protocol for explicit metadata and payload sources;
+it is not yet connected to this live observer. Original-MBR sourcing, current-MBR
 approval, complete container assembly and targeted restore remain open.

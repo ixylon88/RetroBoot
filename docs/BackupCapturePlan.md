@@ -101,6 +101,17 @@ failure remains at `0x00020001`. No file is created or disk written in either te
 
 ## Manual evidence
 
+On 17 November 2026, the PR #37 F6 procedure was reported confirmed. Three
+German VirtualBox screenshots show both intact-target pages with all eight
+CRCs matching the table above, four zero codes, zero error LBA/index, eight
+ranges, two volumes, 39 live / 45 estimated sectors and 23,040 bytes. The
+bad-FSInfo result is yellow with `0x0000 / 0x0009 / 0x0007 / 0x0001`, error LBA
+`0x00020001`, and cleared ranges/checksums/counts. The procedure included
+paging, Enter repeat and Esc; individual key presses are not visible in the
+screenshots. Exact downloaded revision, boot medium and VM/BIOS versions were
+not separately established. This confirms the live CRC display, not output
+or restoration of a backup.
+
 On 16 November 2026, `G=02C6` and `RB BACKUP PLAN PASS` were explicitly
 confirmed for the PR #34 follow-up check. This records the standalone
 planner's 710-assertion result. Exact downloaded revision, language folder,
