@@ -1,6 +1,6 @@
 #include "rescue_file.h"
 
-static rb_u8 fat[4608], sector[512], used[357];
+static rb_u8 sector[512], used[357];
 static rb_u16 word(const rb_u8 *p) { return p[0] | ((rb_u16)p[1] << 8); }
 static rb_u32 dword(const rb_u8 *p) { return word(p) | ((rb_u32)word(p + 2) << 16); }
 static rb_u16 equal(const rb_u8 *a, const rb_u8 *b, rb_u16 n)
@@ -19,16 +19,17 @@ static rb_u32 crc_update(rb_u32 crc, const rb_u8 *p)
 }
 static void fail(rb_rescue_file *f, rb_u16 status, rb_u32 lba)
 {
+    rb_u8 *map = (rb_u8 *)&f->map;
     rb_u16 i;
     f->status = status; f->error_lba = lba; f->ready = f->sectors = 0; f->metadata_crc = 0;
-    for (i = 0; i < RB_FILE_MAX; ++i) { f->chain[i] = 0; }
+    for (i = 0; i < sizeof(f->map); ++i) { map[i] = 0; }
 }
 static rb_u16 read_sector(rb_rescue_file *f, rb_u16 lba, rb_u8 *out)
 {
     if (f->read(lba, out, f->opaque)) { fail(f, RB_FILE_IO, lba); return 1; }
     return 0;
 }
-static rb_u16 next(rb_u16 cluster)
+static rb_u16 next_cluster(const rb_u8 *fat, rb_u16 cluster)
 {
     rb_u16 value = word(fat + cluster + cluster / 2);
     return cluster & 1 ? value >> 4 : value & 0xFFF;
@@ -43,12 +44,14 @@ static rb_u16 chain(rb_rescue_file *f, const rb_u8 *entry, rb_u16 target, rb_u16
     count = (rb_u16)((bytes + 511) / 512);
     if (!count && cluster) { fail(f, RB_FILE_CHAIN, lba); return 1; }
     for (i = 0; i < count; ++i) {
-        if (cluster < 2 || cluster > 2848) { fail(f, RB_FILE_CHAIN, lba); return 1; }
+        if (cluster < 2 || cluster > RB_FILE_LAST_CLUSTER) { fail(f, RB_FILE_CHAIN, lba); return 1; }
         if (used[cluster / 8] & (1U << (cluster & 7))) { fail(f, RB_FILE_CROSSLINK, lba); return 1; }
         used[cluster / 8] |= (rb_u8)(1U << (cluster & 7));
-        if (target) { f->chain[i] = cluster + 31; }
-        value = next(cluster);
-        if (i == count - 1 ? value < 0xFF8 : value < 2 || value > 2848) {
+        if (target && i % RB_FILE_INDEX_STRIDE == 0) {
+            f->map.first_cluster[i / RB_FILE_INDEX_STRIDE] = cluster;
+        }
+        value = next_cluster(f->map.links, cluster);
+        if (i == count - 1 ? value < 0xFF8 : value < 2 || value > RB_FILE_LAST_CLUSTER) {
             fail(f, RB_FILE_CHAIN, lba); return 1;
         }
         cluster = value;
@@ -62,6 +65,8 @@ void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
     static const rb_u8 bpb[25] = {0,2,1,1,0,2,224,0,64,11,240,9,0,18,0,2,0,0,0,0,0,0,0,0,0};
     rb_u16 i, j, found = 0, end = 0, target;
     rb_u32 crc = 0xFFFFFFFFUL;
+    /* Check and fingerprint all nine original sectors before indexing root files. */
+    rb_u8 *fat = (rb_u8 *)&f->map;
     const rb_u8 *entry;
     f->read = read; f->opaque = opaque; fail(f, RB_FILE_OK, 0);
     for (i = 0; i < sizeof(used); ++i) { used[i] = 0; }
@@ -80,7 +85,9 @@ void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
         crc = crc_update(crc, sector);
         if (!equal(sector, fat + i * 512, 512)) { fail(f, RB_FILE_FATS, i + 10); return; }
     }
-    if (next(0) != 0xFF0 || next(1) < 0xFF8) { fail(f, RB_FILE_FATS, 1); return; }
+    if (next_cluster(fat, 0) != 0xFF0 || next_cluster(fat, 1) < 0xFF8) {
+        fail(f, RB_FILE_FATS, 1); return;
+    }
     for (i = 19; i < 33; ++i) {
         if (read_sector(f, i, sector)) { return; }
         crc = crc_update(crc, sector);
@@ -105,8 +112,17 @@ void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
 rb_u16 __cdecl rb_rescue_file_read(rb_u32 lba, rb_u8 *out, void *opaque)
 {
     rb_rescue_file *f = (rb_rescue_file *)opaque;
+    rb_u16 offset, cluster, steps;
+
     if (!f->ready || lba >= f->sectors) { fail(f, RB_FILE_RANGE, 0); return 1; }
-    return read_sector(f, f->chain[(rb_u16)lba], out);
+    offset = (rb_u16)lba;
+    cluster = f->map.first_cluster[offset / RB_FILE_INDEX_STRIDE];
+    steps = offset % RB_FILE_INDEX_STRIDE;
+    while (steps) {
+        cluster = next_cluster(f->map.links, cluster);
+        --steps;
+    }
+    return read_sector(f, cluster + 31, out);
 }
 rb_u16 rb_rescue_file_recheck(rb_rescue_file *f)
 {

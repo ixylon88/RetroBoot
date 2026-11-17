@@ -15,6 +15,11 @@ static void fat_set(rb_u16 cluster, rb_u16 value)
     rb_u16 old = p[0] | ((rb_u16)p[1] << 8);
     put16(p, cluster & 1 ? (old & 15) | (value << 4) : (old & 0xF000) | value);
 }
+static void mirror_fat(void)
+{
+    rb_u16 i;
+    for (i = 0; i < 4608; ++i) { disk[5120 + i] = disk[512 + i]; }
+}
 static void prepare(rb_u16 size, rb_u16 first, rb_u16 eoc)
 {
     static const rb_u8 bpb[25] = {0,2,1,1,0,2,224,0,64,11,240,9,0,18,0,2,0,0,0,0,0,0,0,0,0};
@@ -24,7 +29,7 @@ static void prepare(rb_u16 size, rb_u16 first, rb_u16 eoc)
     for (i = 0; i < 25; ++i) { disk[11 + i] = bpb[i]; }
     fat_set(0, 0xFF0); fat_set(1, 0xFFF); fat_set(2, 0xFFF);
     for (i = 0; i < size; ++i) { fat_set(first + i, i == size - 1 ? eoc : first + i + 1); }
-    for (i = 0; i < 4608; ++i) { disk[5120 + i] = disk[512 + i]; }
+    mirror_fat();
     for (i = 0; i < 11; ++i) {
         disk[9728 + i] = ((const rb_u8 *)"RBRESCUEBIN")[i];
         disk[9760 + i] = ((const rb_u8 *)"RBBACKUPRBB")[i];
@@ -49,6 +54,75 @@ static void hex(rb_u16 value)
     static const char digits[] = "0123456789ABCDEF";
     for (i = 4; i; ) { --i; rb_debug_putc(digits[(value >> (i * 4)) & 15]); }
 }
+
+static rb_u16 empty_map(const rb_rescue_file *file)
+{
+    const rb_u8 *bytes = (const rb_u8 *)&file->map;
+    rb_u16 i;
+    for (i = 0; i < sizeof(file->map); ++i) {
+        if (bytes[i]) { return 0; }
+    }
+    return 1;
+}
+
+/* Alternate between the lowest available clusters and the end of the disk. */
+static rb_u16 fragmented_cluster(rb_u16 offset)
+{
+    return offset & 1 ? 2848 - offset / 2 : 3 + offset / 2;
+}
+
+static rb_u16 check_fragmented_map(rb_rescue_file *file)
+{
+    static rb_rescue_file other;
+    rb_u16 i, offset, expected_lba, before;
+
+    prepare(0, 0, 0xFFF);
+    put16(disk + 9786, fragmented_cluster(0));
+    put32(disk + 9788, RB_FILE_MAX * 512UL);
+    for (i = 0; i < RB_FILE_MAX; ++i) {
+        fat_set(fragmented_cluster(i), i + 1 == RB_FILE_MAX ? 0xFFF : fragmented_cluster(i + 1));
+    }
+    for (i = 4352; i < 4608; ++i) { disk[512 + i] = (rb_u8)(i ^ 0xA5); }
+    mirror_fat();
+    calls = io_at = change_at = bad_read = 0;
+    rb_rescue_file_open(file, read_mock, disk);
+    if (!file->ready || file->sectors != RB_FILE_MAX || calls != 33) { return 1; }
+
+    /* A bad mirror in a second open must not replace the first file's FAT. */
+    change_at = calls + 2;
+    rb_rescue_file_open(&other, read_mock, disk);
+    if (other.status != RB_FILE_FATS || other.error_lba != 10 || !empty_map(&other)) { return 1; }
+    change_at = 0;
+    /* Compare even the last padding byte of the second on-disk FAT. */
+    disk[5120 + 4607] ^= 1;
+    rb_rescue_file_open(&other, read_mock, disk);
+    disk[5120 + 4607] ^= 1;
+    if (other.status != RB_FILE_FATS || other.error_lba != 18 || !empty_map(&other)) { return 1; }
+    before = calls;
+    for (i = 0; i < RB_FILE_MAX; ++i) {
+        offset = i & 1 ? RB_FILE_MAX - 1 - i / 2 : i / 2;
+        expected_lba = fragmented_cluster(offset) + 31;
+        if (rb_rescue_file_read(offset, output.data, file) || last_lba != expected_lba
+                || output.data[511] != (rb_u8)expected_lba || calls != before + i + 1) {
+            return 1;
+        }
+    }
+    rb_debug_putc('M'); rb_debug_putc('='); hex(i); rb_debug_putc('\r'); rb_debug_putc('\n');
+    if (rb_rescue_file_recheck(file) || calls != before + RB_FILE_MAX + 33) { return 1; }
+
+    /* Reuse after a full map: the last group contains just one sector. */
+    prepare(17, 1200, 0xFFF);
+    rb_rescue_file_open(file, read_mock, disk);
+    if (!file->ready || file->sectors != 17
+            || rb_rescue_file_read(15, output.data, file) || last_lba != 1246
+            || rb_rescue_file_read(16, output.data, file) || last_lba != 1247) { return 1; }
+    before = calls;
+    if (!rb_rescue_file_read(17, output.data, file) || calls != before
+            || file->status != RB_FILE_RANGE || file->ready || !empty_map(file)) { return 1; }
+    return bad_read || guarded.before != 0x12345678UL || guarded.after != 0x87654321UL
+        || output.before != 0x12345678UL || output.after != 0x87654321UL;
+}
+
 rb_u16 __cdecl rb_rescue_file_selftest(void)
 {
     static const rb_u16 expected[8] = {0,0,11,5,10,1,1,0};
@@ -84,9 +158,9 @@ rb_u16 __cdecl rb_rescue_file_selftest(void)
         ++count; valid = 1;
         if (f->status) {
             if (f->ready || f->sectors || f->metadata_crc) { valid = 0; }
-            for (i = 0; i < RB_FILE_MAX; ++i) { if (f->chain[i]) { valid = 0; } }
+            if (!empty_map(f)) { valid = 0; }
             if (f->error_lba != (mode == 5 ? 32UL : mode == 6 ? first + 31UL : 0)) { valid = 0; }
-        } else if (!f->ready || f->sectors != size || f->chain[size - 1] != first + size + 30) { valid = 0; }
+        } else if (!f->ready || f->sectors != size) { valid = 0; }
         if (!valid) { ++failures; }
         ++count;
         if (bad_read || guarded.before != 0x12345678UL || guarded.after != 0x87654321UL
@@ -95,5 +169,5 @@ rb_u16 __cdecl rb_rescue_file_selftest(void)
                 || ((mode == 2 || mode == 6) && output.data[511] != 0xA5)) { ++failures; }
     }
     rb_debug_putc('E'); rb_debug_putc('='); hex(count); rb_debug_putc('\r'); rb_debug_putc('\n');
-    return failures;
+    return failures + check_fragmented_map(f);
 }

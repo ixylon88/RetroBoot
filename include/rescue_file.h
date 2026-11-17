@@ -5,15 +5,32 @@
 
 #define RB_FLOPPY_SECTORS 2880U
 #define RB_FILE_MAX 2048U
+#define RB_FILE_LAST_CLUSTER 2848U
+#define RB_FILE_FAT_BYTES (9U * 512U)
+#define RB_FILE_INDEX_STRIDE 16U
+#define RB_FILE_INDEX_COUNT ((RB_FILE_MAX + RB_FILE_INDEX_STRIDE - 1) / RB_FILE_INDEX_STRIDE)
 enum { RB_FILE_OK, RB_FILE_IO, RB_FILE_BPB, RB_FILE_FATS, RB_FILE_DIRECTORY,
        RB_FILE_MISSING, RB_FILE_DUPLICATE, RB_FILE_SIZE, RB_FILE_CHAIN,
        RB_FILE_CROSSLINK, RB_FILE_CHANGED, RB_FILE_RANGE };
 
 typedef struct {
+    rb_u8 links[RB_FILE_FAT_BYTES - RB_FILE_INDEX_COUNT * sizeof(rb_u16)];
+    /* After both FAT copies compare equal, the unused tail holds the first
+       cluster of each group of logical file sectors. */
+    rb_u16 first_cluster[RB_FILE_INDEX_COUNT];
+} rb_rescue_file_map;
+
+typedef char rb_check_rescue_file_map[
+    (sizeof(rb_rescue_file_map) == RB_FILE_FAT_BYTES
+     && RB_FILE_LAST_CLUSTER + RB_FILE_LAST_CLUSTER / 2 + 2
+        <= sizeof(((rb_rescue_file_map *)0)->links)) ? 1 : -1];
+
+typedef struct {
     rb_sector_reader read;
     void *opaque;
     rb_u32 metadata_crc, error_lba;
-    rb_u16 status, ready, sectors, chain[RB_FILE_MAX];
+    rb_u16 status, ready, sectors;
+    rb_rescue_file_map map;
 } rb_rescue_file;
 
 /* Restricted 1440 KiB FAT12 superfloppy, flat root, exact RBBACKUP.RBB name.

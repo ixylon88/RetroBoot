@@ -2,6 +2,23 @@
 
 Updated: 17 November 2026.
 
+## Normal rescue memory for the BIOS integration (#42)
+
+The maintainer reported a successful VirtualBox test of the PR #59 model on
+17 November 2026. [PR #59](https://github.com/ixylon88/RetroBoot/pull/59) was
+merged at `b4eff0a29f3d554c9b1d0cd358baa7b3c278cfb0`.
+
+The [FAT12 file index](RescueBackupFile.md#fat12-index-and-memory) frees 4,032
+bytes in the normal rescue images. F4 and F5 resolve file sectors from a
+validated FAT and 128 group starts. The file reader makes a single physical
+request per valid payload sector. The native model checks all 2,048 offsets
+of a fragmented 1 MiB file, including reuse and independent contexts.
+
+Normal EN/DE headroom is now 5,912 / 5,644 bytes. A separate sizing link with
+the stream core leaves 578 / 310 bytes above the 1,536-byte minimum. The next
+part of #42 is a fresh BIOS probe around the provisional stream, including
+closing reprobe failures and measured caller/stack usage.
+
 ## Core live-source binding (#42)
 
 PR #58 is merged at `bdac84344288318507d310eb5d57d9019f568b5c`.

@@ -4,7 +4,8 @@ The bounded source adapter connects the live payload observer to the stream
 assembler. It is linked into **`backup-live-model.img`** for native tests.
 Normal rescue F4/F5/F6, the normal/demo media and HDD programs are unchanged.
 This is the core increment of [#42](https://github.com/ixylon88/RetroBoot/issues/42);
-BIOS discovery integration and the normal-image memory work remain open.
+The [FAT12 index and normal-image memory measurements](RescueBackupFile.md#fat12-index-and-memory)
+prepare the normal rescue image for the remaining BIOS integration.
 
 ## Contract and source roles
 
@@ -103,11 +104,10 @@ The runner checks the complete physical-address trace, debug and VGA markers,
 program bytes, BSS/stack guards, unchanged media and zero guest writes.
 
 The initial model build uses 40,556 file bytes, 13,504 BSS bytes and 3,284 bytes
-of static headroom, with the existing guarded 8 KiB stack. Normal rescue
-retains 1,880 / 1,612 bytes of headroom (EN/DE); only 76 bytes remain above the
-required 1,536-byte reserve in German. Adding this module directly to the
-normal link is therefore not an established integration plan. Memory reuse or
-separation needs its own measured and reviewed increment.
+of static headroom, with the existing guarded 8 KiB stack. At PR #59 normal
+rescue had 1,880 / 1,612 bytes of headroom (EN/DE). The subsequent FAT12 index
+raises this to 5,912 / 5,644 bytes. The sizing link with the stream core leaves
+578 / 310 bytes above the required reserve before adding the BIOS caller.
 
 Actual local/repeated/hosted results are recorded in the implementation PR.
 This model does not add a normal rescue backup command, external persistence,
@@ -126,5 +126,5 @@ RB BACKUP LIVE PASS
 ```
 
 The model halts after the result. An exclamation-mark diagnostic or
-`RB RESCUE STARTUP ERROR` means failure. No manual VM result for this increment
-has been recorded.
+`RB RESCUE STARTUP ERROR` means failure. On 17 November 2026 the maintainer
+reported a successful manual VirtualBox test of the supplied PR #59 model.
