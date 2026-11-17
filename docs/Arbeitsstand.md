@@ -2,6 +2,42 @@
 
 Updated: 17 November 2026.
 
+## Rescue build inputs and stale local stream artifacts (#41)
+
+PR #39 is merged at `011b4532ff52f5df1d4096506a6885fbc9140a79`.
+Its [BIOS/Rescue run](https://github.com/ixylon88/RetroBoot/actions/runs/44131996736),
+[host checks](https://github.com/ixylon88/RetroBoot/actions/runs/44131997131)
+and [HDD run](https://github.com/ixylon88/RetroBoot/actions/runs/44131997547)
+all passed: four successful jobs, including the complete CD campaign.
+
+The apparent local/hosted stream difference came from a stale local build.
+The retained object preceded the addition of `rb_check_backup_stream_result`
+in `include/backup_stream.h`. Removing only that compile-time size assertion
+in an isolated experiment reproduced every object record except its absolute
+source filename, and then the exact old floppy image. Fresh unmodified builds
+of the merged sources match the hosted PR #38/#39 stream artifacts.
+The size assertion remains required; no guest-code correction is indicated.
+
+Rescue manifests now record content hashes of source/build/test inputs.
+Build completion, the three rescue campaign entry points and ISO packaging
+reject a missing or changed snapshot. Successful reports and ISO manifests
+retain it. This prevents matching old artifact hashes from being mistaken for
+evidence about edited sources; it does not authenticate inputs or replace a
+clean build and complete CI. See [CI build-input checks](CI.md#rescue-build-inputs).
+
+Local validation passed 211 host tests and the reference layout report.
+EN/DE rescue and ISO repeat builds matched exactly. All 310 rescue artifact
+hashes match the hosted PR #39 manifests; the 114 published rescue files and
+four ISOs also match byte-for-byte. Both focused stream boots passed all 995
+assertions, VGA/RAM guards, unchanged-media checks and zero guest writes.
+Complete hosted validation belongs to the linked implementation PR; the local
+focused boots do not replace the complete rescue campaigns.
+
+The [project roadmap](https://github.com/users/ixylon88/projects/1) and
+[tracker #40](https://github.com/ixylon88/RetroBoot/issues/40) cover remaining
+work. Live source binding is #42; external backup and demonstrated targeted
+restore still precede source-disk write tests.
+
 ## BIOS/Rescue CI completion
 
 PR #38's [BIOS/Rescue run](https://github.com/ixylon88/RetroBoot/actions/runs/44118318719)
@@ -13,7 +49,7 @@ The BIOS/Rescue job limit is now 25 minutes, matching the existing HDD job
 ceiling. All test commands, per-case deadlines, language variants, triggers
 and artifact paths remain unchanged. This adds room for the expanded campaign
 and its evidence uploads; it does not reserve 25 minutes of runner time.
-Hosted validation of this workflow change belongs to its own PR run.
+The successful PR #39 runs are linked above.
 
 ## Provisional container-output baseline (PR #38)
 

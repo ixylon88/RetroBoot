@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 try:
+    from .build_inputs import check_build_inputs
     from .build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from .test_menu import Qmp, screen_rows, wait_marker
@@ -24,6 +25,7 @@ try:
     from .backup_plan_vectors import assertions as plan_assertions, check_reads as check_plan_reads
     from .backup_payload_vectors import assertions as payload_assertions, check_reads as check_payload_reads
 except ImportError:
+    from build_inputs import check_build_inputs
     from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from test_menu import Qmp, screen_rows, wait_marker
@@ -155,6 +157,7 @@ def main():
     source=ROOT/'build'/output_name('rescue',args.language);out=ROOT/'build'/output_name('rescue-test',args.language);prepare_output(out)
     report=out/'rescue-results.json';report.unlink(missing_ok=True)
     manifest=json.loads((source/'manifest.json').read_text());strings=load_catalog(args.language)
+    check_build_inputs(manifest, ROOT)
     if manifest['ui']!=metadata(args.language):raise ValueError('Stale rescue language build')
     cases=scenarios()
     if args.case:
@@ -317,7 +320,8 @@ def main():
             work_disk.unlink()
         results.append(dict(case=case,screens=screens,read_lbas=lbas,floppy_lbas=floppy_reads(text),image_unchanged=True,block_writes=0,log=text))
         print(f'{name}: {len(screens)} states; independent startup; unchanged media; no writes',flush=True)
-    report.write_text(json.dumps(dict(ui=manifest['ui'],qemu_version=subprocess.check_output([str(qemu),'--version'],text=True).splitlines()[0],
+    check_build_inputs(manifest, ROOT)
+    report.write_text(json.dumps(dict(ui=manifest['ui'],build_inputs=manifest['build_inputs'],qemu_version=subprocess.check_output([str(qemu),'--version'],text=True).splitlines()[0],
         qemu_sha256=sha256(qemu),bios_sha256=sha256(bios),vga_bios_sha256=sha256(bios.with_name('vgabios-stdvga.bin')),
         machine='pc-i440fx-8.2',cpu='486',ram_mib=16,cases=results),indent=2,sort_keys=True)+'\n')
 

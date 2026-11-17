@@ -86,6 +86,49 @@ Die [Sprachanleitung](Languages.md) beschreibt die getrennten Builds.
 Die 104 gemeinsamen Bootfälle laufen einmal mit Englisch; ihre Protokolle
 liegen unter `hdd/`. Beide Sprachen erhalten die vollständigen UI-Prüfungen.
 
+## Rescue build inputs
+
+Rescue `manifest.json` files contain `build_inputs`: relative POSIX paths and
+SHA-256 hashes of the source bytes. The conservative set includes shared native
+code, headers, assembly/linker inputs, fixtures, host build/test tools, pinned
+dependency definitions, profiles, language catalogs and `Makefile`.
+Documentation, generated output and Python caches are excluded. Absolute
+checkout paths and modification times do not enter the snapshot.
+
+The builder captures inputs before compilation and checks them again before
+writing its manifest. `test_rescue.py`, `test_rescue_match.py` and
+`test_rescue_plan.py` check that snapshot before booting and before publishing
+their result JSON. ISO packaging checks before work and before publishing the
+generated files. Successful reports and ISO manifests carry the same input
+map. Existing artifact hashes, media checks and repeat-build comparisons remain
+required. An older manifest without this map is rejected; a fresh
+`make rescue-check RB_LANGUAGE=en` or `RB_LANGUAGE=de` rebuilds the matching
+inputs. This is a stale-input check, not an authenticity or atomicity claim.
+
+Issue [#41](https://github.com/ixylon88/RetroBoot/issues/41) traced the old local
+stream-model difference to a build made before the final
+`rb_check_backup_stream_result` typedef was added. The typedef asserts the
+16-byte result size without adding runtime storage. Watcom's global-symbol
+ordering nevertheless changes the addresses of three static test buffers.
+The [pinned compiler's symbol handling](https://github.com/open-watcom/open-watcom-v2/blob/2026-11-01-Build/bld/cc/c/csym.c)
+groups symbols by internal symbol-table buffers and size; source-level
+declarations can therefore change BSS order without adding runtime data.
+
+| Stream model image | SHA-256 |
+| --- | --- |
+| Old local test bundle, before the size assertion | `d8b5bd32124856f32c3d3c758a6e499c8f2ec7487dc5085c60adcb1418e0625e` |
+| Fresh merged sources and hosted PR #38/#39 | `d575404a3837fe735cd26334e898959d28b25bda53fb964a8e19e33077e224ef` |
+
+An isolated build omitting only that typedef reproduced the old object's
+records except the absolute source filename; relinking and packaging reproduced
+the exact old image hash. Fresh unmodified builds reproduced the hosted hash.
+The old binary differs in 62 address-operand bytes and four header-CRC bytes;
+file size, BSS size and the 199 scenarios / 995 assertions agree. The assertion
+is retained. The input check prevents a repeat of this stale-artifact comparison;
+no compiler workaround or guest-code change is needed.
+
+## Campaign details
+
 The journal reports, screenshots and read traces are under `journal/` and
 `journal-de/`; the [diagnosis guide](JournalDiagnosis.md) describes the campaign.
 
@@ -95,7 +138,7 @@ Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 207 tests. The
+dependency and run 211 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 The [capture-plan model](BackupCapturePlan.md) has 710 native assertions and

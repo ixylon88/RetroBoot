@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from tools import build_rescue_iso as cd
 from tools.build_rescue import make_image
+from tools.build_inputs import source_hashes
 from tools.rescue_text import metadata
 from tests.test_rescue_tools import boot, payload
 
@@ -82,7 +83,9 @@ class RescueIsoTests(unittest.TestCase):
     def test_published_inputs_are_verified_and_repeat_builds_match(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(cd, 'ROOT', Path(temp)), contextlib.redirect_stdout(io.StringIO()):
             source = Path(temp) / 'build/rescue'; source.mkdir(parents=True)
-            manifest = dict(ui=metadata('en'), artifacts={})
+            header = Path(temp) / 'include/backup_stream.h'; header.parent.mkdir()
+            header.write_bytes(b'typedef char size_check[16];\n')
+            manifest = dict(ui=metadata('en'), artifacts={}, build_inputs=source_hashes(Path(temp)))
             for name in cd.NAMES:
                 (source / (name + '.img')).write_bytes(self.floppy)
                 manifest['artifacts'][name + '.img'] = dict(bytes=len(self.floppy), sha256=cd.digest(self.floppy))
@@ -91,6 +94,20 @@ class RescueIsoTests(unittest.TestCase):
             self.assertEqual(first, cd.build(repeat=True))
             output = Path(temp) / 'build/rescue-iso/retroboot-rescue-demo.iso'
             self.assertEqual(output.read_bytes(), self.iso)
+            self.assertEqual(first['build_inputs'], manifest['build_inputs'])
+            header.write_bytes(b'changed after build')
+            with patch.object(cd, 'package') as package:
+                with self.assertRaisesRegex(ValueError, 'Stale rescue build inputs'): cd.build()
+                package.assert_not_called()
+            self.assertEqual(output.read_bytes(), self.iso)
+            header.write_bytes(b'typedef char size_check[16];\n')
+            def change_during_packaging(raw):
+                header.write_bytes(b'changed while packaging')
+                return self.iso
+            with patch.object(cd, 'package', side_effect=change_during_packaging):
+                with self.assertRaisesRegex(ValueError, 'Stale rescue build inputs'): cd.build()
+            self.assertEqual(output.read_bytes(), self.iso)
+            header.write_bytes(b'typedef char size_check[16];\n')
             (source / 'retroboot-rescue-demo.img').write_bytes(self.floppy[:-1])
             with self.assertRaises(ValueError): cd.build()
             self.assertEqual(output.read_bytes(), self.iso)

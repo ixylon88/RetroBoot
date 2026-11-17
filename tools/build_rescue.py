@@ -9,6 +9,7 @@ import sys
 import zlib
 
 try:
+    from .build_inputs import source_hashes, check_build_inputs
     from .build_abi_probe import inspect_map, prepare_output
     from .build_hdd import layout, write_fixture
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -26,6 +27,7 @@ try:
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
 except ImportError:
+    from build_inputs import source_hashes, check_build_inputs
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
     from rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -121,6 +123,7 @@ def hdd_fixture(name):
 
 def build(kind='rescue',language='en'):
     if kind not in ('rescue','rescue-repeat'):raise ValueError('Unsupported rescue build output')
+    inputs = source_hashes(ROOT)
     destination=ROOT/'build'/output_name(kind,language);prepare_output(destination)
     lock=json.loads(LOCK.read_text());nasm=TOOLCHAIN/('nasm-'+lock['nasm']['version'])/'nasm'
     wcc,wlink=(TOOLCHAIN/'watcom'/name for name in ('wcc','wlink'))
@@ -248,7 +251,7 @@ def build(kind='rescue',language='en'):
         if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
         p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
-    manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,
+    manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,build_inputs=inputs,
         host_executable_sha256=dict(nasm=sha256(nasm),wcc=sha256(wcc),wlink=sha256(wlink)),memory=memory,artifacts=artifacts,hdd_cases=HDD_CASES)
     example=destination/'synthetic-container.rbb';example.write_bytes(backup_sources()[0]);remember(example)
     manifest['backup_encode_model']=dict(cases=encode_cases(),assertions=encode_assertions(),
@@ -272,6 +275,7 @@ def build(kind='rescue',language='en'):
     manifest['rescue_plan_cases']=plan_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=6*len(boot_cases()),
         scope='saved FAT reserved areas and READY VBR consistency; no live media match or restore')
+    check_build_inputs(manifest, ROOT)
     (destination/'manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n',encoding='utf-8')
     print(f'Built {destination.name}: FAT12 1440 KiB, payload {len(payload)} bytes; no HDD loader dependency',flush=True)
     return manifest
