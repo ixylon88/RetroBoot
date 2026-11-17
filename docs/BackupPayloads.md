@@ -7,8 +7,10 @@ Payload bytes are not retained or exported. The current MBR retains kind 0;
 original-MBR provenance and current-MBR approval remain separate work.
 
 The standalone **`backup-payload-model.img`** exercises this API using synthetic
-in-memory sectors. F4/F5/F6 retain their existing actions and read sequences.
-No new menu key, disk write, file creation or restoration is introduced.
+in-memory sectors. The [live F6 view](BackupCapturePlan.md) now uses the same
+observer through fresh BIOS discovery and displays each extent's CRC32.
+F4/F5 retain their existing actions and read sequences. No new menu key,
+disk write, file creation or restoration is introduced.
 
 ## Manual check
 
@@ -32,6 +34,12 @@ checks are skipped; its README identifies the source revision and image hash.
 `03F6` is the hexadecimal count of 1,014 assertions in 202 scenarios. This is a
 different image and marker from `backup-plan-model.img` (`G=02C6`). The latter
 continues to check the original planner without the additional payload reads.
+
+On 17 November 2026, the expected `I=03F6` and `RB BACKUP PAYLOAD PASS`
+procedure supplied with PR #36 was confirmed. The local bundle identified
+source `ea997bff0a53e42afc75857763495a50bd2ed98c`; the exact downloaded revision,
+attached drives and VM/BIOS versions were not separately reported. This is
+manual evidence for the standalone model, not for the subsequent live F6 UI.
 
 ## Contract
 

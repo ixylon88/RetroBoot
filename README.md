@@ -153,7 +153,8 @@ recorded; the [CD evidence](docs/RescueCD.md#manual-evidence) states the limits.
 
 **F6 in RetroBoot Rescue** lists live HDD metadata ranges, estimates backup
 size and checks complete supported FAT boot areas, including FAT32 FSInfo,
-primary/backup copies and READY first-VBR checksums. The
+primary/backup copies and READY first-VBR checksums. Its CRC32 column now shows
+each complete live range after two validated payload passes. The
 [F6 guide](docs/BackupCapturePlan.md#manual-virtualbox-check) identifies the
 exact workflow, good/bad HDD fixtures, keys and expected results.
 Both normal/demo floppies and CDs work. The good target still yields eight
@@ -164,11 +165,11 @@ is written. Enter/F6 repeats; Left/Right pages; Esc clears.
 The expanded native model has 139 scenarios / 710 assertions per language.
 Its optional `backup-plan-model.img` shows `G=02C6` and `RB BACKUP PLAN PASS`
 on VGA; the 2,188-address success trace remains in debug logs. Live F6 tests
-cover 78 floppy/CD boots and 804 states across both languages. The preceding
+cover 86 floppy/CD boots and 884 states across both languages. The preceding
 German range preview was confirmed under VirtualBox on 15 November 2026;
 manual evidence and its limits are retained in the F6 guide.
 
-The separate [payload observer](docs/BackupPayloads.md) adds per-extent CRCs
+The [payload observer](docs/BackupPayloads.md), now used by F6, adds per-extent CRCs
 from two freshly validated passes. Its standalone `backup-payload-model.img`
 shows `I=03F6` and `RB BACKUP PAYLOAD PASS` without an attached HDD. No payload
 bytes are retained, no MBR role is approved and no backup file is written.

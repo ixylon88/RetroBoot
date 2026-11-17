@@ -235,7 +235,7 @@ def build(kind='rescue',language='en'):
     tail_image=(destination/'match-resealed-file-tail.img').read_bytes()
     # Original-MBR payload is file sector five. Derive its physical address.
     tail_lba=file_chain(tail_image)[5];cylinder,within=divmod(tail_lba,36);head,sector=divmod(within,18)
-    for mode in range(19):
+    for mode in range(20):
         extra=['-DRB_REPLACEMENT_SECTOR="'+str(changed_header if mode==17 else changed_tail)+'"'] if mode in (17,18) else []
         if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
         p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)

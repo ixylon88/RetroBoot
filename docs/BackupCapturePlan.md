@@ -2,6 +2,8 @@
 
 **F6 in RetroBoot Rescue** builds a read plan from the first HDD, estimates the
 backup size and checks every sector in the supported FAT reserved boot areas.
+It also streams every listed live range and displays its whole-range CRC32
+after two validated read passes agree.
 FAT32 FSInfo, primary/backup boot copies and selected READY first-VBR checksums
 are checked before a green result. Selected profiles must also refer to compatible
 installation-state entries. Normal and demo rescue floppies/CDs share
@@ -33,7 +35,7 @@ supports the existing successful F4/F5 checks.
 2. The current rescue floppy or ISO boots with legacy BIOS. For a CD check,
    the old floppy is ejected and Optical precedes Hard Disk in the boot order.
    The title must be **RetroBoot Rescue**.
-3. **F6** must show a green message confirming the plan and FAT boot areas,
+3. **F6** must show a green message confirming both read passes,
    with the values below. **Right** shows the remaining three ranges;
    **Left** returns. Further arrows at either end stay on the current page.
 4. **Enter/F6** performs a fresh check and returns to page one. **Esc** clears
@@ -41,7 +43,7 @@ supports the existing successful F4/F5 checks.
 5. After shutdown, the intact target VDI is replaced by a separately converted
    **`retroboot-rescue-bad-fsinfo-hdd.img`**. F6 must now show a yellow rejection:
    `0x0000 / 0x0009 / 0x0007 / 0x0001`, error LBA `0x00020001`, index `0x0000`.
-   Ranges, size and page count must be blank. This is an intentional failure.
+   Ranges, CRC32 values, size and page count must be blank. This is an intentional failure.
 6. Optionally, with the HDD detached before startup, F6 must report
    `0x0001 / 0x0000 / 0x0000 / 0x0000`, also without range/size fields.
 
@@ -58,6 +60,24 @@ The eight ranges cover the current MBR, EBR, two FAT reserved areas, `RBCFG.A`,
 (22.5 KiB), including space for a separately sourced original MBR. The extra
 boot-area checks do not change these ranges or size. Rescue F6 is distinct
 from installation-state F6 in the HDD program, whose title is **RetroBoot**.
+
+The new rightmost column has the following values for the intact fixture:
+
+| Page | Range | CRC32 |
+| ---: | --- | --- |
+| 1 | Current MBR | `0x4878B9CD` |
+| 1 | EBR | `0x18AAED8C` |
+| 1 | FAT reserved area at `0x00020000` | `0xD49A4683` |
+| 1 | FAT reserved area at `0x0000007E` | `0x013A13BA` |
+| 1 | `RBCFG.A` | `0x2144DF1C` |
+| 2 | `RBCFG.B` | `0x2144DF1C` |
+| 2 | `RBSTATE.A` | `0x2144DF1C` |
+| 2 | `RBSTATE.B` | `0x2144DF1C` |
+
+The four equal record CRCs are expected: those records include their own
+trailing CRC, which gives the same whole-record residue. Equality in this
+display does not prove equal contents. The separate ordered body/tail
+fingerprints still detect the tested resealed-record changes between passes.
 
 ### Installation-reference check
 
@@ -155,13 +175,13 @@ program. Its exact address trace remains in the emulator debug log, not VGA.
 
 ## BIOS adapter and result lifetime
 
-[`rb_rescue_capture_plan`](../core/rescue_plan.c) rediscovers the first HDD on
+[`rb_rescue_capture_payloads`](../core/rescue_plan.c) rediscovers the first HDD on
 every F6/Enter invocation and supplies a read-only BIOS sector callback. After
 success it probes again and compares the complete device description. A failed
-second probe clears the plan; a changed device clears it with plan status
+second probe clears the plan and all CRCs; a changed device clears both with plan status
 `0x0006`, detail `0x0001`. No F5 result or saved-file address is reused.
 
-The 908-byte display result remains on the existing guarded 8 KiB stack. Leaving
+The 1,072-byte display result remains on the existing guarded 8 KiB stack. Leaving
 the page clears it. Paging shows a completed observation without new I/O, not
 continuous monitoring. The first displayed code is the BIOS probe status:
 `0x0000` success, `0x0001` no HDD, `0x0002` invalid parameters, `0x0003` unusable
@@ -172,7 +192,9 @@ CHS geometry. A zero planner code is not success if the BIOS code is nonzero.
 [`rb_backup_plan_capture`](../include/backup_plan.h) requires a fresh device
 description, a physical-sector reader and a writable result that does not
 overlap inputs. Stable sources and non-reentrant use remain preconditions.
-No BIOS discovery occurs inside the core. Each of two planning passes:
+No BIOS discovery occurs inside the core. The plain planner remains available
+to the standalone `backup-plan-model`; F6 uses its payload extension described
+below. Each of two planning passes:
 
 1. Performs the existing two complete MBR/EBR/allocation/config/state
    acquisitions through `rb_backup_observe_target`. Success exposes the scan,
@@ -201,8 +223,8 @@ No BIOS discovery occurs inside the core. Each of two planning passes:
 One descriptor and one sector remain reserved for a separately sourced original
 MBR within the existing 42-descriptor / 1 MiB container limits. Estimated size
 is five container sectors plus all listed live sectors plus that original-MBR
-sector. No file offsets, payload CRC list, generation or serialized container
-are produced. Current-MBR kind **0** deliberately differs from both on-disk
+sector. The plain planner produces no file offsets, payload CRC list, generation
+or serialized container. Current-MBR kind **0** deliberately differs from both on-disk
 MBR roles, and cannot be encoded as an original or approved MBR.
 
 Both passes must have identical read counts and ordered CRC32 fingerprints.
@@ -214,10 +236,16 @@ match exactly. These checks detect observed changes; CRCs do not authenticate
 data and repeated reads do not produce an atomic snapshot or a later write
 lease. Later use requires fresh validation.
 
+Live F6 calls [`rb_backup_payload_capture`](BackupPayloads.md) instead. In each
+pass, after READY checks and before the closing MBR read, it additionally
+streams every planned extent and calculates its CRC32. These reads join the
+same ordered fingerprints. Only the completed result is displayed; no saved
+file, prior F6 result or CRC equality alone can authorize a result.
+
 ## Results
 
 Success returns observed identities, layout/generations, device description,
-counts, physical ranges and sector totals. Failure clears them all, retaining
+counts, physical ranges, sector totals and, in F6, payload CRCs. Failure clears them all, retaining
 only status/detail/nested/index/error LBA.
 
 | Status | Meaning | Detail / nested / index |
@@ -232,6 +260,7 @@ only status/detail/nested/index/error LBA.
 | `0x0007` | Boot-area or final MBR read failed | Volume I/O code for boot area / zero / scan index |
 | `0x0008` | Invalid or overlapping range | Kind / zero for bounds or one for overlap / kind-local index |
 | `0x0009` | Boot-area content rejected | Saved boot-check category / subcode / scan index |
+| `0x000A` | Added payload-phase read failed | Extent kind / zero / kind-local index |
 
 For status `0x0009`, detail `0x0007` is FSInfo: nested 1 signatures, 2 reserved
 bytes, 3 free count, 4 next hint. Detail `0x0008` is copy consistency: nested 1
@@ -260,17 +289,20 @@ two 529-read metadata acquisitions, two sizing VBRs, 32 system reserved sectors,
 one management VBR and one closing MBR. The exact-limit case streams 6,194 reads;
 a one-sector-too-large plan stops after 1,060 sizing/metadata reads.
 
-The live F6 campaign has **28 floppy boots / 284 UI states per language**.
+The live F6 campaign has **30 floppy boots / 304 UI states per language**.
 It exercises paging, repeats, F4/F5 transitions, missing/damaged HDDs, EDD/CHS,
 BIOS changes, reserved-area I/O failures and the new boot-content failures.
 A host FSInfo mutation after success must discard prior ranges on the next
 check; another mutation introduces a correctly resealed wrong installation ID.
-CD checks add six instrumented and five bare boots / 118 states per language,
+An additional stable reserved-byte change must produce a fresh displayed CRC
+on repeat. A transient tail change only during the second payload pass is
+rejected by the body/tail fingerprints, with no retained CRCs or ranges.
+CD checks add seven instrumented and six bare boots / 138 states per language,
 including the actual published intact, bad-FSInfo and bad-reference HDDs. Both
 languages use complete VGA, code/BSS/stack guards, exact reads, unchanged media
 and zero-write checks. F6 itself never reads the saved backup file.
 
-The complete rescue scope is **318 boots / 2,480 UI states**, including the
+The complete rescue scope is **328 boots / 2,560 UI states**, including the
 F4/F5 campaigns and native saved-file validators. Local and published
 run results are recorded in the PR; reports remain under `build/rescue-*test*`.
 Host tests retain independent fixture, read-boundary and stale-field checks.
@@ -281,6 +313,7 @@ a writable export destination or targeted restore. No program, journal payload
 or user-data backup is claimed. An intact owned management layout remains
 required; damaged metadata is rejected without using untrusted saved addresses.
 
-The separate [payload observer](BackupPayloads.md) now repeats these validations
-while collecting per-extent CRCs. F6 still calls the original plan-only API and
-retains its existing read sequence and display.
+F6 uses the [payload observer](BackupPayloads.md), with **2,266 reads** for the
+intact fixture: two passes of 1,094 validation reads plus 39 payload reads.
+Its CRC32 column covers every byte in each complete extent. The original
+plan-only API and its 2,188-read standalone model remain available separately.

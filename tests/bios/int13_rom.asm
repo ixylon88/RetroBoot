@@ -10,6 +10,7 @@ org 0
 ; 4=no EDD + AH08 error, 5=no EDD + zero sectors, 6=AH48 error,
 ; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer, 9=zero capacity.
 ; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
+; Rescue only: 19=one changed FAT32 tail byte in the second payload pass.
     dw 0xAA55
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
     db 2                       ; extra block for a replacement saved sector
@@ -264,6 +265,36 @@ handler:
     mov byte [cs:change_pending - handler], 1
 %endif
 %endif
+%if RB_ROM_MODE == 19
+    cmp ah, 0x48
+    jne .payload_read
+    mov byte [cs:payload_count - handler], 0
+    jmp chain
+.payload_read:
+    cmp ah, 0x42
+    jne chain
+    cmp dword [si + 8], 131103 ; last reserved sector, validation then payload
+    jne chain
+    cmp dword [si + 12], 0
+    jne chain
+    inc byte [cs:payload_count - handler]
+    cmp byte [cs:payload_count - handler], 4
+    jne chain
+    popf
+    pushf
+    call far [cs:old13 - handler]
+    jc .payload_return
+    push es
+    push bx
+    les bx, [si + 4]
+    xor byte [es:bx + 100], 1  ; only the returned buffer changes, never the HDD
+    pop bx
+    pop es
+.payload_return:
+    pushf
+    jc rejected
+    jmp accepted
+%endif
 chain:
     popf
     jmp far [cs:old13 - handler]
@@ -311,6 +342,9 @@ floppy_failures: db 0
 %if RB_ROM_MODE >= 14 && RB_ROM_MODE <= 18
 probe_count: db 0
 change_pending: db 0
+%endif
+%if RB_ROM_MODE == 19
+payload_count: db 0
 %endif
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
 replacement: incbin RB_REPLACEMENT_SECTOR

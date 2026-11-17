@@ -13,7 +13,7 @@ auch lokal ausführbar sind.
 | Workflow | Rechner | Was passiert? |
 | --- | --- | --- |
 | [Host checks](../.github/workflows/host-checks.yml) | Ubuntu 24.04 **und** Windows Server 2022 | Python 3.12 installieren, alle Hosttests ausführen und das 8-GB-Layout nachrechnen |
-| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (252 boots / 1,848 states) and CDs (66 boots / 632 states) in both languages |
+| [BIOS ABI and Rescue](../.github/workflows/abi-probe.yml) | Ubuntu 24.04 | Repeat the ABI build and three boot cases, then rescue floppies (258 boots / 1,888 states) and CDs (70 boots / 672 states) in both languages |
 | [HDD BIOS boot](../.github/workflows/hdd-boot.yml) | Ubuntu 24.04 | Build English and German twice; 104 shared boot cases and 3,681 UI states per language; publish both normal and both handoff images with evidence |
 
 Die **Matrix** in `host-checks.yml` startet denselben Job zweimal mit
@@ -86,7 +86,7 @@ Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 203 tests. The
+dependency and run 204 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 The [capture-plan model](BackupCapturePlan.md) has 710 native assertions and
@@ -127,10 +127,13 @@ writes; only the instrumented cases observe virtual-floppy BIOS calls.
 Published ISOs contain byte-identical existing floppies. Packaging repeats and
 host tests verify catalog routing, directory mapping and fixed timestamps.
 These F4/F5 and model campaigns total 242 boots / 1,676 states before live F6.
-The current F6 campaign adds 78 floppy/CD boots / 804 states across both
+The current F6 campaign adds 86 floppy/CD boots / 884 states across both
 languages, including full reserved-area checks and bad-FSInfo CD boots with
-and without the BIOS observation ROM. Total rescue scope is **320 boots /
-2,480 states**. The expanded native planner has a 60-second model deadline;
+and without the BIOS observation ROM. CRC32 columns are checked against
+independent live-fixture bytes. A reserved-byte change after success produces
+a fresh CRC on repeat, including CD boots; a transient second-pass payload
+change injected by ROM mode 19 clears all results. Total rescue scope is
+**328 boots / 2,560 states**. The expanded native planner has a 60-second model deadline;
 ordinary startup/UI deadlines remain 15 seconds. This reuses the ABI runner;
 no additional job or physical-hardware coverage is implied.
 
