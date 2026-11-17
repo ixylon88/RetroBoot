@@ -44,6 +44,11 @@ coverage follows from that observation. Earlier VirtualBox diagnosis observation
 remain in [ExternalRescue.md](ExternalRescue.md). The [getting-started guide](GettingStarted.md)
 provides download and image/key orientation.
 
+On 18 November 2026 the maintainer confirmed the German F4 diskette exchange
+in VirtualBox. The demo, standard and reinserted demo returned file statuses
+`0x0000`, `0x0005` and `0x0000` in one session. The check and detail fields
+were zero in all three cases.
+
 ## File access contract
 
 The reader supports the owned 1,440 KiB FAT12 superfloppy layout: 512-byte

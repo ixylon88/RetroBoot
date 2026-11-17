@@ -21,7 +21,7 @@
   "SIGNATURE": "Signatur / RBM1-Kennung:",
   "COUNTS": "Einträge / EBRs:",
   "LBA": "Fehler-LBA:",
-  "HELP": "Enter: Diagnose | F4: Datei | F5: Abgleich | F6: Plan | Esc: schließen",
+  "HELP": "Enter: prüfen  F4: Datei  F5: HDD  F6: Plan  F7: Probelauf  Esc: schließen",
   "IDENTITY": "Nur Beobachtung; keine geprüfte Medienidentität oder Schreibfreigabe.",
   "B_SCOPE": "Gespeicherte Sicherung: RBBACKUP.RBB auf Diskette A:",
   "B_LIMIT": "Nur gespeicherte Metadaten. Kein Zielabgleich, keine Reparatur/OS-Starts.",
@@ -71,5 +71,13 @@
   "P_HELP": "Enter/F6: neuer Plan | Links/Rechts: Seite | Esc: Diagnose",
   "P_BOUNDARY": "Keine Datei. Herkunft des Original-MBR offen; keine Wiederherstellung.",
   "P_MBR": "Aktueller MBR",
-  "P_BOOT": "FAT-Bootbereich"
+  "P_BOOT": "FAT-Bootbereich",
+  "S_SCOPE": "Backup-Probelauf",
+  "S_LIMIT": "Jeder erzeugte Sektor wird mit RBBACKUP.RBB verglichen.",
+  "S_OK": "Datenstrom und Abschlussprüfungen erfolgreich.",
+  "S_BAD": "Probelauf fehlgeschlagen. Alle vorläufigen Ergebnisse verworfen.",
+  "S_COUNT": "Bestätigte Sektoren",
+  "S_HELP": "Enter/F7: erneut prüfen | Esc: schließen",
+  "S_REPROBE": "Abschließende BIOS-Prüfung fehlgeschlagen.",
+  "S_DIFFER": "Datenstrom weicht von RBBACKUP.RBB ab."
 }

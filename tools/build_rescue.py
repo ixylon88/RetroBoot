@@ -18,7 +18,7 @@ try:
     from .backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from .backup_stream_vectors import model_header as stream_header, cases as stream_cases, assertions as stream_assertions
     from .backup_live_vectors import model_header as live_header, cases as live_cases, assertions as live_assertions, expected_reads as live_reads
-    from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain
+    from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain, put_backup
     from .backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from .backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from .journal_records import io_model_header
@@ -26,7 +26,7 @@ try:
     from .backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from .backup_payload_vectors import model_header as payload_header, assertions as payload_assertions, expected_reads as payload_reads, cases as payload_cases
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
-    from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
+    from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
     from build_inputs import source_hashes, check_build_inputs
     from build_abi_probe import inspect_map, prepare_output
@@ -37,7 +37,7 @@ except ImportError:
     from backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from backup_stream_vectors import model_header as stream_header, cases as stream_cases, assertions as stream_assertions
     from backup_live_vectors import model_header as live_header, cases as live_cases, assertions as live_assertions, expected_reads as live_reads
-    from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain
+    from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain, put_backup
     from backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
     from backup_record_vectors import model_header as record_header, cases as record_cases, fixture as record_fixture
     from journal_records import io_model_header
@@ -45,7 +45,7 @@ except ImportError:
     from backup_plan_vectors import model_header as plan_header, assertions as plan_assertions, expected_reads as plan_reads, cases as plan_cases
     from backup_payload_vectors import model_header as payload_header, assertions as payload_assertions, expected_reads as payload_reads, cases as payload_cases
     from rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
-    from rescue_plan_fixtures import disk as plan_disk, specs as plan_specs
+    from rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
@@ -212,7 +212,7 @@ def build(kind='rescue',language='en'):
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
-                'backup-plan','rescue-plan','fat-boot')]
+                'backup-plan','rescue-plan','fat-boot','backup-live','backup-stream','backup-encode')]
         if destination/'backup.obj' in extra or destination/'backup-plan.obj' in extra:
             extra.append(destination/'backup-format.obj')
         if destination/'backup-target.obj' in extra:
@@ -238,6 +238,9 @@ def build(kind='rescue',language='en'):
     for name in file_specs():
         p=destination/(name+'.img');p.write_bytes(file_fixture(original,name));remember(p)
     p=destination/'retroboot-rescue-demo.img';p.write_bytes(file_fixture(original,'file-demo'));remember(p)
+    for suffix in ('','-chs','-resealed'):
+        p=destination/('retroboot-rescue-stream'+suffix+'.img')
+        p.write_bytes(put_backup(original,stream_reference(chs=suffix=='-chs',resealed=suffix=='-resealed'))[0]);remember(p)
     for name,spec in match_specs().items():
         p=destination/('match-'+name+'.img');p.write_bytes(match_floppy(original,spec));remember(p)
     for kind in sorted({s['kind'] for s in match_specs().values()}):

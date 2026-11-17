@@ -21,7 +21,7 @@
   "SIGNATURE": "Signature / RBM1 marker:",
   "COUNTS": "Entries / EBRs:",
   "LBA": "Error LBA:",
-  "HELP": "Enter: diagnose | F4: file | F5: compare HDD | F6: plan | Esc: clear",
+  "HELP": "Enter: inspect  F4: file  F5: compare  F6: plan  F7: dry run  Esc: clear",
   "IDENTITY": "Observation only; no verified medium identity or write permission.",
   "B_SCOPE": "Saved backup: RBBACKUP.RBB on floppy A:",
   "B_LIMIT": "Saved metadata only. No target match, repair or OS start.",
@@ -71,5 +71,13 @@
   "P_HELP": "Enter/F6: new plan | Left/Right: page | Esc: diagnosis",
   "P_BOUNDARY": "No backup file. Original-MBR provenance unresolved; no restore.",
   "P_MBR": "Current MBR",
-  "P_BOOT": "FAT reserved"
+  "P_BOOT": "FAT reserved",
+  "S_SCOPE": "Backup dry run",
+  "S_LIMIT": "Each generated sector is compared with RBBACKUP.RBB.",
+  "S_OK": "Stream and closing checks passed.",
+  "S_BAD": "Dry run failed. All provisional results discarded.",
+  "S_COUNT": "Verified sectors",
+  "S_HELP": "Enter/F7: retry | Esc: clear",
+  "S_REPROBE": "Closing BIOS discovery failed.",
+  "S_DIFFER": "Stream bytes differ from RBBACKUP.RBB."
 }

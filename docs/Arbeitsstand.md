@@ -1,6 +1,21 @@
 # Project state and resumption
 
-Updated: 17 November 2026.
+Updated 18 November 2026.
+
+## Normal rescue BIOS stream check (#42)
+
+The maintainer confirmed the German F4 demo / standard / demo exchange from
+PR #60 in VirtualBox. Its three file statuses were 0, 5 and 0.
+
+The [F7 dry run](BackupLiveSources.md#f7-in-normal-rescue) compares the
+generated stream with an explicit reference on the rescue floppy. Fresh BIOS
+discovery brackets the two live captures and streaming passes. Changed
+geometry or capacity, a failed closing probe, or changed saved data clears
+the complete sector-count claim. The intact synthetic fixture verifies 45
+sectors through 4,608 physical HDD reads. Both language images meet the
+existing static reserve. Review and manual verification of the integrated F7
+path are tracked in [#42](https://github.com/ixylon88/RetroBoot/issues/42).
+The next separate work package is [MBR provenance and approval (#43)](https://github.com/ixylon88/RetroBoot/issues/43).
 
 ## Normal rescue memory for the BIOS integration (#42)
 
@@ -14,10 +29,8 @@ validated FAT and 128 group starts. The file reader makes a single physical
 request per valid payload sector. The native model checks all 2,048 offsets
 of a fragmented 1 MiB file, including reuse and independent contexts.
 
-Normal EN/DE headroom is now 5,912 / 5,644 bytes. A separate sizing link with
-the stream core leaves 578 / 310 bytes above the 1,536-byte minimum. The next
-part of #42 is a fresh BIOS probe around the provisional stream, including
-closing reprobe failures and measured caller/stack usage.
+At PR #60, normal EN/DE headroom was 5,912 / 5,644 bytes. A separate sizing
+link with the stream core left 578 / 310 bytes above the 1,536-byte minimum.
 
 ## Core live-source binding (#42)
 
