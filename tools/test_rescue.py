@@ -18,6 +18,7 @@ try:
     from .backup_vectors import cases as backup_cases
     from .backup_encode_vectors import assertions as encode_assertions
     from .backup_stream_vectors import assertions as stream_assertions
+    from .backup_live_vectors import assertions as live_assertions, check_reads as check_live_reads
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .backup_boot_vectors import cases as boot_cases
     from .backup_record_vectors import cases as record_cases
@@ -33,6 +34,7 @@ except ImportError:
     from backup_vectors import cases as backup_cases
     from backup_encode_vectors import assertions as encode_assertions
     from backup_stream_vectors import assertions as stream_assertions
+    from backup_live_vectors import assertions as live_assertions, check_reads as check_live_reads
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from backup_boot_vectors import cases as boot_cases
     from backup_record_vectors import cases as record_cases
@@ -136,6 +138,7 @@ def scenarios():
             ('backup-payload-model','RB BACKUP PAYLOAD PASS'),
             ('backup-encode-model','RB BACKUP ENCODE PASS'),
             ('backup-stream-model','RB BACKUP STREAM PASS'),
+            ('backup-live-model','RB BACKUP LIVE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -201,7 +204,7 @@ def main():
                 # Complete boot-area fault/boundary vectors stream substantially
                 # more model sectors; ordinary startup/UI deadlines stay at 15s.
                 wait_marker(process,log,case.get('marker','RB RESCUE READY'),
-                    timeout=60 if name in ('backup-plan-model','backup-encode-model','backup-payload-model','backup-stream-model') else 15)
+                    timeout=120 if name=='backup-live-model' else 60 if name in ('backup-plan-model','backup-encode-model','backup-payload-model','backup-stream-model') else 15)
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0
@@ -244,15 +247,19 @@ def main():
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
                         if not match:raise ValueError('Missing target-model read evidence')
                         check_target_reads([int(x,16) for x in match[1].split(',') if x])
-                    if case['name']=='backup-stream-model':
-                        marker=f'J={stream_assertions():04X}'
+                    if case['name'] in ('backup-stream-model','backup-live-model'):
+                        marker=f'K={live_assertions():04X}' if name=='backup-live-model' else f'J={stream_assertions():04X}'
                         if marker not in log.read_text():raise ValueError('Missing native stream assertions')
+                        if name=='backup-live-model':
+                            match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
+                            if not match:raise ValueError('Missing live-binding read evidence')
+                            check_live_reads([int(x,16) for x in match[1].split(',') if x])
                         paths={k:out/(name+'-'+k+'.bin') for k in ('ram','vga')}
                         qmp.call('pmemsave',{'val':0x10000,'size':65536,'filename':str(paths['ram'])})
                         qmp.call('pmemsave',{'val':0xB8000,'size':4000,'filename':str(paths['vga'])})
                         check_memory(paths['ram'].read_bytes(),(source/(name+'.bin')).read_bytes(),manifest['memory'][name],zero_bss=False)
                         visible='\n'.join(screen_rows(paths['vga'].read_bytes()))
-                        if marker not in visible or 'RB BACKUP STREAM PASS' not in visible or '!' in visible:
+                        if marker not in visible or case['marker'] not in visible or '!' in visible:
                             raise ValueError('Stream result is not visible on VGA')
                         (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
                     if case['name']=='backup-encode-model':

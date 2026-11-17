@@ -66,7 +66,7 @@ remain stable. Rescue target HDDs belong to the rescue artifact.
   are published, together with the deliberately damaged
   `retroboot-rescue-bad-fsinfo-hdd.img` and `retroboot-rescue-bad-reference-hdd.img`.
   The standalone `backup-plan-model.img`, `backup-encode-model.img`,
-  `backup-payload-model.img` and `backup-stream-model.img`
+  `backup-payload-model.img`, `backup-stream-model.img` and `backup-live-model.img`
   are included in both language folders. F6 evidence is under
   `rescue-plan-test*` and `rescue-plan-iso-test*`. F5 evidence is under `rescue-match-test/` and
   `rescue-match-test-de/`, including `match-results.json`.
@@ -138,7 +138,7 @@ Each successful full run writes `rescue-results.json`. Evidence checks exact
 reads, VGA/RAM, source and disposable-media hashes, and absence of disk writes.
 The existing ABI job shares its toolchain setup with these checks; there is
 no additional runner job. Both host jobs install the hash-pinned PyCdlib
-dependency and run 211 tests. The
+dependency and run 215 tests. The
 [target-comparison model](BackupTarget.md) adds 178 native assertions and an
 independently checked 542-address acquisition trace per language.
 The [capture-plan model](BackupCapturePlan.md) has 710 native assertions and
