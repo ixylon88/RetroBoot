@@ -9,9 +9,11 @@ import struct
 import sys
 
 try:
+    from .build_inputs import check_build_inputs
     from .build_rescue import IMAGE_BYTES
     from .rescue_text import ROOT, LANGUAGES, metadata, output_name
 except ImportError:
+    from build_inputs import check_build_inputs
     from build_rescue import IMAGE_BYTES
     from rescue_text import ROOT, LANGUAGES, metadata, output_name
 
@@ -123,6 +125,7 @@ def build(language='en', repeat=False):
     source = ROOT / 'build' / output_name('rescue', language)
     destination = ROOT / 'build' / ('rescue-iso' + ('-de' if language == 'de' else ''))
     manifest = json.loads((source / 'manifest.json').read_text(encoding='utf-8'))
+    check_build_inputs(manifest, ROOT)
     if manifest['ui'] != metadata(language):
         raise ValueError('Stale rescue language build')
     images = {}
@@ -142,10 +145,11 @@ def build(language='en', repeat=False):
     for name, raw in images.items():
         if (source / (name + '.img')).read_bytes() != raw:
             raise ValueError('Rescue source changed while packaging')
+    check_build_inputs(manifest, ROOT)
     destination.mkdir(parents=True, exist_ok=True)
     for name, data in generated.items():
         (destination / name).write_bytes(data)
-    info = dict(ui=manifest['ui'], packaging='El Torito 1.44 MiB floppy emulation',
+    info = dict(ui=manifest['ui'], build_inputs=manifest['build_inputs'], packaging='El Torito 1.44 MiB floppy emulation',
                 pycdlib=PYCDLIB_VERSION, timestamp='1980-01-01T00:00:00Z', artifacts=artifacts)
     (destination / 'manifest.json').write_text(json.dumps(info, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     print(json.dumps(info, indent=2, sort_keys=True))

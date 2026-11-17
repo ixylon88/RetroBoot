@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 try:
+    from .build_inputs import check_build_inputs
     from .build_rescue import ROOT, prepare_output, sha256
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from .rescue_match_fixtures import specs, hdd_reads, floppy_reads as expected_floppy, observed, CAPACITY, CHS_CAPACITY
@@ -17,6 +18,7 @@ try:
     from .test_rescue import check_memory, check_screen, check_file_screen, trace_reads, floppy_reads
     from .test_menu import Qmp, screen_rows, wait_marker
 except ImportError:
+    from build_inputs import check_build_inputs
     from build_rescue import ROOT, prepare_output, sha256
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from rescue_match_fixtures import specs, hdd_reads, floppy_reads as expected_floppy, observed, CAPACITY, CHS_CAPACITY
@@ -91,6 +93,7 @@ def main():
     out=ROOT/'build'/(kind+('-de' if args.language=='de' else ''));prepare_output(out)
     report=out/'match-results.json';report.unlink(missing_ok=True)
     manifest=json.loads((source/'manifest.json').read_text());s=load_catalog(args.language)
+    check_build_inputs(manifest, ROOT)
     if manifest['ui']!=metadata(args.language) or manifest['rescue_match_cases']!=specs():raise ValueError('Stale rescue match build')
     cases=specs()
     if args.cdrom:
@@ -221,7 +224,8 @@ def main():
         floppy.unlink()
         if work:work.unlink()
         print(f'{name}: {len(screens)} states; fresh file/device checks; exact reads; no guest writes',flush=True)
-    report.write_text(json.dumps(dict(ui=manifest['ui'],qemu_version=subprocess.check_output([str(qemu),'--version'],text=True).splitlines()[0],
+    check_build_inputs(manifest, ROOT)
+    report.write_text(json.dumps(dict(ui=manifest['ui'],build_inputs=manifest['build_inputs'],qemu_version=subprocess.check_output([str(qemu),'--version'],text=True).splitlines()[0],
         qemu_sha256=sha256(qemu),bios_sha256=sha256(bios),vga_bios_sha256=sha256(bios.with_name('vgabios-stdvga.bin')),
         machine='pc-i440fx-8.2',cpu='486',ram_mib=16,cases=results),indent=2,sort_keys=True)+'\n')
 

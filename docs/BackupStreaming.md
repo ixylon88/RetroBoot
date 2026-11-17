@@ -31,11 +31,15 @@ a disk or creating a file. It does not need either live target HDD fixture.
 
 On 17 November 2026, the supplied VirtualBox procedure was reported as
 confirmed, including the expected `J=03E3` and `RB BACKUP STREAM PASS` result.
-The supplied test bundle was tied to PR #38's head
-`eff84c13235ffc0f43216620720478e661a66610`. The exact image used, language
-folder and VM/BIOS versions were not independently recorded. This confirms
-the reported standalone synthetic stream test; it adds no live-source,
-destination-storage or restore evidence.
+The supplied test bundle was labelled for PR #38's head
+`eff84c13235ffc0f43216620720478e661a66610`. A later input audit found that
+its local stream image preceded the final compile-time result-size assertion;
+it is not byte-identical to that head's hosted build. Both run the same 199
+scenarios / 995 assertions. The [build-input investigation](CI.md#rescue-build-inputs)
+records the exact distinction. The exact image selected, language folder and
+VM/BIOS versions were not independently recorded. The confirmation applies to
+the supplied standalone test; it adds no live-source, destination-storage or
+restore evidence, nor a manual test of the final hosted image.
 
 ## Interface and output lifetime
 
