@@ -187,8 +187,12 @@ HDD.
 sector is compared with the corresponding reference bytes. The verified count
 appears after the closing checks. The intact test pair reports **45 sectors**.
 The [F7 guide](docs/BackupLiveSources.md#f7-in-normal-rescue) lists the floppy,
-target HDD and expected failures. MBR provenance, external backup storage and
-targeted restoration remain separate work packages.
+target HDD and expected failures.
+
+The [MBR provenance model](docs/MbrProvenance.md) preserves the pre-installation
+original and tracks later explicit approvals. Its standalone test floppy boots
+without an HDD and ends with `N=00DB` and `RB MBR PROVENANCE PASS`. Durable
+external storage and targeted restoration remain open.
 
 ## HDD builds and tests
 

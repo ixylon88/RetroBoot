@@ -11,7 +11,7 @@ from pathlib import Path
 
 try:
     from .build_inputs import check_build_inputs
-    from .build_rescue import ROOT, prepare_output, sha256, HDD_CASES
+    from .build_rescue import ROOT, prepare_output, sha256, HDD_CASES, PROVENANCE_ASSERTIONS
     from .rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from .test_menu import Qmp, screen_rows, wait_marker
     from .test_hdd import check_bios_route
@@ -27,7 +27,7 @@ try:
     from .backup_payload_vectors import assertions as payload_assertions, check_reads as check_payload_reads
 except ImportError:
     from build_inputs import check_build_inputs
-    from build_rescue import ROOT, prepare_output, sha256, HDD_CASES
+    from build_rescue import ROOT, prepare_output, sha256, HDD_CASES, PROVENANCE_ASSERTIONS
     from rescue_text import LANGUAGES, load_catalog, metadata, output_name
     from test_menu import Qmp, screen_rows, wait_marker
     from test_hdd import check_bios_route
@@ -52,6 +52,22 @@ def expected_reads(spec,attempt):
     if spec.get('layout') in (2,5) and not spec.get('error_lba'):return [0,0]
     if spec.get('fault_lba')==63:return [0,63,63,63,0]
     return ([0] if spec.get('fault_once') and attempt==0 else [])+[0,63,0]
+
+PROVENANCE_REPORT = ('ORIGINAL SEALED', 'CURRENT REJECTED', 'REVISION 3 APPROVED',
+                     'STALE REVIEW BLOCKED', 'READBACK FAILURES BLOCKED', f'N={PROVENANCE_ASSERTIONS:04X}',
+                     'RB MBR PROVENANCE PASS')
+
+
+def check_provenance_report(log, vga):
+    if log.splitlines() != list(PROVENANCE_REPORT):
+        raise ValueError('Incomplete or unexpected provenance debug report')
+    rows = [line.rstrip() for line in screen_rows(vga)]
+    first = next((i for i, row in enumerate(rows) if row in PROVENANCE_REPORT), len(rows))
+    if (rows[first:first + len(PROVENANCE_REPORT)] != list(PROVENANCE_REPORT)
+            or any(row for row in rows[first + len(PROVENANCE_REPORT):])
+            or any(row.startswith(('!', 'RB RESCUE STARTUP ERROR')) for row in rows[:first])):
+        raise ValueError('Incomplete or unexpected provenance VGA report')
+
 
 def trace_reads(trace):
     reads=[(int(a),int(b)) for a,b in re.findall(r'ide_sector_read sector=(\d+) nsectors=(\d+)',trace)]
@@ -139,6 +155,7 @@ def scenarios():
             ('backup-encode-model','RB BACKUP ENCODE PASS'),
             ('backup-stream-model','RB BACKUP STREAM PASS'),
             ('backup-live-model','RB BACKUP LIVE PASS'),
+            ('mbr-provenance-model','RB MBR PROVENANCE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
         cases.append(dict(name=image,image=image,fixture=None,rom=0,marker=marker))
@@ -265,6 +282,15 @@ def main():
                         if marker not in visible or case['marker'] not in visible or '!' in visible:
                             raise ValueError('Stream result is not visible on VGA')
                         (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
+                    if name == 'mbr-provenance-model':
+                        ram = out / (name + '-ram.bin')
+                        vga = out / (name + '-vga.bin')
+                        qmp.call('pmemsave', {'val': 0x10000, 'size': 65536, 'filename': str(ram)})
+                        qmp.call('pmemsave', {'val': 0xB8000, 'size': 4000, 'filename': str(vga)})
+                        check_memory(ram.read_bytes(), (source / (name + '.bin')).read_bytes(),
+                                     manifest['memory'][name], zero_bss=False)
+                        check_provenance_report(log.read_text(), vga.read_bytes())
+                        (out / (name + '.txt')).write_text('\n'.join(screen_rows(vga.read_bytes())) + '\n')
                     if case['name']=='backup-encode-model':
                         marker=f'H={encode_assertions():04X}'
                         if marker not in log.read_text():raise ValueError('Missing native metadata-encoder assertions')

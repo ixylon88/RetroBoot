@@ -50,6 +50,7 @@ except ImportError:
 IMAGE_BYTES = 1474560
 PAYLOAD_LBA = 33
 MIN_HEADROOM_BYTES = 1536
+PROVENANCE_ASSERTIONS = 219
 HDD_CASES = {
     'metadata-only': dict(layout=0,entries=5,ebrs=1,marker=1),
     'unknown-code': dict(layout=0,entries=5,ebrs=1,marker=0),
@@ -154,6 +155,7 @@ def build(kind='rescue',language='en'):
             ('backup-format','core/backup_format.c'),('backup-encode','core/backup_encode.c'),
             ('backup-encode-tests','tests/backup/encode.c'),
             ('backup-stream','core/backup_stream.c'),('backup-stream-tests','tests/backup/stream.c'),
+            ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
@@ -179,6 +181,7 @@ def build(kind='rescue',language='en'):
             ('backup-encode-model',['-DRB_RESCUE_ENCODE_MODEL=1']),
             ('backup-stream-model',['-DRB_RESCUE_STREAM_MODEL=1']),
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
+            ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -206,6 +209,8 @@ def build(kind='rescue',language='en'):
             test_object='backup-payload-tests' if name=='backup-payload-model' else 'backup-plan-tests'
             extra=[destination/(n+'.obj') for n in ('backup-plan',test_object,'backup-target','backup-links','fat-boot',
                 'target-audit','saved-state','saved-record-io','saved-volume')]
+        if name=='mbr-provenance-model':
+            extra=[destination/(n+'.obj') for n in ('mbr-provenance','mbr-provenance-tests')]
         if name=='backup-live-model':
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
@@ -284,6 +289,8 @@ def build(kind='rescue',language='en'):
         cases=payload_cases(),scope='validated live ranges and streamed payload CRCs; no retained bytes, MBR approval, export or restore')
     manifest['backup_live_model']=dict(assertions=live_assertions(),read_lbas=live_reads(),cases=live_cases(),
         scope='fresh live extent binding and provisional stream; explicit MBR roles, no BIOS integration, persistence, approval or restore')
+    manifest['mbr_provenance_model'] = dict(assertions=PROVENANCE_ASSERTIONS,
+        scope='first-install enrollment, explicit review decisions and role readback against synthetic endpoints')
     manifest['rescue_match_cases']=match_specs()
     manifest['rescue_plan_cases']=plan_specs()
     manifest['backup_boot_model']=dict(cases=boot_cases(),assertions=6*len(boot_cases()),
