@@ -9,6 +9,11 @@
 #include "visibility.h"
 #include "admin_audit.h"
 #include "journal_io.h"
+#ifdef RB_PREPARED_DOS
+#include "dos_boot.h"
+static rb_dos_choice dos_choice;
+static rb_u16 dos_status;
+#endif
 #ifdef RB_HANDOFF_TEST
 #include "profile_test.h"
 #endif
@@ -170,10 +175,27 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     text(2, 65, RB_UI_READ_ONLY, 0x1E);
     if (view == 0) {
         text(5, 4, RB_UI_BOOT_MENU, TITLE);
-        text(6, 4, RB_UI_NO_PROFILES, NORMAL);
-        text(7, 4, RB_UI_AUTO_OFF, NORMAL);
+#ifdef RB_PREPARED_DOS
+        if (dos_choice.selected.valid) {
+            rb_u16 color = state->selected == 3 ? SELECTED : NORMAL;
+            if (state->selected == 3) {
+                rb_video_fill(9 * 80U + 4, 71, 0x7020);
+                text(9, 5, ">", color);
+            }
+            text(9, 8, dos_choice.selected.entry.name, color);
+        } else
+#endif
+        { text(6, 4, RB_UI_NO_PROFILES, NORMAL); }
+#ifdef RB_PREPARED_DOS
+        if (state->remaining_ticks) { text(7, 4, RB_UI_DOS_TIMER, NORMAL); }
+        else
+#endif
+        { text(7, 4, RB_UI_AUTO_OFF, NORMAL); }
         for (index = 0; index < 3; ++index) {
             row = 9 + index * 2;
+#ifdef RB_PREPARED_DOS
+            if (dos_choice.selected.valid) { row += 2; }
+#endif
             if (state->selected == index) {
                 rb_video_fill(row * 80U + 4, 71, 0x7020);
                 text(row, 5, ">", SELECTED);
@@ -186,6 +208,16 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         text(18, 4, rb_boot.io_mode == 1 ? RB_UI_ROUTE_EDD : RB_UI_ROUTE_CHS, NORMAL);
 #ifdef RB_HANDOFF_TEST
         text(19, 4, RB_UI_HANDOFF_HELP, 0x1E);
+#endif
+#ifdef RB_PREPARED_DOS
+    } else if (view == 12) {
+        text(5, 4, RB_UI_DOS_BLOCKED, TITLE);
+        text(8, 4, dos_status == RB_DOS_JOURNAL ? RB_UI_DOS_BASELINE
+            : dos_status == RB_DOS_GEOMETRY ? RB_UI_DOS_GEOMETRY
+            : dos_status == RB_PROFILE_SELECTION ? RB_UI_PROFILE_TEST_SELECTION
+            : dos_status == RB_PROFILE_CHANGE ? RB_UI_VIS_CHANGE
+            : visibility->status == RB_VISIBILITY_ADMIN ? RB_UI_VIS_ADMIN
+            : proof_messages[visibility->proof.status], 0x1E);
 #endif
     } else if (view == 1) {
         text(5, 4, labels[0], TITLE);
@@ -509,8 +541,13 @@ void __cdecl rb_menu_run(void)
 #endif
     rb_u32 now;
     rb_loader_copy(&snapshot);
-    /* No configured/approved boot profiles: diagnostic entries, no timer. */
-    rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
+#ifdef RB_PREPARED_DOS
+    rb_dos_open(&dos_choice, &config, &snapshot);
+    if (dos_choice.selected.valid) {
+        rb_menu_init(&state, 4, 15, 3, (dos_choice.countdown * 182U + 9U) / 10U, rb_ticks());
+    } else
+#endif
+    { rb_menu_init(&state, 3, 7, 0, 0, rb_ticks()); }
     rb_video_init();
     draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &visibility, &audit, &journal
 #ifdef RB_HANDOFF_TEST
@@ -523,18 +560,22 @@ void __cdecl rb_menu_run(void)
     for (;;) {
         key = rb_key_poll();
         now = rb_ticks();
-        if (key == RB_KEY_NONE) {
-            rb_menu_step(&state, key, now);
+        action = view == 0 ? rb_menu_step(&state, key, now) : RB_MENU_NONE;
+        if (key == RB_KEY_NONE && action == RB_MENU_NONE) {
             rb_idle();
             continue;
         }
-        rescan = 0; probe = 0; verify_state = 0; action = RB_MENU_NONE;
-        if (view == 0) {
-            action = rb_menu_step(&state, key, now);
-            if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
-        } else {
-            state.remaining_ticks = 0;
-        }
+        rescan = 0; probe = 0; verify_state = 0;
+        state.remaining_ticks = 0;
+#ifdef RB_PREPARED_DOS
+        if (action == 3) {
+            dos_status = rb_dos_start(&dos_choice, key == RB_KEY_NONE, &config, &installation,
+                                      &visibility, &journal, &snapshot);
+            debug_text("RB DOS REJECT "); debug_hex(dos_status); debug_text("\r\n");
+            view = 12;
+        } else
+#endif
+        if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
         if ((key & 0xFFU) == 27U) {
             view = 0;
         } else if ((key >> 8) == 0x3CU) {

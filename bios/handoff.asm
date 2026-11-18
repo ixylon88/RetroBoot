@@ -1,4 +1,4 @@
-; Linked only into the explicit handoff-test builds in this increment.
+; Real-mode transfer shared by checked DOS boots and the T07 fixture.
 bits 16
 cpu 386
 %include "include/boot.inc"

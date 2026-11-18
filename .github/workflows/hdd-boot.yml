@@ -29,6 +29,15 @@ jobs:
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
+      - name: Upload the prepared DOS disk kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-dos
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            build/hdd/RetroBoot-DOS.zip
+            build/hdd-de/RetroBoot-DOS.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
