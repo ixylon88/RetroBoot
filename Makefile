@@ -100,6 +100,7 @@ rescue-test: rescue-check
 	$(PYTHON) tools/test_rescue_match.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_rescue_plan.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_rescue_stream.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_mbr_restart.py --language $(RB_LANGUAGE)
 
 iso-deps:
 	$(PYTHON) -m pip install --require-hashes -r tools/requirements-iso.txt

@@ -43,8 +43,10 @@ the trusted, zero-initialized session state and serializes access to it.
 
 ## Evidence across a restart
 
-The model keeps its history in RAM. An installer and a recovery implementation
-need the following additional evidence before using these roles on real media.
+The first-install and approval model keeps its history in RAM. The separate
+[cold-start reader](MbrRestart.md) now reopens independently provisioned
+records after a power cycle. Issuing and retaining evidence on real media
+requires the following steps.
 
 1. Establish the disk and separate recovery carrier under operator control.
    Preserve the first-install record, its complete sector, both identities,
@@ -111,3 +113,6 @@ revisions, incomplete reads and swapped endpoints. One fixture has different
 bytes and identical CRC32 values after resealing. An exclamation mark and
 source line identify a failing assertion. The emulator runner verifies the
 complete report, memory guards, zero HDD reads and zero guest writes.
+
+On 18 November 2026, a manual VirtualBox run displayed all seven lines above.
+The transcript is recorded in [PR #62](https://github.com/ixylon88/RetroBoot/pull/62).
