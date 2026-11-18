@@ -57,8 +57,11 @@ rescue executable is identical on all floppies of a given language.
 The 1,536-byte minimum static reserve applies to both images. The 1,072-byte
 capture map lives on the guarded 8 KiB stack for the duration of a call.
 The QEMU runner measures the untouched portion above the guard from the
-loader's prefilled bytes. On the tested 486/SeaBIOS paths at least 3,806 bytes
-of this pattern remain. This measurement is specific to the tested firmware.
+loader's prefilled bytes. The local 486/SeaBIOS campaign measured a minimum
+of 3,806 untouched bytes in each language. The [first hosted F7 run](https://github.com/ixylon88/RetroBoot/actions/runs/44203863188)
+measured 3,766 bytes in EN and 3,806 in DE. These are observations from those
+runs. Each later run records its own stack watermark with the firmware and
+emulator hashes in `stream-results.json`.
 
 The runner checks BIOS and floppy events in order, every physical HDD LBA,
 VGA results, memory guards, medium hashes and attempted writes. EDD and CHS
