@@ -194,7 +194,9 @@ original and tracks later explicit approvals. Its standalone test floppy boots
 without an HDD and ends with `N=00DB` and `RB MBR PROVENANCE PASS`.
 The [cold-start test](docs/MbrRestart.md) boots a trusted witness, then
 accepts a current recovery floppy or rejects an older one after a power
-cycle. Durable publication and targeted restoration remain open.
+cycle. The [reservation test](docs/MbrReservation.md) advances the highest
+issued number on two dedicated writable test floppies. A cold boot after
+an interruption resumes from the independently retained witness.
 
 ## HDD builds and tests
 

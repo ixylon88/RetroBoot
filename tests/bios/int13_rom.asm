@@ -27,6 +27,9 @@ init:
     mov ds, ax
     cli
     dec word [0x0413]          ; reserve one KiB below conventional-memory top
+%ifdef RB_RESERVE_INJECT
+    dec word [0x0413]          ; old-sector scratch for a partial floppy write
+%endif
     mov ax, [0x0413]
     shl ax, 6
     mov es, ax
@@ -48,6 +51,9 @@ init:
     retf
 handler:
     pushf
+%ifdef RB_RESERVE_INJECT
+%include "tests/bios/reserve_cut.inc"
+%endif
 %ifdef RB_RESCUE_TRACE
     ; Rescue-only instrumentation includes attempted floppy/HDD writes.
     cmp ah, 0x03
@@ -348,6 +354,13 @@ payload_count: db 0
 %endif
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
 replacement: incbin RB_REPLACEMENT_SECTOR
+%endif
+%ifdef RB_RESERVE_INJECT
+    db 'RBCUTv1'
+cut_write: db 0               ; host selects the physical write, 1 through 3
+cut_mode: db 0
+write_count: db 0
+closing_reads: db 0
 %endif
 old13: dd 0                   ; populated in reserved RAM, never written in ROM
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18

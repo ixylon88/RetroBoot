@@ -5,8 +5,12 @@ group DGROUP _TEXT CONST CONST2 _DATA _BSS STACK
 segment _TEXT public align=16 class=CODE use16
 global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_rescue_runtime, _rb_rescue_run, _rb_putc
-%ifdef RB_RESCUE_RESTART
+%ifdef RB_RESCUE_RESERVE
+extern _rb_mbr_reserve_demo
+%define RB_RESCUE_HISTORY_ENTRY _rb_mbr_reserve_demo
+%elifdef RB_RESCUE_RESTART
 extern _rb_mbr_restart_demo
+%define RB_RESCUE_HISTORY_ENTRY _rb_mbr_restart_demo
 %endif
 %ifdef RB_RESCUE_MODEL
 extern _rb_rescue_selftest
@@ -91,8 +95,8 @@ rb_entry:
     jnz failed
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
     jne failed
-%ifdef RB_RESCUE_RESTART
-    call _rb_mbr_restart_demo   ; boot drive already on stack
+%ifdef RB_RESCUE_HISTORY_ENTRY
+    call RB_RESCUE_HISTORY_ENTRY ; boot drive already on stack
     cmp sp, RB_STACK_TOP - 2
     jne failed
     cmp word [RB_STACK_LOW], RB_STACK_GUARD
@@ -172,7 +176,10 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_RESTART
+%ifdef RB_RESCUE_RESERVE
+restart_pass db 'RB MBR RESERVE PASS', 13, 10, 0
+restart_blocked db 'RB MBR RESERVE BLOCKED', 13, 10, 0
+%elifdef RB_RESCUE_RESTART
 restart_pass db 'RB MBR RESTART PASS', 13, 10, 0
 restart_blocked db 'RB MBR RESTART BLOCKED', 13, 10, 0
 %endif
