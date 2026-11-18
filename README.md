@@ -191,8 +191,10 @@ target HDD and expected failures.
 
 The [MBR provenance model](docs/MbrProvenance.md) preserves the pre-installation
 original and tracks later explicit approvals. Its standalone test floppy boots
-without an HDD and ends with `N=00DB` and `RB MBR PROVENANCE PASS`. Durable
-external storage and targeted restoration remain open.
+without an HDD and ends with `N=00DB` and `RB MBR PROVENANCE PASS`.
+The [cold-start test](docs/MbrRestart.md) boots a trusted witness, then
+accepts a current recovery floppy or rejects an older one after a power
+cycle. Durable publication and targeted restoration remain open.
 
 ## HDD builds and tests
 

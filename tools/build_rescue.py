@@ -10,6 +10,7 @@ import zlib
 
 try:
     from .build_inputs import source_hashes, check_build_inputs
+    from .mbr_restart_fixtures import carrier_images, witness_floppy
     from .build_abi_probe import inspect_map, prepare_output
     from .build_hdd import layout, write_fixture
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -29,6 +30,7 @@ try:
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
     from build_inputs import source_hashes, check_build_inputs
+    from mbr_restart_fixtures import carrier_images, witness_floppy
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
     from rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -156,6 +158,7 @@ def build(kind='rescue',language='en'):
             ('backup-encode-tests','tests/backup/encode.c'),
             ('backup-stream','core/backup_stream.c'),('backup-stream-tests','tests/backup/stream.c'),
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
+            ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
@@ -182,6 +185,7 @@ def build(kind='rescue',language='en'):
             ('backup-stream-model',['-DRB_RESCUE_STREAM_MODEL=1']),
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
+            ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -211,6 +215,8 @@ def build(kind='rescue',language='en'):
                 'target-audit','saved-state','saved-record-io','saved-volume')]
         if name=='mbr-provenance-model':
             extra=[destination/(n+'.obj') for n in ('mbr-provenance','mbr-provenance-tests')]
+        if name=='mbr-restart':
+            extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
         if name=='backup-live-model':
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
@@ -234,6 +240,14 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
+    restart = destination / 'mbr-restart.img'
+    restart.write_bytes(witness_floppy(restart.read_bytes()))
+    remember(restart)
+    histories = carrier_images()
+    for name in ('current', 'older'):
+        carrier = destination / ('mbr-restart-' + name + '.img')
+        carrier.write_bytes(histories[name])
+        remember(carrier)
     payload=(destination/'retroboot-rescue.bin').read_bytes()
     bad=bytearray(payload);struct.pack_into('<H',bad,memory['retroboot-rescue']['symbols']['_rb_rescue_initialized'],0xDEAD)
     floppy('rescue-data-fault',seal_payload(bad))

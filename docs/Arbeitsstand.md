@@ -2,14 +2,23 @@
 
 Updated 18 November 2026.
 
+## Reopening MBR history after a cold boot (#43)
+
+The [restart probe](MbrRestart.md) boots from a separately held witness and
+checks the saved records on a recovery floppy in A. The current fixture
+recovers original revision 1, approval 3 and highest issued review 5. An
+older complete floppy contains the same MBR sectors and fails the freshness
+check. A successful result carries historical evidence only. Durable review
+reservation and publication by the installer remain open.
+
 ## Original-MBR provenance and explicit approval (#43)
 
 The [standalone MBR model](MbrProvenance.md) retains the pre-installation
 sector and the last explicitly approved observation as two separate roles.
 It re-reads the independent recovery record, checks the actual endpoint and
 compares all 512 bytes. The bootable model exercises 219 assertions with
-synthetic readers. The next integration step is to carry independently
-retained first-install and approval evidence across a restart.
+synthetic readers. The full seven-line transcript was confirmed in VirtualBox.
+[PR #62](https://github.com/ixylon88/RetroBoot/pull/62) was merged on 18 November 2026.
 
 ## Normal rescue BIOS stream check (#42)
 

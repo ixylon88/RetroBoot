@@ -77,6 +77,9 @@ jobs:
             build/rescue-de/backup-stream-model.img
             build/rescue/mbr-provenance-model.img
             build/rescue-de/mbr-provenance-model.img
+            build/rescue/mbr-restart*.img
+            build/rescue-de/mbr-restart*.img
+            build/mbr-restart-test*/*
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img
