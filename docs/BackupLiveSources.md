@@ -38,6 +38,9 @@ rescue executable is identical on all floppies of a given language.
    comparison rejects sector 41. The screen shows **0** verified sectors.
 4. Restore the first floppy and press **Enter**. All **45** sectors pass again.
 
+On 18 November 2026 the maintainer confirmed this German VirtualBox test
+with 45, 0 and 45 verified sectors in that order.
+
 | Result | Status / detail / subcode | Verified sectors |
 | --- | --- | ---: |
 | Intact EDD fixture | `0x0000 / 0x0000 / 0x0000` | 45 |
@@ -99,6 +102,8 @@ fallback for either role. The adapter does not establish either supplied
 MBR's provenance, approval or saved-content semantics. The explicit MBR
 payloads may differ from the current observation; later provenance and
 saved-content checks must establish whether a complete container is usable.
+The separate [MBR provenance model](MbrProvenance.md) specifies how first
+installation and later explicit approvals supply evidence for these roles.
 
 The caller must provide fresh BIOS discovery, stable sources, immutable inputs
 and independent source/sink contexts. The call is synchronous and non-reentrant.

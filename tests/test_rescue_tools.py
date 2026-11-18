@@ -6,7 +6,7 @@ import zlib
 
 from tools.build_rescue import check_headroom, fat12_set, hdd_fixture, inspect_payload, make_image, seal_payload
 from tools.rescue_text import load_catalog, output_name, render_header, unique_keys, validate
-from tools.test_rescue import check_screen, expected_reads, trace_reads
+from tools.test_rescue import check_provenance_report, check_screen, expected_reads, trace_reads
 
 
 def payload(size=847):
@@ -23,6 +23,26 @@ def boot():
 
 
 class RescueToolsTests(unittest.TestCase):
+    def test_provenance_evidence_requires_the_complete_ordered_report_on_both_channels(self):
+        report = ['ORIGINAL SEALED', 'CURRENT REJECTED', 'REVISION 3 APPROVED',
+                  'STALE REVIEW BLOCKED', 'READBACK FAILURES BLOCKED', 'N=00DB',
+                  'RB MBR PROVENANCE PASS']
+        def vga(rows):
+            chars = ''.join(row.ljust(80) for row in rows).ljust(2000).encode('ascii')
+            data = bytearray(b' \x07' * 2000)
+            data[::2] = chars
+            return data
+        log = '\r\n'.join(report) + '\r\n'
+        check_provenance_report(log, vga(['Booting from Floppy...', *report]))
+        for wrong in (report[:-1], report[1:], report[:-2] + ['N=00DA', report[-1]],
+                      report[:2] + [report[3], report[2]] + report[4:],
+                      ['!00AB', *report], [*report, report[-1]]):
+            with self.subTest(wrong=wrong):
+                with self.assertRaisesRegex(ValueError, 'VGA'):
+                    check_provenance_report(log, vga(wrong))
+                with self.assertRaisesRegex(ValueError, 'debug'):
+                    check_provenance_report('\n'.join(wrong), vga(report))
+
     def test_fat12_image_has_two_equal_fats_and_a_readable_contiguous_file(self):
         p=payload(9501);image=make_image(boot(),p)
         self.assertEqual(len(image),1474560)

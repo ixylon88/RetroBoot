@@ -2,6 +2,15 @@
 
 Updated 18 November 2026.
 
+## Original-MBR provenance and explicit approval (#43)
+
+The [standalone MBR model](MbrProvenance.md) retains the pre-installation
+sector and the last explicitly approved observation as two separate roles.
+It re-reads the independent recovery record, checks the actual endpoint and
+compares all 512 bytes. The bootable model exercises 219 assertions with
+synthetic readers. The next integration step is to carry independently
+retained first-install and approval evidence across a restart.
+
 ## Normal rescue BIOS stream check (#42)
 
 The maintainer confirmed the German F4 demo / standard / demo exchange from
@@ -13,9 +22,10 @@ discovery brackets the two live captures and streaming passes. Changed
 geometry or capacity, a failed closing probe, or changed saved data clears
 the complete sector-count claim. The intact synthetic fixture verifies 45
 sectors through 4,608 physical HDD reads. Both language images meet the
-existing static reserve. Review and manual verification of the integrated F7
-path are tracked in [#42](https://github.com/ixylon88/RetroBoot/issues/42).
-The next separate work package is [MBR provenance and approval (#43)](https://github.com/ixylon88/RetroBoot/issues/43).
+existing static reserve. On 18 November the maintainer confirmed the German
+F7 sequence of 45, 0 and 45 verified sectors under VirtualBox. PRs #60 and
+#61 are merged into `historical` and [#42](https://github.com/ixylon88/RetroBoot/issues/42)
+is complete.
 
 ## Normal rescue memory for the BIOS integration (#42)
 
