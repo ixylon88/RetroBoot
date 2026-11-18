@@ -80,6 +80,9 @@ jobs:
             build/rescue/mbr-restart*.img
             build/rescue-de/mbr-restart*.img
             build/mbr-restart-test*/*
+            build/rescue/mbr-reserve*.img
+            build/rescue-de/mbr-reserve*.img
+            build/mbr-reservation-test*/*
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img

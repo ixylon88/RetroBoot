@@ -8,6 +8,8 @@ WITNESS_LBA = 2876
 TARGET = bytes(15) + b'\x11'
 CARRIER = bytes(15) + b'\x22'
 WITNESS = bytes(15) + b'\x33'
+RESERVATION_CARRIER = bytes(15) + b'\x44'
+RESERVATION_WITNESS = bytes(15) + b'\x55'
 CAPACITY = 0x100040000
 EMPTY = bytes(SECTOR)
 
@@ -58,9 +60,9 @@ def label(endpoint):
     return seal(data)
 
 
-def header(magic, point):
+def header(magic, point, carrier_id=CARRIER):
     data = bytearray(SECTOR)
-    struct.pack_into('<8s16sQ16s6I', data, 0, magic, TARGET, CAPACITY, CARRIER,
+    struct.pack_into('<8s16sQ16s6I', data, 0, magic, TARGET, CAPACITY, carrier_id,
                      point.generation, point.issued, point.approved, point.previous,
                      zlib.crc32(sector_body(0)), zlib.crc32(point.payload) if point.approved else 0)
     return seal(data)
@@ -72,7 +74,7 @@ def put(image, sector, data):
     image[sector * SECTOR:(sector + 1) * SECTOR] = data
 
 
-def witness_floppy(boot, point=CURRENT):
+def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER):
     """Reserve the last four FAT12 clusters for the trusted test witness."""
     try:
         from .build_rescue import fat12_set
@@ -99,29 +101,30 @@ def witness_floppy(boot, point=CURRENT):
     image[SECTOR:10 * SECTOR] = image[10 * SECTOR:19 * SECTOR] = fat
     image[root:root + 12] = b'RBWITNESBIN\x20'
     struct.pack_into('<HI', image, root + 26, first, 4 * SECTOR)
-    for i, data in enumerate((label(WITNESS), header(b'RBWIT001', point), sector_body(0), point.payload)):
+    for i, data in enumerate((label(witness_id), header(b'RBWIT001', point, carrier_id),
+                              sector_body(0), point.payload)):
         put(image, WITNESS_LBA + i, data)
     return bytes(image)
 
 
-def stage(image, point):
+def stage(image, point, carrier_id=CARRIER):
     put(image, point.slot + 1, point.payload)
-    put(image, point.slot, header(b'RBCMT001', point))
+    put(image, point.slot, header(b'RBCMT001', point, carrier_id))
 
 
-def carrier_images():
+def carrier_images(carrier_id=CARRIER):
     """Keep the immutable original and alternate complete publication slots."""
     image = bytearray(2880 * SECTOR)
-    put(image, 0, label(CARRIER))
-    put(image, 1, header(b'RBORG001', ORIGIN))
+    put(image, 0, label(carrier_id))
+    put(image, 1, header(b'RBORG001', ORIGIN, carrier_id))
     put(image, 2, sector_body(0))
-    stage(image, ORIGIN)
+    stage(image, ORIGIN, carrier_id)
     snapshots = {'original-only': bytes(image)}
     for point in (Checkpoint(2, 2), Checkpoint(3, 3), EARLIER, Checkpoint(5, 4, 3), CURRENT):
-        stage(image, point)
+        stage(image, point, carrier_id)
         if point == EARLIER:
             snapshots['older'] = bytes(image)
     snapshots['current'] = bytes(image)
-    stage(image, NEXT)
+    stage(image, NEXT, carrier_id)
     snapshots['staged'] = bytes(image)
     return snapshots

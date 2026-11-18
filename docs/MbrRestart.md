@@ -39,6 +39,9 @@ and approved MBR bytes. The older floppy records review 3 as its highest
 issued number. The trusted witness records review 5. Reopening the older
 history would lose the fact that reviews 4 and 5 were already issued.
 
+Both transcripts were confirmed in VirtualBox on 18 November 2026.
+[PR #63](https://github.com/ixylon88/RetroBoot/pull/63)
+
 ## Records and selection
 
 Each metadata header occupies 512 bytes. The tag selects the record type
@@ -115,8 +118,9 @@ first-install origin, the target and the freshness of the separately held
 witness. A copied label cannot authenticate physical hardware. Replaying
 both the trusted witness and its matching carrier together requires an
 independent record of the latest generation to detect. The read-only probe
-assumes that custody and stable media during each acquisition. Reserving
-new reviews durably and advancing the witness after verified external
-publication are the remaining issuer operations. Targeted repair also
+assumes that custody and stable media during each acquisition. A separate
+[writable fixture](MbrReservation.md) reserves numbers and advances its witness
+after verified external staging. Publication of a new approval remains open.
+Targeted repair also
 requires the independent backup and confirmation gates in the
 [provenance contract](MbrProvenance.md#evidence-for-targeted-recovery).

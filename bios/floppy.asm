@@ -1,10 +1,15 @@
-; Fixed 1440 KiB A: reader. Independent of all HDD discovery/context fields.
+; Fixed 1440 KiB A: I/O. The bounded writer is linked only in the reservation fixture.
 bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
+%ifdef RB_RESERVATION_WRITE
+global _rb_fixture_floppy_write
+_rb_fixture_floppy_write:
+%else
 global _rb_floppy_read
 _rb_floppy_read:
+%endif
     push bp
     mov bp, sp
     pushf
@@ -20,7 +25,26 @@ _rb_floppy_read:
     cmp word [bx], 0
     jne .bad
     mov si, ax
+%ifdef RB_RESERVATION_WRITE
+    cmp ax, 2877                ; reserved witness header on the owned boot floppy
+    je .buffer
+    cmp ax, 3                   ; alternate commit headers and payloads on the carrier
+    jb .bad
+    cmp ax, 6
+    ja .bad
+.buffer:
+    mov dx, si
+    mov si, [ss:bp + 8]
+    xor ax, ax
+    mov es, ax
+    mov di, RB_BUFFER
+    mov cx, 256
+    cld
+    rep movsw
+    mov si, dx
+%else
     mov di, 3
+%endif
 .retry:
     mov ax, si
     xor dx, dx
@@ -37,7 +61,11 @@ _rb_floppy_read:
     xor ax, ax
     mov es, ax
     mov bx, RB_BUFFER
+%ifdef RB_RESERVATION_WRITE
+    mov ax, 0x0301
+%else
     mov ax, 0x0201
+%endif
     pushad
     push ds
     push es
@@ -46,6 +74,11 @@ _rb_floppy_read:
     pop es
     pop ds
     popad
+%ifdef RB_RESERVATION_WRITE
+    jc .bad                     ; an ambiguous write is never retried here
+    xor ax, ax
+    jmp .done
+%else
     jnc .copy
     pushad
     push ds
@@ -58,9 +91,11 @@ _rb_floppy_read:
     popad
     dec di
     jnz .retry
+%endif
 .bad:
     mov ax, 1
     jmp .done
+%ifndef RB_RESERVATION_WRITE
 .copy:
     push ds
     pop es
@@ -72,6 +107,7 @@ _rb_floppy_read:
     cld
     rep movsw
     xor ax, ax
+%endif
 .done:
     mov [ss:bp - 10], ax
     popad

@@ -10,7 +10,7 @@ import zlib
 
 try:
     from .build_inputs import source_hashes, check_build_inputs
-    from .mbr_restart_fixtures import carrier_images, witness_floppy
+    from .mbr_restart_fixtures import carrier_images, witness_floppy, RESERVATION_CARRIER, RESERVATION_WITNESS
     from .build_abi_probe import inspect_map, prepare_output
     from .build_hdd import layout, write_fixture
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -30,7 +30,7 @@ try:
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
     from build_inputs import source_hashes, check_build_inputs
-    from mbr_restart_fixtures import carrier_images, witness_floppy
+    from mbr_restart_fixtures import carrier_images, witness_floppy, RESERVATION_CARRIER, RESERVATION_WITNESS
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
     from rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -159,6 +159,7 @@ def build(kind='rescue',language='en'):
             ('backup-stream','core/backup_stream.c'),('backup-stream-tests','tests/backup/stream.c'),
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
+            ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
@@ -173,6 +174,7 @@ def build(kind='rescue',language='en'):
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
     run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_RESERVATION_WRITE=1','bios/floppy.asm','-o',destination/'fixture-write.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -186,6 +188,7 @@ def build(kind='rescue',language='en'):
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
+            ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -217,6 +220,9 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('mbr-provenance','mbr-provenance-tests')]
         if name=='mbr-restart':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
+        if name=='mbr-reserve':
+            extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-reservation-core',
+                'mbr-reservation-tests','floppy','fixture-write')]
         if name=='backup-live-model':
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
@@ -244,6 +250,20 @@ def build(kind='rescue',language='en'):
     restart.write_bytes(witness_floppy(restart.read_bytes()))
     remember(restart)
     histories = carrier_images()
+    reserve = destination / 'mbr-reserve.img'
+    reserve.write_bytes(witness_floppy(reserve.read_bytes(), witness_id=RESERVATION_WITNESS,
+                                       carrier_id=RESERVATION_CARRIER))
+    remember(reserve)
+    data_floppy = destination / 'mbr-reserve-data.img'
+    data_floppy.write_bytes(carrier_images(RESERVATION_CARRIER)['staged'])
+    remember(data_floppy)
+    cut_rom = destination / 'int13-reserve.rom'
+    run(nasm, '-Werror', '-f', 'bin', '-I', './', '-DRB_RESERVE_INJECT=1',
+        'tests/bios/int13_rom.asm', '-o', cut_rom)
+    rom = bytearray(cut_rom.read_bytes())
+    rom[-1] = -sum(rom) & 255
+    cut_rom.write_bytes(rom)
+    remember(cut_rom)
     for name in ('current', 'older'):
         carrier = destination / ('mbr-restart-' + name + '.img')
         carrier.write_bytes(histories[name])
