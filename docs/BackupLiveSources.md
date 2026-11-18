@@ -1,10 +1,74 @@
 # Fresh live sources for provisional output
 
 The bounded source adapter connects the live payload observer to the stream
-assembler. It is linked into **`backup-live-model.img`** for native tests.
-Normal rescue F4/F5/F6, the normal/demo media and HDD programs are unchanged.
-This is the core increment of [#42](https://github.com/ixylon88/RetroBoot/issues/42);
-BIOS discovery integration and the normal-image memory work remain open.
+assembler. The normal rescue program uses it for the read-only F7 dry run.
+The standalone `backup-live-model.img` also exercises callback and format
+edge cases. Both implement part of [#42](https://github.com/ixylon88/RetroBoot/issues/42).
+
+## F7 in normal rescue
+
+F7 opens and validates `RBBACKUP.RBB` on the rescue boot medium. The file
+supplies the claims and two explicit MBR roles. A fresh BIOS discovery of
+drive `0x80` establishes the route and capacity for physical reads.
+The live observer independently locates every other extent. The sink compares
+all 512 bytes of each generated sector with the corresponding file sector.
+
+After the final comparison the live core repeats its full HDD capture. The
+rescue caller then probes the BIOS again and compares drive number, EDD/CHS
+route, heads, sectors per track and both capacity words. It revalidates the
+entire saved file and compares the ordered file fingerprints and read count.
+Only then does the verified-sector counter become visible. Every failure
+returns zero verified sectors. Enter repeats from the beginning. Esc clears
+the display. The operation issues only reads. MBR provenance and approval
+are tracked in #43, external persistence and readback in #45.
+
+### Manual floppy check
+
+The **BIOS ABI and Rescue** workflow publishes the following synthetic media in
+`retroboot-rescue-diagnostics`, under `rescue/` and `rescue-de/`. The normal
+rescue executable is identical on all floppies of a given language.
+
+1. In a BIOS test VM, attach `retroboot-rescue-target-hdd.img` as the first
+   HDD using the [VirtualBox conversion instructions](BackupCapturePlan.md#manual-virtualbox-check).
+   Attach `retroboot-rescue-stream.img` as floppy A: and boot from it.
+2. Press **F7**. The result is green with **45 verified sectors**.
+3. Exchange A: for `retroboot-rescue-stream-resealed.img` and press **Enter**.
+   The saved configuration generations differ. Both copies have valid record
+   CRCs and the whole-sector CRCs still agree with the originals. The byte
+   comparison rejects sector 41. The screen shows **0** verified sectors.
+4. Restore the first floppy and press **Enter**. All **45** sectors pass again.
+
+| Result | Status / detail / subcode | Verified sectors |
+| --- | --- | ---: |
+| Intact EDD fixture | `0x0000 / 0x0000 / 0x0000` | 45 |
+| Resealed configuration mismatch | `0x0006 / 0x0006 / 0x0006` | 0 |
+| Standard floppy with no reference | `0x0001 / 0x0005 / 0x0000` | 0 |
+| Valid reference, no HDD | `0x0003 / 0x0001 / 0x0000` | 0 |
+| Changed device on closing probe | `0x0005 / 0x0001 / 0x0000` | 0 |
+| Failed closing BIOS parameters | `0x0007 / 0x0002 / 0x0000` | 0 |
+
+### Memory and BIOS evidence
+
+| Normal build | Program bytes | BSS bytes | Static space below stack guard |
+| --- | ---: | ---: | ---: |
+| EN | 38,472 | 16,760 | 2,112 |
+| DE | 38,798 | 16,760 | 1,786 |
+
+The 1,536-byte minimum static reserve applies to both images. The 1,072-byte
+capture map lives on the guarded 8 KiB stack for the duration of a call.
+The QEMU runner measures the untouched portion above the guard from the
+loader's prefilled bytes. The local 486/SeaBIOS campaign measured a minimum
+of 3,806 untouched bytes in each language. The [first hosted F7 run](https://github.com/ixylon88/RetroBoot/actions/runs/44203863188)
+measured 3,766 bytes in EN and 3,806 in DE. These are observations from those
+runs. Each later run records its own stack watermark with the firmware and
+emulator hashes in `stream-results.json`.
+
+The runner checks BIOS and floppy events in order, every physical HDD LBA,
+VGA results, memory guards, medium hashes and attempted writes. EDD and CHS
+each perform 4,608 HDD reads for the intact fixture. The late BIOS tests reach
+all 45 sector comparisons and both complete HDD captures before injecting a
+changed capacity or failed parameter query. Both revoke the entire result.
+A separate final-file fault invalidates the reference after the closing probe.
 
 ## Contract and source roles
 
@@ -38,8 +102,8 @@ saved-content checks must establish whether a complete container is usable.
 
 The caller must provide fresh BIOS discovery, stable sources, immutable inputs
 and independent source/sink contexts. The call is synchronous and non-reentrant.
-It retains one 1,072-byte capture result plus bounded callback/fingerprint state;
-all private state is cleared before return. The existing stream uses one
+It uses one 1,072-byte automatic capture result plus bounded callback and
+fingerprint state. The static callback context is cleared before return. The existing stream uses one
 512-byte automatic buffer. No complete payload is retained in guest memory.
 
 **Every output sector remains provisional until the outer function succeeds.**
@@ -103,15 +167,14 @@ The runner checks the complete physical-address trace, debug and VGA markers,
 program bytes, BSS/stack guards, unchanged media and zero guest writes.
 
 The initial model build uses 40,556 file bytes, 13,504 BSS bytes and 3,284 bytes
-of static headroom, with the existing guarded 8 KiB stack. Normal rescue
-retains 1,880 / 1,612 bytes of headroom (EN/DE); only 76 bytes remain above the
-required 1,536-byte reserve in German. Adding this module directly to the
-normal link is therefore not an established integration plan. Memory reuse or
-separation needs its own measured and reviewed increment.
+of static headroom, with the existing guarded 8 KiB stack. At PR #59 normal
+rescue had 1,880 / 1,612 bytes of headroom (EN/DE). The subsequent FAT12 index
+raises this to 5,912 / 5,644 bytes. The sizing link with the stream core leaves
+578 / 310 bytes above the required reserve before adding the BIOS caller.
 
 Actual local/repeated/hosted results are recorded in the implementation PR.
-This model does not add a normal rescue backup command, external persistence,
-independent destination readback or targeted restore.
+F7 integrates the same core with real BIOS reads. Durable external output,
+independent destination readback and targeted restore remain open.
 
 ## Manual model check
 
@@ -126,5 +189,5 @@ RB BACKUP LIVE PASS
 ```
 
 The model halts after the result. An exclamation-mark diagnostic or
-`RB RESCUE STARTUP ERROR` means failure. No manual VM result for this increment
-has been recorded.
+`RB RESCUE STARTUP ERROR` means failure. On 17 November 2026 the maintainer
+reported a successful manual VirtualBox test of the supplied PR #59 model.

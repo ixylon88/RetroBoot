@@ -180,8 +180,15 @@ container bytes from explicitly described sources into a provisional sink.
 It checks payload CRCs before output and again during output, and rejects
 different body/tail fingerprints or callback failures. Its standalone
 `backup-stream-model.img` shows `J=03E3` and `RB BACKUP STREAM PASS` without an
-HDD. Normal rescue remains unchanged; live source binding, MBR provenance,
-destination storage/readback and restore are still open.
+HDD.
+
+**F7 in RetroBoot Rescue** runs the complete stream against a reference
+`RBBACKUP.RBB`. A fresh BIOS probe brackets the live reads. Each generated
+sector is compared with the corresponding reference bytes. The verified count
+appears after the closing checks. The intact test pair reports **45 sectors**.
+The [F7 guide](docs/BackupLiveSources.md#f7-in-normal-rescue) lists the floppy,
+target HDD and expected failures. MBR provenance, external backup storage and
+targeted restoration remain separate work packages.
 
 ## HDD builds and tests
 

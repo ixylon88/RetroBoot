@@ -4,14 +4,16 @@ import zlib
 
 try:
     from .backup_boot_vectors import fixture
-    from .backup_container import inspect
+    from .backup_container import Chunk, encode, inspect
+    from .backup_payload_vectors import extents as live_extents
     from .config_records import seal
-    from .rescue_match_fixtures import disk as match_disk, acquisition, RECORDS
+    from .rescue_match_fixtures import disk as match_disk, backup as match_backup, acquisition, RECORDS
 except ImportError:
     from backup_boot_vectors import fixture
-    from backup_container import inspect
+    from backup_container import Chunk, encode, inspect
+    from backup_payload_vectors import extents as live_extents
     from config_records import seal
-    from rescue_match_fixtures import disk as match_disk, acquisition, RECORDS
+    from rescue_match_fixtures import disk as match_disk, backup as match_backup, acquisition, RECORDS
 
 SYSTEM = 131072
 
@@ -112,3 +114,27 @@ def payload_crcs(kind='match'):
             if lo<hi:payload[lo-start:hi-start]=data[lo-offset:hi-offset]
         result.append(zlib.crc32(payload))
     return result
+
+def stream_reference(chs=False, resealed=False):
+    """Saved roles and independently addressed live extents for the F7 dry run."""
+    raw = match_backup(chs=chs)
+    identity, saved = inspect(raw)
+    _, extents = disk()
+    chunks = []
+    for role, label in ((1, b'ORIGINAL'), (2, b'APPROVED')):
+        entry = next(e for e in saved if e['kind'] == role)
+        start = entry['file_sector'] * 512
+        data = bytearray(raw[start:start + 512])
+        data[32:40] = label
+        chunks.append(Chunk(role, 0, 0, bytes(data)))
+    for kind, index, lba, count in live_extents()[1:]:
+        template = next(e for e in saved if e['kind'] == kind and
+                        (kind != 4 or e['lba'] == lba))
+        data = extents[lba * 512][:count * 512]
+        if resealed and kind in (5, 6):
+            record = bytearray(data)
+            struct.pack_into('<I', record, 16, 2)
+            data = seal(record)
+        chunks.append(Chunk(kind, index, lba, data,
+                            template['owner_start'], template['owner_sectors']))
+    return encode(identity, chunks)

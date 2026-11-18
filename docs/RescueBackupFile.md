@@ -44,6 +44,11 @@ coverage follows from that observation. Earlier VirtualBox diagnosis observation
 remain in [ExternalRescue.md](ExternalRescue.md). The [getting-started guide](GettingStarted.md)
 provides download and image/key orientation.
 
+On 18 November 2026 the maintainer confirmed the German F4 diskette exchange
+in VirtualBox. The demo, standard and reinserted demo returned file statuses
+`0x0000`, `0x0005` and `0x0000` in one session. The check and detail fields
+were zero in all three cases.
+
 ## File access contract
 
 The reader supports the owned 1,440 KiB FAT12 superfloppy layout: 512-byte
@@ -65,8 +70,8 @@ traversed or claimed to be a complete filesystem audit.
 
 Only the exact short name `RBBACKUP.RBB` is selected. Duplicate matching names
 are rejected. File length must be sector-aligned and between 2,560 bytes and
-1 MiB. A map of at most 2,048 physical sectors permits fragmented streaming;
-the full file is never loaded into the 64 KiB C/16 segment. A failed open or
+1 MiB. A validated FAT and a small index permit random reads from fragmented
+files of up to 2,048 sectors. A failed open or
 read clears the map and successful counts. An out-of-range file read performs
 no disk I/O. A fresh F4/Enter check reconstructs the map each time.
 
@@ -80,6 +85,38 @@ again and compared through CRC32. Changed metadata invalidates the result and
 clears displayed success counters. The medium must remain stable during a check;
 the reread detects changes but does not make the acquisition atomic or authentic.
 The adapter context is valid only during this operation. Scratch is non-reentrant.
+
+## FAT12 index and memory
+
+Each open file retains its own copy of the nine-sector FAT (4,608 bytes).
+For this geometry, cluster 2,848 is the last valid cluster. Its packed entry
+ends at byte offset 4,273. Once all nine sectors of the second FAT match the
+first, including padding, bytes 4,352 through 4,607 can hold 128 cluster
+numbers. The checksum covers the original bytes before indexing. Compile-time
+checks enforce both the total map size and the boundary of the usable links.
+
+The root scan checks every file chain and records the first cluster of each
+group of 16 sectors of `RBBACKUP.RBB`. A random read starts at that cluster,
+follows at most 15 links in memory and issues one physical sector request.
+Opening or invalidating another file uses that file's own FAT. Reopening a
+file checks both FATs again and rebuilds its index.
+
+| Normal rescue measurement | Before (EN / DE) | With the FAT12 index (EN / DE) |
+| --- | ---: | ---: |
+| Program file, bytes | 34,644 / 34,912 | 34,708 / 34,976 |
+| BSS, bytes | 20,820 / 20,820 | 16,724 / 16,724 |
+| Space below stack guard, bytes | 1,880 / 1,612 | 5,912 / 5,644 |
+
+Removing the 4,096-byte address array costs 64 bytes of code per language
+and frees 4,032 bytes overall. The 8 KiB stack starts at `0xE000`. The build
+requires at least 1,536 bytes between BSS and the stack guard.
+
+A sizing experiment repeated the normal link with `backup-live.obj`,
+`backup-stream.obj` and `backup-encode.obj` immediately before `end.obj`.
+The control link reproduced the normal payload byte for byte after sealing.
+The trial left 2,114 / 1,846 bytes below the guard, or 578 / 310 bytes above
+the minimum (EN / DE). The future BIOS caller, its data and its runtime stack
+use still need to be measured in the integrated build.
 
 ## Diagnostic codes
 
@@ -119,6 +156,13 @@ The native file model adds eight scenarios / 32 assertions per language
 range rejection without I/O, context reuse after a missing file, changed
 metadata, final-sector recheck I/O failure, unchanged output on payload read
 failure, EOC variants, cleared maps and guard bytes.
+
+An additional native case reads all 2,048 offsets of a fragmented 1 MiB file
+in alternating order from the start and end. It checks the requested physical
+address and a single reader call for every offset (`M=0800`), including the
+last physical sector. It also checks independent file contexts, nonzero FAT
+padding, a mismatch in the last mirror byte, metadata recheck and reopening
+with a partial final group.
 
 The file increment brought the EN/DE rescue campaign to 138 boots / 812 UI states.
 This includes 27 seven-state file campaigns per language, covering fragmented files,

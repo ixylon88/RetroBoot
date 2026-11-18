@@ -1,6 +1,7 @@
 #include "rescue.h"
 #include "rescue_file.h"
 #include "rescue_match.h"
+#include "backup_live.h"
 #include "rescue_plan.h"
 #include "bios_ui.h"
 #include "rescue_text.h"
@@ -167,6 +168,30 @@ static void draw_match(const rb_rescue_match *r)
     text(21, 4, RB_RS_T_HELP, 0x17); text(22, 4, RB_RS_T_BOUNDARY, 0x17);
 }
 
+static void draw_stream(const rb_rescue_match *r)
+{
+    char count[6];
+    rb_u16 i = sizeof(count) - 1, n = r->verified_sectors;
+    const char *reason = r->status ? RB_RS_S_BAD : RB_RS_S_OK;
+    if (r->status == RB_RMATCH_FILE && r->detail == RB_FILE_MISSING) { reason = RB_RS_B_MISSING; }
+    else if (r->status == RB_RMATCH_SAVED) { reason = RB_RS_B_BAD; }
+    else if (r->status == RB_RMATCH_PROBE) { reason = reasons[r->detail]; }
+    else if (r->status == RB_RMATCH_REPROBE) { reason = RB_RS_S_REPROBE; }
+    else if (r->status == RB_RMATCH_CHANGED) { reason = RB_RS_T_CHANGED; }
+    else if (r->status == RB_RMATCH_LIVE && r->detail == RB_LIVE_STREAM
+             && r->nested == RB_STREAM_SINK) { reason = RB_RS_S_DIFFER; }
+    count[i] = 0;
+    do { count[--i] = '0' + n % 10; n /= 10; } while (n);
+    frame();
+    text(5, 4, RB_RS_S_SCOPE, 0x1F); text(6, 4, RB_RS_S_LIMIT, 0x17);
+    text(8, 4, reason, r->status ? 0x1E : 0x1A);
+    text(9, 4, RB_RS_T_CODES, 0x17);
+    hex(9, 32, r->status, 4); text(9, 39, "/", 0x17); hex(9, 41, r->detail, 4);
+    text(9, 48, "/", 0x17); hex(9, 50, r->nested, 4);
+    text(11, 4, RB_RS_S_COUNT, 0x17); text(11, 32, count + i, 0x17);
+    text(21, 4, RB_RS_S_HELP, 0x17);
+}
+
 static void draw_plan(rb_u16 probe, const rb_backup_payloads *payload, rb_u16 page)
 {
     static const char * const kinds[] = {
@@ -227,7 +252,10 @@ void __cdecl rb_rescue_run(rb_u16 boot)
     for (;;) {
         key = rb_key_poll();
         if (key == 0xFFFF) { rb_idle(); continue; }
-        if ((key >> 8) == 0x40 || ((key & 0xFF) == 13 && view == 4)) {
+        if ((key >> 8) == 0x41 || ((key & 0xFF) == 13 && view == 5)) {
+            debug("RB STREAM BEGIN\r\n");
+            rb_rescue_stream_check(boot, &match); view = 5;
+        } else if ((key >> 8) == 0x40 || ((key & 0xFF) == 13 && view == 4)) {
             clear(&device, sizeof(device)); clear(&result, sizeof(result)); clear(&backup, sizeof(backup));
             clear(&match, sizeof(match)); file_status = 0; file_lba = 0; page = 0;
             debug("RB PLAN BEGIN\r\n");
@@ -270,7 +298,8 @@ void __cdecl rb_rescue_run(rb_u16 boot)
             file_status = 0; file_lba = 0; view = 0;
         }
         if (view != 4) { clear(&plan, sizeof(plan)); plan_probe = page = 0; }
-        if (view == 4) { draw_plan(plan_probe, &plan, page); }
+        if (view == 5) { draw_stream(&match); }
+        else if (view == 4) { draw_plan(plan_probe, &plan, page); }
         else if (view == 3) { draw_match(&match); }
         else if (view == 2) { draw_file(file_status, file_lba, &backup); }
         else { draw(boot, view, &device, &result); }

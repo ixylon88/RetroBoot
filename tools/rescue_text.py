@@ -14,7 +14,8 @@ KEYS = ('TITLE','READ_ONLY','SCOPE','LIMIT','READY','OK','BAD_LAYOUT','NO_DISK',
         'T_SCOPE','T_LIMIT','T_OK','T_CAPACITY','T_GEOMETRY','T_IDENTITY','T_LAYOUT','T_CHANGED','T_BAD',
         'T_CODES','T_MEDIA','T_CRC','T_ADMIN','T_ROUTE','T_GENERATIONS','T_LBA','T_HELP','T_BOUNDARY',
         'P_SCOPE','P_LIMIT','P_OK','P_BAD','P_CODES','P_ERROR','P_COUNTS','P_SECTORS',
-        'P_TABLE','P_PAGE','P_HELP','P_BOUNDARY','P_MBR','P_BOOT')
+        'P_TABLE','P_PAGE','P_HELP','P_BOUNDARY','P_MBR','P_BOOT',
+        'S_SCOPE','S_LIMIT','S_OK','S_BAD','S_COUNT','S_HELP','S_REPROBE','S_DIFFER')
 WIDTHS = dict.fromkeys(KEYS,74)
 WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13)
 
@@ -23,7 +24,7 @@ WIDTHS.update(dict.fromkeys(('T_CODES','T_MEDIA','T_CRC','T_ADMIN','T_ROUTE','T_
 
 WIDTHS['T_MEDIA'] = 24
 WIDTHS.update(dict.fromkeys(('P_CODES','P_ERROR','P_COUNTS','P_SECTORS','P_PAGE'),28))
-WIDTHS.update(P_MBR=19,P_BOOT=19)
+WIDTHS.update(P_MBR=19,P_BOOT=19,S_COUNT=28)
 
 def catalog_path(language):
     if language not in LANGUAGES:raise ValueError('Unsupported rescue language')

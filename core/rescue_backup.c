@@ -1,4 +1,5 @@
 #include "fingerprint.h"
+#include "backup_live.h"
 #include "rescue_file.h"
 #include "rescue_match.h"
 #include "config.h"
@@ -68,8 +69,29 @@ static const rb_backup *check_saved(rb_rescue_match *r)
     return file_failure(r) ? (const rb_backup *)0 : claims;
 }
 
-void rb_rescue_backup_match(rb_u16 boot, rb_rescue_match *r)
+/* The validated file contains two separate one-sector MBR descriptors. */
+static rb_u16 __cdecl saved_mbr(rb_u16 kind, rb_u16 index, rb_u32 offset,
+    rb_u8 *out, void *opaque)
 {
+    const rb_backup *claims = (const rb_backup *)opaque;
+    if ((kind != RB_BACKUP_ORIGINAL && kind != RB_BACKUP_APPROVED) || index || offset) { return 1; }
+    return rb_rescue_file_read(claims->entries[kind - RB_BACKUP_ORIGINAL].file_sector, out, &file);
+}
+
+static rb_u16 __cdecl compare_sector(rb_u32 pos, const rb_u8 *data, void *opaque)
+{
+    rb_u8 reference[512];
+    rb_u16 i;
+    if (rb_rescue_file_read(pos, reference, opaque)) { return 1; }
+    for (i = 0; i < sizeof(reference); ++i) {
+        if (reference[i] != data[i]) { return 1; }
+    }
+    return 0;
+}
+
+static void compare(rb_u16 boot, rb_rescue_match *r, rb_u16 stream)
+{
+    rb_backup_live_result live;
     const rb_backup *claims;
     rb_rescue_device after;
     rb_u32 before[2];
@@ -80,16 +102,27 @@ void rb_rescue_backup_match(rb_u16 boot, rb_rescue_match *r)
     claims = check_saved(r);
     if (!claims) { goto done; }
     before[0] = digest[0]; before[1] = digest[1]; count = reads;
-    /* A prior Enter or F5 observation is never reused. */
+    /* Each invocation opens its own BIOS observation. */
     code = rb_rescue_probe(&r->device);
     if (code) { fail(r, RB_RMATCH_PROBE, code, 0, 0, 0, 0); goto done; }
-    rb_backup_match_target(&r->observed, claims, &r->device, rb_disk_read, (void *)0);
-    if (r->observed.status) {
-        fail(r, RB_RMATCH_TARGET, r->observed.status, r->observed.detail, 0, 0, r->observed.error_lba);
-        goto done;
+    if (stream) {
+        rb_backup_live_stream(&live, claims, file.sectors, &r->device, rb_disk_read, (void *)0,
+            saved_mbr, (void *)claims, compare_sector, &file);
+        if (file_failure(r)) { goto done; }
+        if (live.status) {
+            fail(r, RB_RMATCH_LIVE, live.status, live.detail, live.capture_status,
+                 live.stream.file_sector, live.error_lba);
+            goto done;
+        }
+    } else {
+        rb_backup_match_target(&r->observed, claims, &r->device, rb_disk_read, (void *)0);
+        if (r->observed.status) {
+            fail(r, RB_RMATCH_TARGET, r->observed.status, r->observed.detail, 0, 0, r->observed.error_lba);
+            goto done;
+        }
     }
     code = rb_rescue_probe(&after);
-    if (code) { fail(r, RB_RMATCH_PROBE, code, 0, 0, 0, 0); goto done; }
+    if (code) { fail(r, stream ? RB_RMATCH_REPROBE : RB_RMATCH_PROBE, code, 0, 0, 0, 0); goto done; }
     for (i = 0; i < sizeof(after); ++i) {
         if (((const rb_u8 *)&after)[i] != ((const rb_u8 *)&r->device)[i]) {
             fail(r, RB_RMATCH_CHANGED, 1, 0, 0, 0, 0); goto done;
@@ -99,7 +132,19 @@ void rb_rescue_backup_match(rb_u16 boot, rb_rescue_match *r)
     if (!check_saved(r)) { goto done; }
     if (count != reads || before[0] != digest[0] || before[1] != digest[1]) {
         fail(r, RB_RMATCH_CHANGED, 2, 0, 0, 0, 0);
+    } else if (stream) {
+        r->verified_sectors = (rb_u16)live.stream.sectors; /* File limit is 2,048 sectors. */
     }
 done:
     close_file(); digest[0] = digest[1] = 0; reads = 0;
+}
+
+void rb_rescue_backup_match(rb_u16 boot, rb_rescue_match *r)
+{
+    compare(boot, r, 0);
+}
+
+void rb_rescue_stream_check(rb_u16 boot, rb_rescue_match *r)
+{
+    compare(boot, r, 1);
 }

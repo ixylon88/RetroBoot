@@ -3,7 +3,6 @@
 #include "fingerprint.h"
 
 static struct {
-    rb_backup_payloads captured;
     rb_rescue_device device;
     rb_sector_reader read;
     rb_backup_source mbr_source;
@@ -33,19 +32,19 @@ static rb_u16 __cdecl audited_read(rb_u32 lba, rb_u8 *out, void *opaque)
     rb_fingerprint_sector(work.digest, lba, out); ++work.reads;
     return 0;
 }
-static rb_u16 capture(rb_backup_live_result *r)
+static rb_u16 capture(rb_backup_live_result *r, rb_backup_payloads *captured)
 {
-    const rb_backup_plan *p = &work.captured.plan;
+    const rb_backup_plan *p = &captured->plan;
     work.digest[0] = work.digest[1] = work.reads = 0;
-    rb_backup_payload_capture(&work.captured, &work.device, audited_read, (void *)0);
+    rb_backup_payload_capture(captured, &work.device, audited_read, (void *)0);
     if (!p->status) { return 0; }
     r->capture_status = p->status; r->capture_detail = p->detail;
     r->capture_nested = p->nested; r->capture_index = p->index;
     return fail(r, RB_LIVE_CAPTURE, 0, p->error_lba);
 }
-static rb_u16 binding(rb_backup_live_result *r, const rb_backup *b)
+static rb_u16 binding(rb_backup_live_result *r, const rb_backup *b, const rb_backup_payloads *captured)
 {
-    const rb_backup_plan *p = &work.captured.plan;
+    const rb_backup_plan *p = &captured->plan;
     const rb_backup_target *t = &p->observed;
     const rb_backup_extent *e;
     const rb_capture_extent *live;
@@ -71,7 +70,7 @@ static rb_u16 binding(rb_backup_live_result *r, const rb_backup *b)
         e = &b->entries[i + 1]; live = &p->entries[i];
         if (e->kind != live->kind || e->index != live->index || e->lba != live->lba
                 || e->sectors != live->sectors || e->owner_start != live->owner_start
-                || e->owner_sectors != live->owner_sectors || e->crc != work.captured.crc[i]) {
+                || e->owner_sectors != live->owner_sectors || e->crc != captured->crc[i]) {
             return fail(r, RB_LIVE_EXTENT, i + 1, live->lba);
         }
     }
@@ -80,15 +79,15 @@ static rb_u16 binding(rb_backup_live_result *r, const rb_backup *b)
 static rb_u16 __cdecl source(rb_u16 kind, rb_u16 index, rb_u32 offset,
     rb_u8 *out, void *opaque)
 {
+    const rb_backup_plan *plan = (const rb_backup_plan *)opaque;
     const rb_capture_extent *e;
     rb_u16 i;
-    (void)opaque;
     if (kind == RB_BACKUP_ORIGINAL || kind == RB_BACKUP_APPROVED) {
         if (index || offset) { return 1; }
         return work.mbr_source(kind, index, offset, out, work.mbr_opaque);
     }
-    for (i = 1; i < work.captured.plan.count; ++i) {
-        e = &work.captured.plan.entries[i];
+    for (i = 1; i < plan->count; ++i) {
+        e = &plan->entries[i];
         if (kind != e->kind || index != e->index) { continue; }
         if (offset >= e->sectors || e->lba > 0xFFFFFFFFUL - offset
                 || (!work.device.capacity_high && e->lba + offset >= work.device.capacity_low)) {
@@ -105,6 +104,7 @@ rb_u16 rb_backup_live_stream(rb_backup_live_result *r,
     rb_backup_source mbr_source, void *mbr_opaque,
     rb_backup_sink sink, void *sink_opaque)
 {
+    rb_backup_payloads captured;
     rb_u32 first[2], reads;
     rb_u16 code;
     if (!r) { return RB_LIVE_PARAMS; }
@@ -116,11 +116,11 @@ rb_u16 rb_backup_live_stream(rb_backup_live_result *r,
     if (code) { fail(r, RB_LIVE_METADATA, code, 0); goto done; }
     work.device = *d; work.read = read; work.disk_opaque = disk_opaque;
     work.mbr_source = mbr_source; work.mbr_opaque = mbr_opaque;
-    if (capture(r) || binding(r, b)) { goto done; }
+    if (capture(r, &captured) || binding(r, b, &captured)) { goto done; }
     first[0] = work.digest[0]; first[1] = work.digest[1]; reads = work.reads;
-    code = rb_backup_stream(&r->stream, b, size, source, (void *)0, sink, sink_opaque);
+    code = rb_backup_stream(&r->stream, b, size, source, &captured.plan, sink, sink_opaque);
     if (code) { fail(r, RB_LIVE_STREAM, code, 0); goto done; }
-    if (capture(r) || binding(r, b)) { goto done; }
+    if (capture(r, &captured) || binding(r, b, &captured)) { goto done; }
     if (work.digest[0] != first[0] || work.digest[1] != first[1] || work.reads != reads) {
         fail(r, RB_LIVE_CHANGED, 0, 0); goto done;
     }

@@ -241,7 +241,10 @@ def main():
                     if case['name']=='backup-model' and f'B={3*len(backup_cases()):04X}' not in log.read_text():raise ValueError('Missing native backup assertions')
                     if case['name']=='backup-records-model' and f'C={4*len(record_cases()):04X}' not in log.read_text():raise ValueError('Missing native saved-record assertions')
                     if case['name']=='backup-boot-model' and f'D={6*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')
-                    if case['name']=='rescue-file-model' and 'E=0020' not in log.read_text():raise ValueError('Missing native file assertions')
+                    if name == 'rescue-file-model':
+                        lines = log.read_text().splitlines()
+                        if 'E=0020' not in lines or 'M=0800' not in lines:
+                            raise ValueError('Missing native file checks or fragmented sector reads')
                     if case['name']=='backup-target-model':
                         if f'F={TARGET_ASSERTIONS:04X}' not in log.read_text():raise ValueError('Missing native target assertions')
                         match=re.search(r'^L=([0-9A-F,]+)$',log.read_text(),re.M)
