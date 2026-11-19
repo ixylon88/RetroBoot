@@ -198,6 +198,13 @@ cycle. The [reservation test](docs/MbrReservation.md) advances the highest
 issued number on two dedicated writable test floppies. A cold boot after
 an interruption resumes from the independently retained witness.
 
+## Boot an installed MS-DOS 6.22 system
+
+The [prepared DOS disk kit](docs/PreparedDOS.md) adds a selectable DOS entry
+to a copy of an existing VirtualBox hard disk. The original OS loader, files
+and partition position are preserved. The manual milestone is the C drive
+prompt followed by the MS-DOS 6.22 version report.
+
 ## HDD builds and tests
 
 ```sh

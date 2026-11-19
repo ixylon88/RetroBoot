@@ -331,6 +331,9 @@ def build_stage2(destination, nasm, wcc, wlink):
     run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
         "-dRB_HANDOFF_TEST=1", "-i=include", "-i=" + str(destination),
         "-fo=" + str(destination / "menu-handoff.obj"), "core/menu.c")
+    run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
+        "-dRB_PREPARED_DOS=1", "-i=include", "-i=" + str(destination),
+        "-fo=" + str(destination / "menu-dos.obj"), "core/menu.c")
     for fault in (0, *FAULTS.values()):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", f"-DRB_HANDOFF_FAULT={fault}",
             "bios/handoff.asm", "-o", destination / f"handoff-{fault}.obj")
@@ -345,7 +348,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("record-io", "core/record_io.c"), ("state", "core/state.c"), ("state-check", "core/state_check.c"),
                          ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c"),
                          ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
-                         ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
+                         ("dos-boot", "core/dos_boot.c"), ("profile-boot", "core/profile_boot.c"), ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
                          ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
                          ("journal", "core/journal.c"), ("journal-io", "core/journal_io.c"),
@@ -353,7 +356,7 @@ def build_stage2(destination, nasm, wcc, wlink):
         run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
             "-i=include", "-i=" + str(destination),
             "-fo=" + str(destination / (name + ".obj")), source)
-    for name in ("ui", "disk"):
+    for name in ("ui", "disk", "dos"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", f"bios/{name}.asm", "-o", destination / (name + ".obj"))
     for name in ("abi", "arith", "end"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", "-DRB_HDD_FIXTURE=1", f"runtime/{name}.asm",
@@ -374,7 +377,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                 "audit-model": ["-DRB_TEST=1", "-DRB_AUDIT_MODEL_TEST=1"],
                 "journal-io-model": ["-DRB_TEST=1", "-DRB_JOURNAL_IO_TEST=1"],
                 "journal-model": ["-DRB_TEST=1", "-DRB_JOURNAL_MODEL_TEST=1"],
-                "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
+                "dos": [], "handoff": [], **{"handoff-" + name: [] for name in FAULTS}}
     for variant, defines in variants.items():
         stem = "stage2" + ("" if variant == "normal" else "-" + variant)
         obj, binary, mapfile = (destination / (stem + suffix) for suffix in (".obj", ".bin", ".map"))
@@ -388,8 +391,10 @@ def build_stage2(destination, nasm, wcc, wlink):
         # Test-only startup/model variants never enter the UI. Exclude its
         # unused code and journal scratch while preserving the same core objects.
         if "-DRB_TEST=1" not in defines:
-            linked_objects.extend([destination / ("menu-handoff.obj" if handoff else "menu.obj"),
-                                   destination / "journal.obj", destination / "journal-io.obj"])
+            menu = "menu-handoff.obj" if handoff else "menu.obj"
+            if variant == "dos":
+                menu = "menu-dos.obj"
+            linked_objects.extend([destination / menu, destination / "journal.obj", destination / "journal-io.obj"])
         if variant == "menu-model":
             linked_objects.append(destination / "menu-selftest.obj")
         if variant == "scan-model":
@@ -409,6 +414,10 @@ def build_stage2(destination, nasm, wcc, wlink):
             linked_objects.extend([destination / "journal.obj", destination / "journal-selftest.obj"])
         if variant == "journal-io-model":
             linked_objects.extend([destination / "journal.obj", destination / "journal-io.obj", destination / "journal-io-selftest.obj"])
+        if handoff or variant in ("profile-model", "dos"):
+            linked_objects.append(destination / "profile-boot.obj")
+        if variant == "dos":
+            linked_objects.extend([destination / "dos-boot.obj", destination / "dos.obj", destination / "handoff-0.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")
         if variant == "profile-model":

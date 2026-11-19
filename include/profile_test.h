@@ -1,26 +1,13 @@
 #ifndef RB_PROFILE_TEST_H
 #define RB_PROFILE_TEST_H
 
-#include "handoff.h"
-#include "visibility.h"
+#include "profile_boot.h"
 
 enum {
-    RB_PROFILE_TEST_OK, RB_PROFILE_TEST_SELECTION, RB_PROFILE_TEST_PROOF,
-    RB_PROFILE_TEST_CHANGE, RB_PROFILE_TEST_TARGET, RB_PROFILE_TEST_CODE
+    RB_PROFILE_TEST_OK = RB_PROFILE_OK, RB_PROFILE_TEST_SELECTION = RB_PROFILE_SELECTION,
+    RB_PROFILE_TEST_PROOF = RB_PROFILE_PROOF, RB_PROFILE_TEST_CHANGE = RB_PROFILE_CHANGE,
+    RB_PROFILE_TEST_TARGET = RB_PROFILE_TARGET, RB_PROFILE_TEST_CODE = RB_PROFILE_CODE
 };
-
-typedef struct {
-    rb_u16 valid;
-    rb_u32 disk_id, layout_crc;
-    rb_u8 media_id[16];
-    rb_profile entry;
-} rb_profile_selection;
-
-/* Selection survives record reordering by Entry ID, never by array position.
- * A changed displayed name, target, installation identity or policy requires
- * a new review. Independent generation changes alone do not change selection. */
-void rb_profile_remember(rb_profile_selection *selection, const rb_config_result *config, rb_u16 index);
-rb_u16 rb_profile_reselect(const rb_profile_selection *selection, const rb_config_result *config, rb_u16 *index);
 
 /* Test-only staging after freshly loaded records: one current layout/VBR
  * observation, matching visibility and exact compiled T07 bytes. Every failure
