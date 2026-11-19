@@ -41,6 +41,59 @@ accepted record. Foreign or stale tickets cannot cancel a newer candidate.
 The 32-bit sequence stops at its maximum and never wraps. The caller owns
 the trusted, zero-initialized session state and serializes access to it.
 
+## Capturing the original sector on a separate medium
+
+The [first-install capture routine](../include/mbr_original.h) reads sector
+zero from the bound target and writes the original to an identified recovery
+carrier. The caller holds exclusive custody of both endpoints and supplies
+the first-install decision before any installation write. The routine checks
+the complete target identifier and capacity on each acquisition. A managed
+`RBM1` sector or unknown origin stops capture.
+
+The first two logical sectors on the carrier use the existing
+[restart format](MbrRestart.md#records-and-selection). The payload is staged
+first. After a byte-for-byte readback and a fresh read of the target, the
+routine publishes the `RBORG001` header for revision 1. It rereads both
+carrier sectors and the target before reporting success. Approval and
+publication slots remain available for later stages.
+
+| Carrier state on entry | Action |
+| --- | --- |
+| Original header, payload and publication slots are blank | Capture the live original. An all-zero original is valid under established pre-write custody. |
+| Header is blank and the complete staged payload matches the live target | Recheck the empty publication slots and resume at the header. |
+| Sealed original matches the binding and all 512 live bytes | Verify both endpoints again using reads only. |
+| Conflicting or torn evidence, changed target, or later publication slots alongside a missing header | Stop. Retain the available evidence. |
+
+An interruption can leave the complete original on the carrier even when the
+caller received an error. A new first-install session with continuing custody
+verifies the actual bytes. Loss or replay of both an endpoint label and its
+history requires independently retained evidence. Creation of the separate
+initial witness and durable approval of a later reviewed sector are subsequent
+steps in #43. Targeted restore requires the additional backup gates in #45 and
+#46.
+
+### BIOS evidence
+
+The standalone fixture uses three project-owned images. `mbr-original.img`
+boots the capture program. `mbr-original-hdd.img` supplies a 10,080-sector
+test HDD. `mbr-original-data.img` is the recovery carrier. Under exclusive
+VM control, the fixture checks separately provisioned endpoint labels around
+every data access. The target label occupies the final HDD sector and the
+carrier label occupies LBA 0. The BIOS supplies the target capacity. These
+fixture labels support controlled VM tests. Physical-device identification
+for a general installer remains open.
+
+At the prompt, Enter confirms first-install custody and Esc cancels. The
+fixture writer addresses only LBAs 1 and 2 of the labelled recovery floppy.
+The [automated campaign](../tools/test_mbr_original.py) checks the full media
+after each boot, every physical write, every target read, the VGA transcript
+and the guest memory guards. Independent QEMU processes test cold retries,
+write protection, missing or swapped endpoints, live changes before and after
+sealing, and different sectors with the same CRC32. Power cuts interrupt
+each of the two writes before completion, after completion and after a
+128-byte prefix. A lost acknowledgment and a silently dropped write are
+also followed by a cold retry on the exact resulting images.
+
 ## Evidence across a restart
 
 The first-install and approval model keeps its history in RAM. The separate

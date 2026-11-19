@@ -20,8 +20,8 @@ attached disk in the snapshot chain. Installation media remain local.
    BIOS-mode DOS VM. Boot from the hard disk and select **MS-DOS 6.22**.
    Enter starts the selection. The default also starts after ten seconds.
    Esc cancels the countdown.
-4. At the DOS prompt, run `VER`. The original-system acceptance requires a
-   prompt on drive C and a version report of MS-DOS 6.22.
+4. At the DOS prompt, type `VER` and press Enter to display the version.
+   This manual command also works with an empty `AUTOEXEC.BAT`.
 
 The command also accepts raw disk images and supports `--output` and
 `--countdown 0..60`. Zero disables automatic boot. An existing output is
@@ -51,6 +51,8 @@ with EDD. RetroBoot performs only reads during this path.
 Automated English and German tests import an owned instrumented boot sector,
 exercise Enter, timeout and cancellation, verify its entry registers and sector
 bytes, and reject changed sectors, stale selections, a withdrawn default or incompatible geometry. This tests the
-boot manager. Original MS-DOS 6.22 and its `VER` output are verified locally.
+boot manager. On 19 November 2026 the maintainer confirmed the handoff,
+normal DOS operation and version 6.22 in VirtualBox.
+[Manual test report](https://github.com/ixylon88/RetroBoot/pull/65#issuecomment-7001210054)
 Installation of DOS from its original media and switching between systems are
 later roadmap items.

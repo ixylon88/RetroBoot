@@ -11,6 +11,7 @@ org 0
 ; 7=AH48 non-512 sectors, 8=AH48 short parameter buffer, 9=zero capacity.
 ; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
 ; Rescue only: 19=one changed FAT32 tail byte in the second payload pass.
+; 20/21=changed sector zero on the second/third read of the original-MBR fixture.
     dw 0xAA55
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
     db 2                       ; extra block for a replacement saved sector
@@ -271,20 +272,30 @@ handler:
     mov byte [cs:change_pending - handler], 1
 %endif
 %endif
+%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 21
 %if RB_ROM_MODE == 19
     cmp ah, 0x48
     jne .payload_read
     mov byte [cs:payload_count - handler], 0
     jmp chain
 .payload_read:
+%endif
     cmp ah, 0x42
     jne chain
+%if RB_ROM_MODE == 19
     cmp dword [si + 8], 131103 ; last reserved sector, validation then payload
+%else
+    cmp dword [si + 8], 0      ; the live MBR returned to the capture routine
+%endif
     jne chain
     cmp dword [si + 12], 0
     jne chain
     inc byte [cs:payload_count - handler]
+%if RB_ROM_MODE == 19
     cmp byte [cs:payload_count - handler], 4
+%else
+    cmp byte [cs:payload_count - handler], RB_ROM_MODE - 18
+%endif
     jne chain
     popf
     pushf
@@ -349,7 +360,7 @@ floppy_failures: db 0
 probe_count: db 0
 change_pending: db 0
 %endif
-%if RB_ROM_MODE == 19
+%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 21
 payload_count: db 0
 %endif
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18

@@ -1,6 +1,18 @@
 # Project state and resumption
 
-Updated 18 November 2026.
+Updated 19 November 2026.
+
+## Original DOS boot and current recovery work
+
+The prepared hard disk booted MS-DOS 6.22 in VirtualBox. The maintainer
+confirmed normal DOS operation and the version after the menu handoff.
+[Manual test in PR #65](https://github.com/ixylon88/RetroBoot/pull/65#issuecomment-7001210054)
+
+The current [first-install capture](MbrProvenance.md#capturing-the-original-sector-on-a-separate-medium)
+preserves the original MBR of a labelled test HDD on a separate carrier.
+It verifies the sealed record again after a cold start. The next part of
+#43 is binding this capture to the independently held first witness. This
+recovery work precedes partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 
