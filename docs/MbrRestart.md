@@ -97,7 +97,10 @@ The BIOS adapter re-reads the label before and after each record-sector
 read. The label uses `RBMEDIA1`, a 16-byte endpoint ID, 484 reserved
 zero bytes and a CRC32 in the last four bytes.
 
-The host build provisions the example enrollment and approvals. Each
+The host build provisions this example enrollment and its approvals. The
+[first-witness fixture](MbrProvenance.md#publishing-and-checking-the-first-witness)
+also exercises the same reader with an original and a witness written by the
+running BIOS code. Each
 emulator case starts a fresh process. The regular and unmodified-SeaBIOS
 boots use the same distributed files read-only across power cycles. Tests
 include loss of an issued number, fully staged and torn inactive slots,

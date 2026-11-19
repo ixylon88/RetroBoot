@@ -67,9 +67,9 @@ publication slots remain available for later stages.
 An interruption can leave the complete original on the carrier even when the
 caller received an error. A new first-install session with continuing custody
 verifies the actual bytes. Loss or replay of both an endpoint label and its
-history requires independently retained evidence. Creation of the separate
-initial witness and durable approval of a later reviewed sector are subsequent
-steps in #43. Targeted restore requires the additional backup gates in #45 and
+history requires independently retained evidence. The [first witness](#publishing-and-checking-the-first-witness)
+records this capture separately. Durable approval of a later reviewed sector
+remains open in #43. Targeted restore requires the additional backup gates in #45 and
 #46.
 
 ### BIOS evidence
@@ -93,6 +93,68 @@ sealing, and different sectors with the same CRC32. Power cuts interrupt
 each of the two writes before completion, after completion and after a
 128-byte prefix. A lost acknowledgment and a silently dropped write are
 also followed by a cold retry on the exact resulting images.
+
+## Publishing and checking the first witness
+
+The external recovery system can verify the saved first-install MBR with the
+source HDD disconnected. It starts from a separately held boot floppy containing
+a copy of all 512 original bytes and the binding to the target and recovery
+carrier. Entering verification mode reads this witness and reopens the carrier
+using the [cold-start reader](MbrRestart.md). A complete match verifies original
+revision 1. Targeted restore requires a separate operation.
+
+### VirtualBox check
+
+The `retroboot-rescue-diagnostics` artifact contains the pair produced by the
+running guest under `mbr-witness-test-de/` and `mbr-witness-test/`. Each
+directory contains both files from a single run.
+
+1. A BIOS VirtualBox VM with the HDD disconnected boots `mbr-witness.img`
+   from floppy drive A. At the menu, **V** selects verification.
+2. At `INSERT RECOVERY FLOPPY AND PRESS ENTER`, replace the disk in A with
+   `mbr-original-data.img` and press Enter. Both files may be read-only.
+
+Expected final lines:
+
+```text
+ORIGINAL REV 1 VERIFIED
+RB WITNESS PASS
+```
+
+### Enrollment and interruption
+
+The [publisher](../include/mbr_first_witness.h) runs under continuing exclusive
+first-install custody, after the [original capture](#capturing-the-original-sector-on-a-separate-medium).
+The separate witness starts with three blank record sectors in its allocated
+`RBWITNES.BIN` file. The installer supplies the target and carrier binding and
+a distinct, independently known witness identity.
+
+1. Read the current MBR from the identified HDD. Check the unpublished witness.
+   A complete matching payload can resume a staged write. An existing header
+   closes enrollment.
+2. Compare the immutable carrier header and every original byte with the live
+   sample. Require an empty approval payload and an empty later slot. After
+   another live sample, stage the generation-1 commit header, or verify an
+   identical staged header. Reopen the carrier twice using the normal reader.
+3. Reinsert the witness and compare its pending state with its state at the
+   first exchange. Stage and read back the complete original. Recheck the
+   live target and the pending witness before publishing its header last.
+   Reload the published witness twice and compare both sectors and all counters.
+
+| Result after an interruption | Subsequent action |
+| --- | --- |
+| Complete carrier commit or matching witness payload, witness header blank | Verification blocks. Under continuing first-install custody, enrollment resumes from the verified bytes. |
+| Inconsistent or torn record | Enrollment stops and retains the evidence. |
+| Complete witness header, acknowledgment or final read lost | A cold, read-only verification of both media can confirm the original without the HDD. |
+
+Only carrier LBA 3 and witness LBAs 2878 and 2877 can be written by this
+fixture. It publishes generation 1, issued revision 1 and no later approval.
+The [BIOS campaign](../tools/test_mbr_first_witness.py) first runs the original
+capture from PR #66, then boots the publisher, then starts a fresh VM without
+the HDD. It checks the physical write order, complete image bytes, cold
+retries and rejections, including different original sectors with equal CRC32.
+The retained boot medium must remain independently identifiable and current.
+Detecting a coordinated rollback of all evidence requires separate custody.
 
 ## Evidence across a restart
 

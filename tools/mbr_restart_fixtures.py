@@ -101,8 +101,9 @@ def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER):
     image[SECTOR:10 * SECTOR] = image[10 * SECTOR:19 * SECTOR] = fat
     image[root:root + 12] = b'RBWITNESBIN\x20'
     struct.pack_into('<HI', image, root + 26, first, 4 * SECTOR)
-    for i, data in enumerate((label(witness_id), header(b'RBWIT001', point, carrier_id),
-                              sector_body(0), point.payload)):
+    records = (EMPTY, EMPTY, EMPTY) if point is None else (
+        header(b'RBWIT001', point, carrier_id), sector_body(0), point.payload)
+    for i, data in enumerate((label(witness_id), *records)):
         put(image, WITNESS_LBA + i, data)
     return bytes(image)
 

@@ -3,7 +3,9 @@ bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
-%ifdef RB_RESERVATION_WRITE
+%ifdef RB_WITNESS_WRITE
+%define RB_FIXTURE_WRITE 1
+%elifdef RB_RESERVATION_WRITE
 %define RB_FIXTURE_WRITE 1
 %elifdef RB_ORIGINAL_WRITE
 %define RB_FIXTURE_WRITE 1
@@ -31,7 +33,14 @@ _rb_floppy_read:
     jne .bad
     mov si, ax
 %ifdef RB_FIXTURE_WRITE
-%ifdef RB_ORIGINAL_WRITE
+%ifdef RB_WITNESS_WRITE
+    cmp ax, 3                   ; first commit header on the enrolled recovery carrier
+    je .buffer
+    cmp ax, 2877                ; header and original in the separate FAT12 witness
+    jb .bad
+    cmp ax, 2878
+    ja .bad
+%elifdef RB_ORIGINAL_WRITE
     cmp ax, 1                   ; dedicated recovery carrier: header and original
     jb .bad
     cmp ax, 2
@@ -43,8 +52,8 @@ _rb_floppy_read:
     jb .bad
     cmp ax, 6
     ja .bad
-.buffer:
 %endif
+.buffer:
     mov dx, si
     mov si, [ss:bp + 8]
     xor ax, ax
