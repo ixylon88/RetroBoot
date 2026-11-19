@@ -13,9 +13,12 @@ preserves the original MBR of a labelled test HDD on a separate carrier.
 [PR #66](https://github.com/ixylon88/RetroBoot/pull/66) merged on 19 November 2026.
 The [first witness](MbrProvenance.md#publishing-and-checking-the-first-witness)
 binds the captured original to a separately held medium. The external boot
-fixture verifies the pair with the HDD disconnected. The next part of #43 is
-durable publication of a later, explicitly approved MBR. This recovery work
-precedes partition switching between DOS and Windows.
+fixture verified the pair with the HDD disconnected in the [manual VirtualBox
+test for merged PR #67](https://github.com/ixylon88/RetroBoot/pull/67#issuecomment-7020174792).
+The [approval fixture](MbrApproval.md) presents a later live MBR for an explicit
+decision and retains the original alongside the latest approved sector.
+Physical endpoint enrollment in the installer remains open under #43. This
+recovery work precedes partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 
@@ -23,8 +26,7 @@ The [reservation fixture](MbrReservation.md) uses two dedicated writable
 floppies. It stages and verifies a successor in the inactive carrier slot,
 rechecks the independently held start floppy, and releases the number after
 the new witness survives full readback. Subsequent cold boots use the same
-files. First-install enrollment and durable publication of a newly approved
-live MBR remain open.
+files. The first-witness and approval fixtures use that recovery format.
 
 ## Reopening MBR history after a cold boot (#43)
 

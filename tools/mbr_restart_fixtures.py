@@ -74,8 +74,8 @@ def put(image, sector, data):
     image[sector * SECTOR:(sector + 1) * SECTOR] = data
 
 
-def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER):
-    """Reserve the last four FAT12 clusters for the trusted test witness."""
+def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER, *, approval_slot=False):
+    """Allocate the final FAT12 clusters, including an optional second approval payload."""
     try:
         from .build_rescue import fat12_set
     except ImportError:
@@ -84,15 +84,17 @@ def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER):
         raise ValueError('Expected a 1.44 MiB boot floppy')
     image = bytearray(boot)
     fat = bytearray(image[SECTOR:10 * SECTOR])
-    first = WITNESS_LBA - 31
+    sectors = 5 if approval_slot else 4
+    base = 2880 - sectors
+    first = base - 31
     root = 19 * SECTOR + 64
     owned = (image[root:root + 12] == b'RBWITNESBIN\x20'
-             and struct.unpack_from('<HI', image, root + 26) == (first, 4 * SECTOR))
+             and struct.unpack_from('<HI', image, root + 26) == (first, sectors * SECTOR))
     if (image[root - 32:root - 21] != b'RBRESCUEBIN' or (image[root] and not owned)
             or fat != image[10 * SECTOR:19 * SECTOR]):
         raise ValueError('Expected the owned rescue boot fixture and an available witness entry')
-    for cluster in range(first, first + 4):
-        link = 0xfff if cluster == first + 3 else cluster + 1
+    for cluster in range(first, first + sectors):
+        link = 0xfff if cluster == first + sectors - 1 else cluster + 1
         pair = struct.unpack_from('<H', fat, cluster + cluster // 2)[0]
         current = (pair >> 4 if cluster & 1 else pair) & 0xfff
         if current != (link if owned else 0):
@@ -100,11 +102,13 @@ def witness_floppy(boot, point=CURRENT, witness_id=WITNESS, carrier_id=CARRIER):
         fat12_set(fat, cluster, link)
     image[SECTOR:10 * SECTOR] = image[10 * SECTOR:19 * SECTOR] = fat
     image[root:root + 12] = b'RBWITNESBIN\x20'
-    struct.pack_into('<HI', image, root + 26, first, 4 * SECTOR)
+    struct.pack_into('<HI', image, root + 26, first, sectors * SECTOR)
     records = (EMPTY, EMPTY, EMPTY) if point is None else (
         header(b'RBWIT001', point, carrier_id), sector_body(0), point.payload)
+    if approval_slot:
+        records += (EMPTY,)
     for i, data in enumerate((label(witness_id), *records)):
-        put(image, WITNESS_LBA + i, data)
+        put(image, base + i, data)
     return bytes(image)
 
 

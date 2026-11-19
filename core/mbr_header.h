@@ -36,4 +36,9 @@ static void make_header(rb_u8 *out, const char *tag, const rb_mbr_binding *bindi
     put32(out + 508, rb_crc32(out, 508));
 }
 
+static __inline void make_witness_header(rb_u8 *out, const rb_mbr_witness *w)
+{
+    make_header(out, w->alternate_payload ? "RBWIT002" : "RBWIT001", &w->binding, &w->commit);
+}
+
 #endif

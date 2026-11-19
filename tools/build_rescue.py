@@ -160,6 +160,7 @@ def build(kind='rescue',language='en'):
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
             ('mbr-witness-core','core/mbr_first_witness.c'),('mbr-witness-tests','tests/backup/first_witness.c'),
+            ('mbr-approval-core','core/mbr_approval.c'),('mbr-review-tests','tests/backup/review.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -179,6 +180,7 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_RESERVATION_WRITE=1','bios/floppy.asm','-o',destination/'fixture-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_ORIGINAL_WRITE=1','bios/floppy.asm','-o',destination/'original-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_WITNESS_WRITE=1','bios/floppy.asm','-o',destination/'witness-write.obj')
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_APPROVAL_WRITE=1','bios/floppy.asm','-o',destination/'approval-write.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -195,6 +197,7 @@ def build(kind='rescue',language='en'):
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
             ('mbr-original',['-DRB_RESCUE_ORIGINAL=1']),
             ('mbr-witness',['-DRB_RESCUE_FIRST_WITNESS=1']),
+            ('mbr-review',['-DRB_RESCUE_REVIEW=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -228,6 +231,9 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
         if name=='mbr-witness':
             extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-restart-core','mbr-witness-tests','floppy','witness-write')]
+        if name=='mbr-review':
+            extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-reservation-core','mbr-restart-core',
+                'mbr-approval-core','mbr-review-tests','floppy','approval-write')]
         if name=='mbr-original':
             extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-original-tests','floppy','original-write')]
         if name=='mbr-reserve':
@@ -263,6 +269,10 @@ def build(kind='rescue',language='en'):
     witness = destination / 'mbr-witness.img'
     witness.write_bytes(witness_floppy(witness.read_bytes(), point=None, witness_id=bytes(15) + bytes([0x63])))
     remember(witness)
+    review = destination / 'mbr-review.img'
+    review.write_bytes(witness_floppy(review.read_bytes(), point=None, witness_id=bytes(15) + bytes([0x63]),
+                                      approval_slot=True))
+    remember(review)
     restart = destination / 'mbr-restart.img'
     restart.write_bytes(witness_floppy(restart.read_bytes()))
     remember(restart)
@@ -313,7 +323,7 @@ def build(kind='rescue',language='en'):
     tail_image=(destination/'match-resealed-file-tail.img').read_bytes()
     # Original-MBR payload is file sector five. Derive its physical address.
     tail_lba=file_chain(tail_image)[5];cylinder,within=divmod(tail_lba,36);head,sector=divmod(within,18)
-    for mode in range(22):
+    for mode in range(23):
         extra=['-DRB_REPLACEMENT_SECTOR="'+str(changed_header if mode==17 else changed_tail)+'"'] if mode in (17,18) else []
         if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
         p=destination/f'int13-{mode}.rom'

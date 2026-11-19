@@ -79,5 +79,17 @@
   "S_COUNT": "Bestätigte Sektoren",
   "S_HELP": "Enter/F7: erneut prüfen | Esc: schließen",
   "S_REPROBE": "Abschließende BIOS-Prüfung fehlgeschlagen.",
-  "S_DIFFER": "Datenstrom weicht von RBBACKUP.RBB ab."
+  "S_DIFFER": "Datenstrom weicht von RBBACKUP.RBB ab.",
+  "A_MENU": "R Aktuellen MBR prüfen   V Sicherungen prüfen   E Ersterfassung   Esc Ende",
+  "A_DATA": "mbr-original-data.img in A einlegen und Enter drücken.",
+  "A_BACK": "mbr-review.img in A einlegen und Enter drücken.",
+  "A_SAVE_DATA": "Freigabe speichern: mbr-original-data.img in A einlegen und Enter drücken.",
+  "A_SAVE_BACK": "Freigabe abschließen: mbr-review.img in A einlegen und Enter drücken.",
+  "A_DIFF": "Position   Bisheriges Byte -> Aktuelles Byte",
+  "A_NEXT": "N Weitere Änderungen   Esc Ablehnen",
+  "A_DECIDE": "J Diese Revision freigeben   Esc Ablehnen",
+  "A_YES": "J",
+  "A_TARGET": "Ziel-ID in Bytes",
+  "A_CARRIER": "Sicherungsdisketten-ID in Bytes",
+  "A_SECTORS": "Zielkapazität in Sektoren"
 }

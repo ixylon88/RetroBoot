@@ -38,6 +38,23 @@ class RestartMediaTests(unittest.TestCase):
         self.assertNotEqual(staged[4*512:5*512], active[6*512:7*512])
         self.assertEqual(zlib.crc32(staged[4*512:5*512]), zlib.crc32(active[6*512:7*512]))
 
+    def test_approval_witness_owns_both_payload_sectors(self):
+        disk = bytearray(1474560)
+        disk[19*512+32:19*512+43] = b'RBRESCUEBIN'
+        expanded = witness_floppy(disk, point=None, approval_slot=True)
+        entry = expanded[19*512+64:19*512+96]
+        self.assertEqual(struct.unpack_from('<HI', entry, 26), (2844, 5*512))
+        self.assertEqual(expanded[2875*512:2875*512+8], b'RBMEDIA1')
+        self.assertEqual(expanded[2876*512:], bytes(4*512))
+        for start in (512, 10*512):
+            for cluster in range(2844, 2849):
+                word = struct.unpack_from('<H', expanded, start + cluster + cluster // 2)[0]
+                self.assertEqual((word >> 4 if cluster & 1 else word) & 0xfff,
+                                 0xfff if cluster == 2848 else cluster + 1)
+        legacy = witness_floppy(disk)
+        with self.assertRaises(ValueError):
+            witness_floppy(legacy, point=None, approval_slot=True)
+
     def test_witness_is_a_separate_complete_file_on_the_boot_floppy(self):
         disk = bytearray(1474560)
         disk[19*512+32:19*512+43] = b'RBRESCUEBIN'

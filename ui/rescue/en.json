@@ -79,5 +79,17 @@
   "S_COUNT": "Verified sectors",
   "S_HELP": "Enter/F7: retry | Esc: clear",
   "S_REPROBE": "Closing BIOS discovery failed.",
-  "S_DIFFER": "Stream bytes differ from RBBACKUP.RBB."
+  "S_DIFFER": "Stream bytes differ from RBBACKUP.RBB.",
+  "A_MENU": "R Review current MBR   V Verify saved MBRs   E First enrollment   Esc Exit",
+  "A_DATA": "Insert mbr-original-data.img in A and press Enter.",
+  "A_BACK": "Insert mbr-review.img in A and press Enter.",
+  "A_SAVE_DATA": "Save approval: insert mbr-original-data.img in A and press Enter.",
+  "A_SAVE_BACK": "Finish approval: insert mbr-review.img in A and press Enter.",
+  "A_DIFF": "Offset     Previous byte -> Current byte",
+  "A_NEXT": "N Next changes   Esc Reject",
+  "A_DECIDE": "Y Approve this revision   Esc Reject",
+  "A_YES": "Y",
+  "A_TARGET": "Target ID bytes",
+  "A_CARRIER": "Recovery diskette ID bytes",
+  "A_SECTORS": "Target capacity in sectors"
 }
