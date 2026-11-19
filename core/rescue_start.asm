@@ -5,7 +5,10 @@ group DGROUP _TEXT CONST CONST2 _DATA _BSS STACK
 segment _TEXT public align=16 class=CODE use16
 global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_rescue_runtime, _rb_rescue_run, _rb_putc
-%ifdef RB_RESCUE_RESERVE
+%ifdef RB_RESCUE_ORIGINAL
+extern _rb_mbr_original_demo
+%define RB_RESCUE_HISTORY_ENTRY _rb_mbr_original_demo
+%elifdef RB_RESCUE_RESERVE
 extern _rb_mbr_reserve_demo
 %define RB_RESCUE_HISTORY_ENTRY _rb_mbr_reserve_demo
 %elifdef RB_RESCUE_RESTART
@@ -176,7 +179,10 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_RESERVE
+%ifdef RB_RESCUE_ORIGINAL
+restart_pass db 'RB ORIGINAL PASS', 13, 10, 0
+restart_blocked db 'RB ORIGINAL BLOCKED', 13, 10, 0
+%elifdef RB_RESCUE_RESERVE
 restart_pass db 'RB MBR RESERVE PASS', 13, 10, 0
 restart_blocked db 'RB MBR RESERVE BLOCKED', 13, 10, 0
 %elifdef RB_RESCUE_RESTART

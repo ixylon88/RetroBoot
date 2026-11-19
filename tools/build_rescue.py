@@ -10,7 +10,7 @@ import zlib
 
 try:
     from .build_inputs import source_hashes, check_build_inputs
-    from .mbr_restart_fixtures import carrier_images, witness_floppy, RESERVATION_CARRIER, RESERVATION_WITNESS
+    from .mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from .build_abi_probe import inspect_map, prepare_output
     from .build_hdd import layout, write_fixture
     from .rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -30,7 +30,7 @@ try:
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
     from build_inputs import source_hashes, check_build_inputs
-    from mbr_restart_fixtures import carrier_images, witness_floppy, RESERVATION_CARRIER, RESERVATION_WITNESS
+    from mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
     from rescue_text import LANGUAGES, metadata, output_name, render_header
@@ -159,6 +159,7 @@ def build(kind='rescue',language='en'):
             ('backup-stream','core/backup_stream.c'),('backup-stream-tests','tests/backup/stream.c'),
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
+            ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
@@ -175,6 +176,7 @@ def build(kind='rescue',language='en'):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
     run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_RESERVATION_WRITE=1','bios/floppy.asm','-o',destination/'fixture-write.obj')
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_ORIGINAL_WRITE=1','bios/floppy.asm','-o',destination/'original-write.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -189,6 +191,7 @@ def build(kind='rescue',language='en'):
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
+            ('mbr-original',['-DRB_RESCUE_ORIGINAL=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
             ('backup-boot-model',['-DRB_RESCUE_BOOT_MODEL=1']),
             ('backup-target-model',['-DRB_RESCUE_TARGET_MODEL=1']),
@@ -220,6 +223,8 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('mbr-provenance','mbr-provenance-tests')]
         if name=='mbr-restart':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
+        if name=='mbr-original':
+            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-original-tests','floppy','original-write')]
         if name=='mbr-reserve':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-reservation-core',
                 'mbr-reservation-tests','floppy','fixture-write')]
@@ -246,6 +251,10 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
+    for filename, data in original_media().items():
+        media = destination / filename
+        media.write_bytes(data)
+        remember(media)
     restart = destination / 'mbr-restart.img'
     restart.write_bytes(witness_floppy(restart.read_bytes()))
     remember(restart)
@@ -296,10 +305,12 @@ def build(kind='rescue',language='en'):
     tail_image=(destination/'match-resealed-file-tail.img').read_bytes()
     # Original-MBR payload is file sector five. Derive its physical address.
     tail_lba=file_chain(tail_image)[5];cylinder,within=divmod(tail_lba,36);head,sector=divmod(within,18)
-    for mode in range(20):
+    for mode in range(22):
         extra=['-DRB_REPLACEMENT_SECTOR="'+str(changed_header if mode==17 else changed_tail)+'"'] if mode in (17,18) else []
         if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
-        p=destination/f'int13-{mode}.rom';run(nasm,'-Werror','-f','bin','-DRB_RESCUE_TRACE=1','-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
+        p=destination/f'int13-{mode}.rom'
+        trace=['-DRB_RESCUE_TRACE=1'] if mode < 20 else []
+        run(nasm,'-Werror','-f','bin',*trace,'-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,build_inputs=inputs,
         host_executable_sha256=dict(nasm=sha256(nasm),wcc=sha256(wcc),wlink=sha256(wlink)),memory=memory,artifacts=artifacts,hdd_cases=HDD_CASES)

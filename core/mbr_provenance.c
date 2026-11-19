@@ -1,6 +1,6 @@
 #include "mbr_provenance.h"
 
-#include "mbr_bytes.h"
+#include "mbr_current.h"
 
 static rb_u16 enrolled(const rb_mbr_history *h, const rb_mbr_io *io)
 {
@@ -33,18 +33,10 @@ static rb_u16 check_external(const rb_mbr_io *io, rb_u16 role, rb_u32 revision,
     return equal(record.sector, expected, 512) ? RB_MBR_OK : RB_MBR_CHANGED;
 }
 
-static rb_u16 read_current(const rb_mbr_io *io, rb_u8 *sector)
-{
-    rb_mbr_target actual;
-    clear((rb_u8 *)&actual, sizeof(actual));
-    if (io->current(&actual, sector, io->disk) != 512) { return RB_MBR_LIVE_IO; }
-    return same_target(&actual, &io->binding->target) ? RB_MBR_OK : RB_MBR_BINDING;
-}
-
 static rb_u16 check_current(const rb_mbr_io *io, const rb_u8 *expected)
 {
     rb_u8 sector[512];
-    rb_u16 code = read_current(io, sector);
+    rb_u16 code = read_bound_mbr(&io->binding->target, io->current, io->disk, sector);
     if (code) { return code; }
     return equal(sector, expected, sizeof(sector)) ? RB_MBR_OK : RB_MBR_CHANGED;
 }
@@ -57,7 +49,7 @@ rb_u16 rb_mbr_enroll(rb_mbr_history *h, const rb_mbr_io *io, rb_u16 origin)
     if (h->revision) { return RB_MBR_STATE; }
     if (origin != RB_MBR_FIRST_INSTALL) { return RB_MBR_ORIGIN; }
     if (!valid_binding(io->binding)) { return RB_MBR_BINDING; }
-    code = read_current(io, original);
+    code = read_bound_mbr(&io->binding->target, io->current, io->disk, original);
     if (code) { return code; }
     /* A known installed loader conflicts with the claimed first installation.
        An absent marker alone provides no positive evidence of origin. */
@@ -83,7 +75,7 @@ rb_u16 rb_mbr_review(rb_mbr_history *h, const rb_mbr_io *io, rb_mbr_review_ticke
     forget_candidate(h);
     if (!io->current) { return RB_MBR_PARAMS; }
     if (h->revision == 0xFFFFFFFFUL) { return RB_MBR_REVISION; }
-    code = read_current(io, h->candidate);
+    code = read_bound_mbr(&io->binding->target, io->current, io->disk, h->candidate);
     if (code) {
         clear(h->candidate, sizeof(h->candidate));
         return code;

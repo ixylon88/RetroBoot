@@ -1,9 +1,14 @@
-; Fixed 1440 KiB A: I/O. The bounded writer is linked only in the reservation fixture.
+; Fixed 1440 KiB A: I/O. Each test writer has its own bounded LBA range.
 bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
 %ifdef RB_RESERVATION_WRITE
+%define RB_FIXTURE_WRITE 1
+%elifdef RB_ORIGINAL_WRITE
+%define RB_FIXTURE_WRITE 1
+%endif
+%ifdef RB_FIXTURE_WRITE
 global _rb_fixture_floppy_write
 _rb_fixture_floppy_write:
 %else
@@ -25,7 +30,13 @@ _rb_floppy_read:
     cmp word [bx], 0
     jne .bad
     mov si, ax
-%ifdef RB_RESERVATION_WRITE
+%ifdef RB_FIXTURE_WRITE
+%ifdef RB_ORIGINAL_WRITE
+    cmp ax, 1                   ; dedicated recovery carrier: header and original
+    jb .bad
+    cmp ax, 2
+    ja .bad
+%else
     cmp ax, 2877                ; reserved witness header on the owned boot floppy
     je .buffer
     cmp ax, 3                   ; alternate commit headers and payloads on the carrier
@@ -33,6 +44,7 @@ _rb_floppy_read:
     cmp ax, 6
     ja .bad
 .buffer:
+%endif
     mov dx, si
     mov si, [ss:bp + 8]
     xor ax, ax
@@ -61,7 +73,7 @@ _rb_floppy_read:
     xor ax, ax
     mov es, ax
     mov bx, RB_BUFFER
-%ifdef RB_RESERVATION_WRITE
+%ifdef RB_FIXTURE_WRITE
     mov ax, 0x0301
 %else
     mov ax, 0x0201
@@ -74,7 +86,7 @@ _rb_floppy_read:
     pop es
     pop ds
     popad
-%ifdef RB_RESERVATION_WRITE
+%ifdef RB_FIXTURE_WRITE
     jc .bad                     ; an ambiguous write is never retried here
     xor ax, ax
     jmp .done
@@ -95,7 +107,7 @@ _rb_floppy_read:
 .bad:
     mov ax, 1
     jmp .done
-%ifndef RB_RESERVATION_WRITE
+%ifndef RB_FIXTURE_WRITE
 .copy:
     push ds
     pop es

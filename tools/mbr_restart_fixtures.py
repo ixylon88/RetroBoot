@@ -128,3 +128,13 @@ def carrier_images(carrier_id=CARRIER):
     stage(image, NEXT, carrier_id)
     snapshots['staged'] = bytes(image)
     return snapshots
+
+
+def original_media():
+    """Separately labelled, controlled media for first-install capture."""
+    disk = bytearray(10080 * SECTOR)
+    put(disk, 0, sector_body(0))
+    put(disk, 10079, label(bytes(15) + b'\x61'))
+    carrier = bytearray(2880 * SECTOR)
+    put(carrier, 0, label(bytes(15) + b'\x62'))
+    return {'mbr-original-hdd.img': bytes(disk), 'mbr-original-data.img': bytes(carrier)}

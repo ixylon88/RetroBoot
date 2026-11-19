@@ -4,7 +4,7 @@
 
 #include "mbr_compare.h"
 
-static void copy_sector(rb_u8 *out, const rb_u8 *in)
+static __inline void copy_sector(rb_u8 *out, const rb_u8 *in)
 {
     rb_u16 i;
     for (i = 0; i < 512; ++i) { out[i] = in[i]; }
@@ -16,7 +16,7 @@ static int same_target(const rb_mbr_target *a, const rb_mbr_target *b)
         && a->capacity_high == b->capacity_high;
 }
 
-static int same_binding(const rb_mbr_binding *a, const rb_mbr_binding *b)
+static __inline int same_binding(const rb_mbr_binding *a, const rb_mbr_binding *b)
 {
     return same_target(&a->target, &b->target) && equal(a->recovery_id, b->recovery_id, 16);
 }

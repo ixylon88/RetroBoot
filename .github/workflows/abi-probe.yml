@@ -83,6 +83,9 @@ jobs:
             build/rescue/mbr-reserve*.img
             build/rescue-de/mbr-reserve*.img
             build/mbr-reservation-test*/*
+            build/rescue/mbr-original*.img
+            build/rescue-de/mbr-original*.img
+            build/mbr-original-test*/*
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img
