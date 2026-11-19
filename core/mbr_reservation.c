@@ -1,15 +1,6 @@
 #include "mbr_reservation.h"
 #include "mbr_header.h"
-
-static rb_u16 write_checked(const rb_mbr_reservation_io *io, rb_u16 sector,
-                            const rb_u8 *bytes, const rb_u8 *endpoint)
-{
-    rb_u8 readback[512], actual[16] = {0};
-    if (io->write(sector, bytes, endpoint, io->opaque) != 512
-        || io->read(sector, readback, actual, io->opaque) != 512) { return RB_REOPEN_IO; }
-    if (!equal(actual, endpoint, 16)) { return RB_REOPEN_BINDING; }
-    return equal(bytes, readback, 512) ? RB_REOPEN_OK : RB_REOPEN_CHANGED;
-}
+#include "mbr_media.h"
 
 static rb_u16 stage(const rb_mbr_reservation_io *io, const rb_mbr_restart_source *s,
                     const rb_mbr_witness *old, const rb_mbr_witness *next)
@@ -26,22 +17,6 @@ static rb_u16 stage(const rb_mbr_reservation_io *io, const rb_mbr_restart_source
     rc = write_checked(io, slot, header, id);
     if (rc) { return rc; }
     return rb_mbr_reopen(&check, next, s);
-}
-
-/* Both loads check the same external binding, the canonical record and its
-   CRCs. The full sector comparisons also cover distinct equal-CRC payloads. */
-static rb_u16 require_witness(const rb_mbr_witness *expected, const rb_u8 *id,
-                              const rb_mbr_restart_source *s)
-{
-    rb_mbr_witness actual;
-    const rb_mbr_commit *a = &actual.commit, *e = &expected->commit;
-    rb_u16 rc = rb_mbr_load_witness(&actual, &expected->binding, id, s);
-    if (rc) { return rc; }
-    if (a->generation != e->generation || a->issued != e->issued
-        || a->approved != e->approved || a->previous != e->previous
-        || !equal(actual.original, expected->original, 512)
-        || !equal(actual.approved, expected->approved, 512)) { return RB_REOPEN_CHANGED; }
-    return RB_REOPEN_OK;
 }
 
 rb_u16 rb_mbr_reserve_number(rb_u32 *number, const rb_mbr_binding *b, const rb_u8 *id,
@@ -69,12 +44,12 @@ rb_u16 rb_mbr_reserve_number(rb_u32 *number, const rb_mbr_binding *b, const rb_u
     rc = stage(io, &source, &old, &next);
     if (rc) { return rc; }
     if (io->select(RB_RESERVE_RETURN, io->opaque)) { return RB_REOPEN_IO; }
-    rc = require_witness(&old, id, &source);
+    rc = rb_mbr_verify_witness(&old, id, &source);
     if (rc) { return rc; }
     make_header(header, "RBWIT001", &next.binding, &next.commit);
     rc = write_checked(io, 0, header, id);
     if (rc) { return rc; }
-    rc = require_witness(&next, id, &source);
+    rc = rb_mbr_verify_witness(&next, id, &source);
     if (!rc) { *number = next.commit.issued; }
     return rc;
 }

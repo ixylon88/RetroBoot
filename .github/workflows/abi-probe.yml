@@ -86,6 +86,9 @@ jobs:
             build/rescue/mbr-original*.img
             build/rescue-de/mbr-original*.img
             build/mbr-original-test*/*
+            build/rescue/mbr-witness.img
+            build/rescue-de/mbr-witness.img
+            build/mbr-witness-test*/*
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img

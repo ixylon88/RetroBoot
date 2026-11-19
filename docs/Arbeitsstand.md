@@ -10,9 +10,12 @@ confirmed normal DOS operation and the version after the menu handoff.
 
 The current [first-install capture](MbrProvenance.md#capturing-the-original-sector-on-a-separate-medium)
 preserves the original MBR of a labelled test HDD on a separate carrier.
-It verifies the sealed record again after a cold start. The next part of
-#43 is binding this capture to the independently held first witness. This
-recovery work precedes partition switching between DOS and Windows.
+[PR #66](https://github.com/ixylon88/RetroBoot/pull/66) merged on 19 November 2026.
+The [first witness](MbrProvenance.md#publishing-and-checking-the-first-witness)
+binds the captured original to a separately held medium. The external boot
+fixture verifies the pair with the HDD disconnected. The next part of #43 is
+durable publication of a later, explicitly approved MBR. This recovery work
+precedes partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 

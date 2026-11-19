@@ -38,6 +38,9 @@ enum { RB_REOPEN_OK, RB_REOPEN_PARAMS, RB_REOPEN_IO, RB_REOPEN_BINDING,
    the entire witness. The caller keeps a successful witness immutable. */
 rb_u16 rb_mbr_load_witness(rb_mbr_witness *out, const rb_mbr_binding *enrollment,
                            const rb_u8 *witness_id, const rb_mbr_restart_source *source);
+/* Reload the retained witness and compare both complete sectors and all counters. */
+rb_u16 rb_mbr_verify_witness(const rb_mbr_witness *expected, const rb_u8 *witness_id,
+                             const rb_mbr_restart_source *source);
 /* Cold-start destination. Failure clears all bytes and revision claims.
    Success recovers historical roles only. The target disk is never read. */
 rb_u16 rb_mbr_reopen(rb_mbr_recovered *out, const rb_mbr_witness *witness,

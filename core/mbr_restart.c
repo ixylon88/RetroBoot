@@ -1,6 +1,7 @@
 #include "mbr_restart.h"
 #include "config.h"
 #include "mbr_bytes.h"
+#include "mbr_media.h"
 
 static rb_u32 le32(const rb_u8 *p)
 {
@@ -11,14 +12,6 @@ static int zero(const rb_u8 *p, rb_u16 n)
 {
     while (n) { if (p[--n]) { return 0; } }
     return 1;
-}
-
-static rb_u16 acquire(const rb_mbr_restart_source *s, const rb_u8 *expected_id,
-                      rb_u16 sector, rb_u8 *out)
-{
-    rb_u8 id[16] = {0};
-    if (s->read(sector, out, id, s->opaque) != 512) { return RB_REOPEN_IO; }
-    return equal(id, expected_id, sizeof(id)) ? RB_REOPEN_OK : RB_REOPEN_BINDING;
 }
 
 static int valid_commit(const rb_mbr_commit *c)
@@ -92,11 +85,24 @@ rb_u16 rb_mbr_load_witness(rb_mbr_witness *w, const rb_mbr_binding *b,
     if (!w) { return RB_REOPEN_PARAMS; }
     clear((rb_u8 *)w, sizeof(*w));
     if (!b || !id || !s || !s->read) { return RB_REOPEN_PARAMS; }
-    if (!valid_binding(b) || zero(id, 16) || equal(id, b->target.id, 16)
-        || equal(id, b->recovery_id, 16)) { return RB_REOPEN_BINDING; }
+    if (!valid_witness_binding(b, id)) { return RB_REOPEN_BINDING; }
     rc = load(w, b, id, s);
     if (rc) { clear((rb_u8 *)w, sizeof(*w)); }
     return rc;
+}
+
+rb_u16 rb_mbr_verify_witness(const rb_mbr_witness *expected, const rb_u8 *id,
+                             const rb_mbr_restart_source *source)
+{
+    rb_mbr_witness actual;
+    rb_u16 rc;
+    if (!expected) { return RB_REOPEN_PARAMS; }
+    rc = rb_mbr_load_witness(&actual, &expected->binding, id, source);
+    if (rc) { return rc; }
+    if (!same_commit(&actual.commit, &expected->commit)
+        || !equal(actual.original, expected->original, 512)
+        || !equal(actual.approved, expected->approved, 512)) { return RB_REOPEN_CHANGED; }
+    return RB_REOPEN_OK;
 }
 
 static rb_u16 check_carrier(const rb_mbr_witness *w, const rb_mbr_restart_source *s)

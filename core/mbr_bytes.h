@@ -29,4 +29,11 @@ static int valid_binding(const rb_mbr_binding *b)
         && !equal(b->target.id, b->recovery_id, 16);
 }
 
+static __inline int valid_witness_binding(const rb_mbr_binding *b, const rb_u8 *id)
+{
+    static const rb_u8 empty[16] = {0};
+    return valid_binding(b) && !equal(id, empty, 16) && !equal(id, b->target.id, 16)
+        && !equal(id, b->recovery_id, 16);
+}
+
 #endif
