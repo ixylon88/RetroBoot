@@ -3,7 +3,9 @@ bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
-%ifdef RB_APPROVAL_WRITE
+%ifdef RB_ATA_HISTORY_WRITE
+%define RB_FIXTURE_WRITE 1
+%elifdef RB_APPROVAL_WRITE
 %define RB_FIXTURE_WRITE 1
 %elifdef RB_WITNESS_WRITE
 %define RB_FIXTURE_WRITE 1
@@ -35,7 +37,18 @@ _rb_floppy_read:
     jne .bad
     mov si, ax
 %ifdef RB_FIXTURE_WRITE
-%ifdef RB_APPROVAL_WRITE
+%ifdef RB_ATA_HISTORY_WRITE
+    cmp ax, 2875                ; four witness records at 2875..2878
+    jb .carrier
+    cmp ax, 2878                ; the enrolled target profile at 2879 is read-only
+    ja .bad
+    jmp .buffer
+.carrier:
+    cmp ax, 1                   ; dedicated carrier original and publication slots
+    jb .bad
+    cmp ax, 6
+    ja .bad
+%elifdef RB_APPROVAL_WRITE
     cmp ax, 2876                ; records of the five-sector witness file (label at 2875)
     jae .buffer                 ; the common upper bound is 2879
     cmp ax, 3                   ; carrier commit headers and approval payloads

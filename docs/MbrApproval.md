@@ -8,6 +8,9 @@ its previous and current values. The comparison starts from the latest approved
 sector, or from the original when no approval exists. A long list uses pages.
 Approval is available after the last page. Esc rejects the candidate on any page.
 
+The [ATA-bound diskette pair](MbrTarget.md) applies the same review and
+verification to a primary IDE master identified by model, serial and capacity.
+
 ## VirtualBox check
 
 The `mbr-review-test-de/` and `mbr-review-test/` directories in the rescue

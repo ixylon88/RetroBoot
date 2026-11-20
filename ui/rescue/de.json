@@ -91,5 +91,20 @@
   "A_YES": "J",
   "A_TARGET": "Ziel-ID in Bytes",
   "A_CARRIER": "Sicherungsdisketten-ID in Bytes",
-  "A_SECTORS": "Zielkapazität in Sektoren"
+  "A_SECTORS": "Zielkapazität in Sektoren",
+  "D_MODEL": "Modell",
+  "D_SERIAL": "Seriennummer",
+  "D_PROFILE": "Die Startdiskette enthält keine gültige Zielkennung.",
+  "D_EXPECT": "Vorgesehene Festplatte",
+  "D_LIVE": "Angeschlossene Festplatte (erster IDE-Master)",
+  "D_ABSENT": "Keine unterstützte ATA-Festplatte am ersten IDE-Master gefunden.",
+  "D_WRONG": "Andere Festplatte. Sicherung gesperrt.",
+  "D_ACTION": "Esc Ende   E Erstinstallation bestätigen und Original-MBR sichern",
+  "D_INSERT": "mbr-original-data.img in A einlegen und Enter drücken. Esc bricht ab.",
+  "D_CANCEL": "Sicherung abgebrochen.",
+  "D_CAPTURE_FAIL": "Original-MBR konnte nicht gesichert werden.",
+  "D_MENU": "P Festplatte prüfen   R Änderungen prüfen   V Sicherungen prüfen",
+  "D_FIRST": "E Ersterfassung vor der Installation   Esc Ende",
+  "D_BACK": "mbr-target.img in A einlegen und Enter drücken.",
+  "D_SAVE_BACK": "Freigabe abschließen: mbr-target.img in A einlegen und Enter drücken."
 }

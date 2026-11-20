@@ -1,4 +1,4 @@
-#include "mbr_original.h"
+#include "mbr_original_sample.h"
 #include "mbr_current.h"
 #include "mbr_header.h"
 
@@ -30,18 +30,14 @@ static rb_u16 verify_disk(const rb_mbr_original_io *io, const rb_mbr_target *tar
     return equal(current, original, 512) ? RB_MBR_OK : RB_MBR_CHANGED;
 }
 
-rb_u16 rb_mbr_capture_original(const rb_mbr_binding *b, rb_u16 origin,
-                               const rb_mbr_original_io *io)
+/* The caller has already sampled an identified target under first-install custody. */
+rb_u16 rb_mbr_seal_original_sample(const rb_mbr_binding *b, const rb_u8 *original,
+                                   const rb_mbr_original_io *io)
 {
-    rb_mbr_commit first = {1, 1, 0, 0, 0, 0};
-    rb_u8 original[512], header[512], sector[512];
+    rb_mbr_commit first = {1, 1, 0, 0, 0};
+    rb_u8 header[512], sector[512];
     rb_u16 rc, n;
     int sealed, matches;
-    if (!b || !io || !io->current || !io->read || !io->write) { return RB_MBR_PARAMS; }
-    if (origin != RB_MBR_FIRST_INSTALL) { return RB_MBR_ORIGIN; }
-    if (!valid_binding(b)) { return RB_MBR_BINDING; }
-    rc = read_bound_mbr(&b->target, io->current, io->disk, original);
-    if (rc) { return rc; }
     if (equal(original + 432, (const rb_u8 *)"RBM1", 4)) { return RB_MBR_ORIGIN; }
 
     first.original_crc = rb_crc32(original, 512);
@@ -76,4 +72,17 @@ rb_u16 rb_mbr_capture_original(const rb_mbr_binding *b, rb_u16 origin,
     if (!rc) { rc = verify_carrier(io, b->recovery_id, 1, original); }
     if (!rc) { rc = verify_disk(io, &b->target, original); }
     return rc;
+}
+
+rb_u16 rb_mbr_capture_original(const rb_mbr_binding *b, rb_u16 origin,
+                               const rb_mbr_original_io *io)
+{
+    rb_u8 original[512];
+    rb_u16 rc;
+    if (!b || !io || !io->current || !io->read || !io->write) { return RB_MBR_PARAMS; }
+    if (origin != RB_MBR_FIRST_INSTALL) { return RB_MBR_ORIGIN; }
+    if (!valid_binding(b)) { return RB_MBR_BINDING; }
+    rc = read_bound_mbr(&b->target, io->current, io->disk, original);
+    if (rc) { return rc; }
+    return rb_mbr_seal_original_sample(b, original, io);
 }

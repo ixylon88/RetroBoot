@@ -1,14 +1,6 @@
 #include "mbr_original.h"
 #include "original_fixture.h"
 
-static rb_u16 __cdecl write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, void *opaque)
-{
-    capture_medium *m = (capture_medium *)opaque;
-    if (n > 1 || !same(id, carrier_id, 16) || !medium_matches(m)
-        || rb_fixture_floppy_write(n + 1, in, &m->drive) || !medium_matches(m)) { return 0; }
-    return 512;
-}
-
 rb_u16 __cdecl rb_mbr_original_demo(rb_u16 boot_drive)
 {
     rb_mbr_original_io io;
@@ -21,8 +13,8 @@ rb_u16 __cdecl rb_mbr_original_demo(rb_u16 boot_drive)
     carrier.id = carrier_id;
     capture_binding(&binding);
     io.current = read_target;
-    io.read = read_record;
-    io.write = write_record;
+    io.read = rb_mbr_floppy_read;
+    io.write = rb_mbr_floppy_save_original;
     io.disk = 0;
     io.carrier = &carrier;
 

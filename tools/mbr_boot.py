@@ -2,14 +2,32 @@
 from collections import Counter
 import re
 import subprocess
+import time
 
 from build_rescue import sha256
 from test_menu import Qmp, screen_rows, wait_marker
 from test_rescue import check_memory, trace_reads
 
 
+def stop_at_transcript(q, vga, lines, name):
+    # The debug port receives the final newline before INT 10h finishes scrolling.
+    visible = lines[-24:]
+    deadline = time.monotonic() + 3
+    while True:
+        q.call('stop')
+        q.call('pmemsave', {'val': 0xb8000, 'size': 4000, 'filename': str(vga)})
+        rows = [row.rstrip() for row in screen_rows(vga.read_bytes())]
+        start = 0 if len(lines) > 24 else next((i for i, row in enumerate(rows) if row == visible[0]), len(rows))
+        if rows[start:start + len(visible)] == visible and not any(rows[start + len(visible):]):
+            return
+        if time.monotonic() >= deadline:
+            raise ValueError(f'{name}: unexpected VGA transcript')
+        q.call('cont')
+        time.sleep(0.01)
+
+
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
-                 *, rom=None, cut=False, readonly_start=False):
+                 *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw'):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -23,8 +41,11 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             '-drive', f'if=floppy,id=floppy,format=raw,{access},file={boot_disk}',
             '-trace', f'events={out / "events.txt"},file={trace}']
     if disk is not None:
-        args += ['-drive', f'file={disk},format=raw,if=none,id=rb',
-                 '-device', 'ide-hd,drive=rb,bus=ide.0,unit=0,cyls=10,heads=16,secs=63,lcyls=10,lheads=16,lsecs=63']
+        device = 'ide-hd,drive=rb,bus=ide.0,unit=0,cyls=10,heads=16,secs=63,lcyls=10,lheads=16,lsecs=63'
+        if ata_identity is not None:
+            model, serial = ata_identity
+            device += ',model=' + model.replace(',', ',,') + ',serial=' + serial.replace(',', ',,')
+        args += ['-drive', f'file={disk},format={disk_format},if=none,id=rb', '-device', device]
     if rom:
         args += ['-option-rom', str(rom)]
 
@@ -42,16 +63,10 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
                 q.call('send-key', {'keys': [{'type': 'qcode', 'data': key}], 'hold-time': 30})
             wait_marker(proc, log, marker + '\n', encoding='cp437')
-            q.call('stop')
             ram, vga = out / (name + '-ram.bin'), out / (name + '-vga.bin')
+            stop_at_transcript(q, vga, lines, name)
             q.call('pmemsave', {'val': 0x10000, 'size': 65536, 'filename': str(ram)})
-            q.call('pmemsave', {'val': 0xb8000, 'size': 4000, 'filename': str(vga)})
             check_memory(ram.read_bytes(), fixture['binary'], fixture['memory'], zero_bss=False)
-            rows = [s.rstrip() for s in screen_rows(vga.read_bytes())]
-            visible = lines[-24:]  # BIOS teletype scrolls the 25th row on the final newline.
-            index = rows.index(visible[0]) if len(lines) <= 24 else 0
-            if rows[index:index + len(visible)] != visible or any(rows[index + len(visible):]):
-                raise ValueError(f'{name}: unexpected VGA transcript')
             if cut:
                 proc.kill()
             else:

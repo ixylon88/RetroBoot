@@ -9,6 +9,7 @@ import sys
 import zlib
 
 try:
+    from .prepare_mbr_target import allocate_profile
     from .build_inputs import source_hashes, check_build_inputs
     from .mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from .build_abi_probe import inspect_map, prepare_output
@@ -29,6 +30,7 @@ try:
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
+    from prepare_mbr_target import allocate_profile
     from build_inputs import source_hashes, check_build_inputs
     from mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from build_abi_probe import inspect_map, prepare_output
@@ -160,7 +162,8 @@ def build(kind='rescue',language='en'):
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
             ('mbr-witness-core','core/mbr_first_witness.c'),('mbr-witness-tests','tests/backup/first_witness.c'),
-            ('mbr-approval-core','core/mbr_approval.c'),('mbr-review-tests','tests/backup/review.c'),
+            ('mbr-witness-file','core/mbr_witness_file.c'),('mbr-review-ui','core/mbr_review_ui.c'),('mbr-approval-core','core/mbr_approval.c'),('mbr-review-tests','tests/backup/review.c'),
+            ('mbr-floppy','core/mbr_floppy.c'),('mbr-ata','core/mbr_ata.c'),('mbr-target-ui','core/mbr_target.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -181,6 +184,8 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_ORIGINAL_WRITE=1','bios/floppy.asm','-o',destination/'original-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_WITNESS_WRITE=1','bios/floppy.asm','-o',destination/'witness-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_APPROVAL_WRITE=1','bios/floppy.asm','-o',destination/'approval-write.obj')
+    run(nasm,'-Werror','-f','obj','bios/ata.asm','-o',destination/'ata-io.obj')
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_ATA_HISTORY_WRITE=1','bios/floppy.asm','-o',destination/'ata-history-write.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -196,6 +201,7 @@ def build(kind='rescue',language='en'):
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
             ('mbr-original',['-DRB_RESCUE_ORIGINAL=1']),
+            ('mbr-target',['-DRB_RESCUE_ATA_TARGET=1']),
             ('mbr-witness',['-DRB_RESCUE_FIRST_WITNESS=1']),
             ('mbr-review',['-DRB_RESCUE_REVIEW=1']),
             ('backup-records-model',['-DRB_RESCUE_RECORD_MODEL=1']),
@@ -230,12 +236,17 @@ def build(kind='rescue',language='en'):
         if name=='mbr-restart':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
         if name=='mbr-witness':
-            extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-restart-core','mbr-witness-tests','floppy','witness-write')]
+            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-witness-core','mbr-restart-core','mbr-witness-tests','floppy','witness-write')]
         if name=='mbr-review':
             extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-reservation-core','mbr-restart-core',
-                'mbr-approval-core','mbr-review-tests','floppy','approval-write')]
+                'mbr-approval-core','mbr-original-core','mbr-review-ui','mbr-witness-file','rescue-file','mbr-review-tests','floppy','approval-write')]
+        if name=='mbr-target':
+            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-target-ui','mbr-ata','ata-io','floppy',
+                'ata-history-write','mbr-witness-core','mbr-reservation-core','mbr-restart-core','mbr-approval-core','mbr-review-ui','mbr-witness-file','rescue-file')]
         if name=='mbr-original':
             extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-original-tests','floppy','original-write')]
+        if name in ('mbr-original','mbr-witness','mbr-review','mbr-target'):
+            extra.append(destination/'mbr-floppy.obj')
         if name=='mbr-reserve':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-reservation-core',
                 'mbr-reservation-tests','floppy','fixture-write')]
@@ -262,6 +273,9 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
+    template = destination / 'mbr-target.img'
+    template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
+    remember(template)
     for filename, data in original_media().items():
         media = destination / filename
         media.write_bytes(data)

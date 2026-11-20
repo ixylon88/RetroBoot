@@ -1,4 +1,5 @@
 #include "mbr_first_witness.h"
+#include "mbr_original_sample.h"
 #include "mbr_live_sample.h"
 #include "mbr_header.h"
 #include "mbr_media.h"
@@ -17,11 +18,12 @@ static rb_u16 expect(const rb_mbr_restart_source *s, const rb_u8 *id, rb_u16 sec
 /* A retry can continue from a complete staged payload. A nonzero header
    always closes enrollment, including after an ambiguous successful write. */
 static rb_u16 pending_witness(const rb_mbr_restart_source *s, const rb_u8 *id,
-                              const rb_u8 *original, int *staged)
+                              const rb_u8 *original, int capture, int *staged)
 {
     rb_u8 bytes[512];
     rb_u16 rc = expect(s, id, 0, blank);
     if (!rc) { rc = expect(s, id, 2, blank); }
+    if (!rc && capture) { rc = expect(s, id, 3, blank); }
     if (!rc) { rc = acquire(s, id, 1, bytes); }
     if (rc) { return rc; }
     *staged = equal(bytes, original, 512);
@@ -50,9 +52,9 @@ static rb_u16 stage_carrier(const rb_mbr_witness *first, const rb_mbr_restart_so
     return rb_mbr_verify_carrier(first, s);
 }
 
-rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
-                                    rb_u16 origin, rb_mbr_current_reader read, void *disk,
-                                    const rb_mbr_exchange *media)
+static rb_u16 publish_first(const rb_mbr_binding *b, const rb_u8 *id,
+                            rb_u16 origin, rb_mbr_current_reader read, void *disk,
+                            const rb_mbr_exchange *media, int capture)
 {
     rb_mbr_witness first;
     rb_mbr_restart_source source;
@@ -74,24 +76,47 @@ rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
     if (rc) { return rc; }
     if (equal(first.original + 432, (const rb_u8 *)"RBM1", 4)) { return RB_FIRST_WITNESS_ORIGIN; }
     first.commit.original_crc = rb_crc32(first.original, 512);
-    rc = pending_witness(&source, id, first.original, &staged);
+    rc = pending_witness(&source, id, first.original, capture, &staged);
     if (rc) { return rc; }
 
     if (media->select(RB_MBR_SELECT_CARRIER, media->opaque)) { return RB_REOPEN_IO; }
+    if (capture) {
+        rb_mbr_original_io io;
+        io.current = read; io.disk = disk;
+        io.read = media->read; io.write = media->write; io.carrier = media->opaque;
+        rc = recheck_mbr(&b->target, first.original, read, disk);
+        if (rc) { return rc; }
+        rc = rb_mbr_seal_original_sample(b, first.original, &io);
+        if (rc != RB_MBR_OK) { return RB_FIRST_WITNESS_CAPTURE; }
+    }
     rc = stage_carrier(&first, &source, media, read, disk);
     if (rc) { return rc; }
 
     if (media->select(RB_MBR_RETURN_WITNESS, media->opaque)) { return RB_REOPEN_IO; }
-    rc = pending_witness(&source, id, first.original, &returned);
+    rc = pending_witness(&source, id, first.original, capture, &returned);
     if (rc) { return rc; }
     if (returned != staged) { return RB_REOPEN_CHANGED; }
     if (!staged) { rc = write_checked(media, 1, first.original, id); }
     if (!rc) { rc = recheck_mbr(&b->target, first.original, read, disk); }
-    if (!rc) { rc = pending_witness(&source, id, first.original, &returned); }
+    if (!rc) { rc = pending_witness(&source, id, first.original, capture, &returned); }
     if (rc) { return rc; }
     if (!returned) { return RB_REOPEN_CHANGED; }
     make_header(header, "RBWIT001", b, &first.commit);
     rc = write_checked(media, 0, header, id);
     if (rc) { return rc; }
     return rb_mbr_verify_witness(&first, id, &source);
+}
+
+rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
+                                    rb_u16 origin, rb_mbr_current_reader read, void *disk,
+                                    const rb_mbr_exchange *media)
+{
+    return publish_first(b, id, origin, read, disk, media, 0);
+}
+
+rb_u16 rb_mbr_capture_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
+                                    rb_u16 origin, rb_mbr_current_reader read, void *disk,
+                                    const rb_mbr_exchange *media)
+{
+    return publish_first(b, id, origin, read, disk, media, 1);
 }
