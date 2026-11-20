@@ -18,10 +18,12 @@ test for merged PR #67](https://github.com/ixylon88/RetroBoot/pull/67#issuecomme
 The [approval fixture](MbrApproval.md) presents a later live MBR for an explicit
 decision and retains the original alongside the latest approved sector.
 The [manual VirtualBox review in merged PR #68](https://github.com/ixylon88/RetroBoot/pull/68#issuecomment-7037596155)
-confirmed revision 2 after five byte changes. The [ATA capture](MbrTarget.md)
-checks a primary IDE master against independently enrolled device fields before
-capturing its original sector. General recovery endpoint enrollment remains open under #43. This
-recovery work precedes partition switching between DOS and Windows.
+confirmed revision 2 after five byte changes. The [ATA comparison in VirtualBox](https://github.com/ixylon88/RetroBoot/pull/69#issuecomment-7039436142)
+matched the enrolled IDE disk and blocked a disk with a different serial.
+The [ATA-bound diskette pair](MbrTarget.md) now uses that identity for first
+capture and later explicit MBR approval. Both saved revisions can be checked
+with the HDD disconnected. General recovery-device enrollment remains open
+under #43. This recovery work precedes partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 

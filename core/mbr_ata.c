@@ -62,9 +62,11 @@ int rb_ata_decode_enrollment(rb_ata_enrollment *p, const rb_u8 *s)
 {
     static const rb_u8 zero[400] = {0};
     rb_u32 checksum = rb_crc32(s, 508);
-    /* Layout of the independent RBTARG01 profile, in little endian. */
-    if (!equal(s, (const rb_u8 *)"RBTARG01", 8) || !equal(s + 108, zero, 400)
+    int history = equal(s, (const rb_u8 *)"RBTARG02", 8);
+    if ((!history && !equal(s, (const rb_u8 *)"RBTARG01", 8))
+        || !equal(s + (history ? 124 : 108), zero, history ? 384 : 400)
         || !equal(s + 508, (const rb_u8 *)&checksum, 4)) { return 0; }
+    copy_bytes(p->witness_id, s + 108, 16);
     copy_bytes(p->binding.target.id, s + 8, 16);
     copy_bytes((rb_u8 *)&p->binding.target.capacity_low, s + 24, 4);
     copy_bytes((rb_u8 *)&p->binding.target.capacity_high, s + 28, 4);
@@ -73,17 +75,22 @@ int rb_ata_decode_enrollment(rb_ata_enrollment *p, const rb_u8 *s)
     copy_bytes(p->device.model, s + 68, 40);
     p->device.sectors_low = p->binding.target.capacity_low;
     p->device.sectors_high = p->binding.target.capacity_high;
-    return valid_binding(&p->binding) && p->device.sectors_high <= 0xffffUL
+    return (history ? valid_witness_binding(&p->binding, p->witness_id) : valid_binding(&p->binding))
+        && p->device.sectors_high <= 0xffffUL
         && printable(p->device.serial, 20) && printable(p->device.model, 40);
+}
+
+int __cdecl rb_ata_target_matches(void *profile)
+{
+    const rb_ata_enrollment *p = (const rb_ata_enrollment *)profile;
+    rb_ata_identity live;
+    return rb_ata_identify(&live) && equal((const rb_u8 *)&live, (const rb_u8 *)&p->device, sizeof(live));
 }
 
 rb_u16 __cdecl rb_ata_read_mbr(rb_mbr_target *actual, rb_u8 *out, void *opaque)
 {
     const rb_ata_enrollment *p = (const rb_ata_enrollment *)opaque;
-    rb_ata_identity live;
-    if (!rb_ata_identify(&live) || !equal((const rb_u8 *)&live, (const rb_u8 *)&p->device, sizeof(live))
-        || rb_ata_sector_zero(out) || !rb_ata_identify(&live)
-        || !equal((const rb_u8 *)&live, (const rb_u8 *)&p->device, sizeof(live))) {
+    if (!rb_ata_target_matches(opaque) || rb_ata_sector_zero(out) || !rb_ata_target_matches(opaque)) {
         clear(out, 512);
         clear((rb_u8 *)actual, sizeof(*actual));
         return 0;

@@ -162,7 +162,7 @@ def build(kind='rescue',language='en'):
             ('mbr-provenance','core/mbr_provenance.c'),('mbr-provenance-tests','tests/backup/provenance.c'),
             ('mbr-restart-core','core/mbr_restart.c'),('mbr-restart-tests','tests/backup/restart.c'),
             ('mbr-witness-core','core/mbr_first_witness.c'),('mbr-witness-tests','tests/backup/first_witness.c'),
-            ('mbr-approval-core','core/mbr_approval.c'),('mbr-review-tests','tests/backup/review.c'),
+            ('mbr-witness-file','core/mbr_witness_file.c'),('mbr-review-ui','core/mbr_review_ui.c'),('mbr-approval-core','core/mbr_approval.c'),('mbr-review-tests','tests/backup/review.c'),
             ('mbr-floppy','core/mbr_floppy.c'),('mbr-ata','core/mbr_ata.c'),('mbr-target-ui','core/mbr_target.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
@@ -185,6 +185,7 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_WITNESS_WRITE=1','bios/floppy.asm','-o',destination/'witness-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_APPROVAL_WRITE=1','bios/floppy.asm','-o',destination/'approval-write.obj')
     run(nasm,'-Werror','-f','obj','bios/ata.asm','-o',destination/'ata-io.obj')
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_ATA_HISTORY_WRITE=1','bios/floppy.asm','-o',destination/'ata-history-write.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
@@ -235,12 +236,13 @@ def build(kind='rescue',language='en'):
         if name=='mbr-restart':
             extra=[destination/(n+'.obj') for n in ('mbr-restart-core','mbr-restart-tests','floppy')]
         if name=='mbr-witness':
-            extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-restart-core','mbr-witness-tests','floppy','witness-write')]
+            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-witness-core','mbr-restart-core','mbr-witness-tests','floppy','witness-write')]
         if name=='mbr-review':
             extra=[destination/(n+'.obj') for n in ('mbr-witness-core','mbr-reservation-core','mbr-restart-core',
-                'mbr-approval-core','mbr-review-tests','floppy','approval-write')]
+                'mbr-approval-core','mbr-original-core','mbr-review-ui','mbr-witness-file','rescue-file','mbr-review-tests','floppy','approval-write')]
         if name=='mbr-target':
-            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-target-ui','mbr-ata','ata-io','floppy','original-write')]
+            extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-target-ui','mbr-ata','ata-io','floppy',
+                'ata-history-write','mbr-witness-core','mbr-reservation-core','mbr-restart-core','mbr-approval-core','mbr-review-ui','mbr-witness-file','rescue-file')]
         if name=='mbr-original':
             extra=[destination/(n+'.obj') for n in ('mbr-original-core','mbr-original-tests','floppy','original-write')]
         if name in ('mbr-original','mbr-witness','mbr-review','mbr-target'):

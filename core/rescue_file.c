@@ -60,7 +60,7 @@ static rb_u16 chain(rb_rescue_file *f, const rb_u8 *entry, rb_u16 target, rb_u16
     return 0;
 }
 
-void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
+void rb_rescue_file_open_named(rb_rescue_file *f, rb_sector_reader read, void *opaque, const char *name)
 {
     static const rb_u8 bpb[25] = {0,2,1,1,0,2,224,0,64,11,240,9,0,18,0,2,0,0,0,0,0,0,0,0,0};
     rb_u16 i, j, found = 0, end = 0, target;
@@ -95,7 +95,7 @@ void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
             entry = sector + j;
             if (!entry[0]) { end = 1; break; }
             if (entry[0] == 0xE5 || entry[11] == 0x0F) { continue; }
-            target = equal(entry, (const rb_u8 *)"RBBACKUPRBB", 11);
+            target = equal(entry, (const rb_u8 *)name, 11);
             if ((entry[11] & 0xD0) || word(entry + 20)
                     || ((entry[11] & 8) && (target || word(entry + 26) || dword(entry + 28)))) {
                 fail(f, RB_FILE_DIRECTORY, i); return;
@@ -109,20 +109,30 @@ void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
     f->metadata_crc = crc ^ 0xFFFFFFFFUL; f->ready = 1;
 }
 
-rb_u16 __cdecl rb_rescue_file_read(rb_u32 lba, rb_u8 *out, void *opaque)
+void rb_rescue_file_open(rb_rescue_file *f, rb_sector_reader read, void *opaque)
 {
-    rb_rescue_file *f = (rb_rescue_file *)opaque;
-    rb_u16 offset, cluster, steps;
+    rb_rescue_file_open_named(f, read, opaque, "RBBACKUPRBB");
+}
 
-    if (!f->ready || lba >= f->sectors) { fail(f, RB_FILE_RANGE, 0); return 1; }
-    offset = (rb_u16)lba;
+rb_u16 rb_rescue_file_lba(const rb_rescue_file *f, rb_u16 offset)
+{
+    rb_u16 cluster, steps;
+    if (!f->ready || offset >= f->sectors) { return 0; }
     cluster = f->map.first_cluster[offset / RB_FILE_INDEX_STRIDE];
     steps = offset % RB_FILE_INDEX_STRIDE;
     while (steps) {
         cluster = next_cluster(f->map.links, cluster);
         --steps;
     }
-    return read_sector(f, cluster + 31, out);
+    return cluster + 31;
+}
+
+rb_u16 __cdecl rb_rescue_file_read(rb_u32 lba, rb_u8 *out, void *opaque)
+{
+    rb_rescue_file *f = (rb_rescue_file *)opaque;
+    rb_u16 physical = lba < RB_FILE_MAX ? rb_rescue_file_lba(f, (rb_u16)lba) : 0;
+    if (!physical) { fail(f, RB_FILE_RANGE, 0); return 1; }
+    return read_sector(f, physical, out);
 }
 rb_u16 rb_rescue_file_recheck(rb_rescue_file *f)
 {

@@ -37,6 +37,11 @@ typedef struct {
    Every root file chain is checked before any file payload read. Failure
    invalidates the complete map. No writer and no general filesystem mount. */
 void rb_rescue_file_open(rb_rescue_file *file, rb_sector_reader read, void *opaque);
+void rb_rescue_file_open_named(rb_rescue_file *file, rb_sector_reader read, void *opaque, const char *name);
+rb_u16 rb_rescue_file_lba(const rb_rescue_file *file, rb_u16 offset);
+/* Validate the read-only profile and the five-sector RBWITNES.BIN extent. */
+int rb_rescue_witness_extent(rb_rescue_file *file, rb_sector_reader read, void *opaque,
+                             rb_u16 lba, int writable);
 rb_u16 __cdecl rb_rescue_file_read(rb_u32 sector, rb_u8 *out, void *file);
 rb_u16 rb_rescue_file_recheck(rb_rescue_file *file);
 rb_u16 __cdecl rb_floppy_read(rb_u32 lba, rb_u8 *out, void *boot_drive);

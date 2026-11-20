@@ -1,3 +1,4 @@
+import struct
 import tempfile
 import unittest
 import zipfile
@@ -5,7 +6,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from tools.build_rescue import fat12_set
-from tools.prepare_mbr_target import allocate_profile, prepare_pair, write_pair, FLOPPY_BYTES, PROFILE_ENTRY
+from tools.prepare_mbr_target import (FLOPPY_BYTES, PROFILE_CLUSTER, PROFILE_ENTRY, SECTOR, WITNESS_CLUSTER,
+                                      WITNESS_ENTRY, WITNESS_START, allocate_profile, fat_link, prepare_pair,
+                                      sealed, write_pair)
 
 
 class TargetEnrollmentTest(unittest.TestCase):
@@ -42,7 +45,13 @@ class TargetEnrollmentTest(unittest.TestCase):
             first = archive.read_bytes()
             with zipfile.ZipFile(archive) as result:
                 self.assertEqual(sorted(result.namelist()), ['mbr-original-data.img', 'mbr-target.img'])
-                self.assertEqual(result.read('mbr-target.img')[-480:-464], result.read('mbr-original-data.img')[8:24])
+                boot = result.read('mbr-target.img')
+                self.assertEqual(boot[-512:-504], b'RBTARG02')
+                self.assertEqual(boot[-480:-464], result.read('mbr-original-data.img')[8:24])
+                ids = {boot[-504:-488], boot[-480:-464], boot[-404:-388]}
+                self.assertEqual(len(ids), 3)
+                self.assertNotIn(bytes(16), ids)
+                self.assertEqual(boot[WITNESS_START + 8:WITNESS_START + 24], boot[-404:-388])
             with self.assertRaises(FileExistsError):
                 write_pair(template, archive, 'other', 'different', 123)
             self.assertEqual(first, archive.read_bytes())
@@ -51,3 +60,46 @@ class TargetEnrollmentTest(unittest.TestCase):
             with patch.object(zipfile.ZipFile, 'writestr', side_effect=OSError('interrupted')), self.assertRaises(OSError):
                 write_pair(template, other, 'model', 'serial', 10080)
             self.assertFalse(other.exists())
+
+    def test_witness_layout_and_provisioning(self):
+        witness = bytes(range(32, 48))
+        boot, _ = prepare_pair(self.blank, 'test', 'drive', 35, *self.ids, witness)
+        self.assertEqual(boot[WITNESS_ENTRY:WITNESS_ENTRY + 12], b'RBWITNESBIN\x20')
+        self.assertEqual(struct.unpack_from('<HI', boot, WITNESS_ENTRY + 26), (WITNESS_CLUSTER, 5 * SECTOR))
+        self.assertEqual(boot[WITNESS_START:WITNESS_START + SECTOR], sealed(b'RBMEDIA1' + witness))
+        self.assertFalse(any(boot[WITNESS_START + SECTOR:-SECTOR]))
+        self.assertEqual(boot[-404:-4], witness + bytes(384))
+        self.assertEqual(boot[:-SECTOR][:WITNESS_START], self.blank[:WITNESS_START])
+        for start in (SECTOR, 10 * SECTOR):
+            fat = boot[start:start + 9 * SECTOR]
+            self.assertEqual([fat_link(fat, c) for c in range(WITNESS_CLUSTER, PROFILE_CLUSTER + 1)],
+                             [WITNESS_CLUSTER + n for n in range(1, 5)] + [0xfff, 0xfff])
+        for invalid in (bytes(16), *self.ids, witness[1:]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                prepare_pair(self.blank, 'test', 'drive', 35, *self.ids, invalid)
+        for offset in (WITNESS_ENTRY + 11, WITNESS_ENTRY + 28, WITNESS_START + SECTOR,
+                       10 * SECTOR + WITNESS_CLUSTER * 3 // 2):
+            damaged = bytearray(self.blank)
+            damaged[offset] ^= 1
+            with self.subTest(offset=offset), self.assertRaises(ValueError):
+                prepare_pair(damaged, 'test', 'drive', 35, *self.ids, witness)
+
+    def test_legacy_template_requires_unallocated_witness_space(self):
+        image = bytearray(self.blank)
+        image[WITNESS_ENTRY:WITNESS_ENTRY + 32] = bytes(32)
+        with tempfile.TemporaryDirectory() as tmp:
+            template, output = (Path(tmp) / name for name in ('template.img', 'pair.zip'))
+            template.write_bytes(image)
+            with self.assertRaises(ValueError):
+                write_pair(template, output, 'old', 'disk', 10080)
+            self.assertFalse(output.exists())
+            fat = image[SECTOR:10 * SECTOR]
+            for c in range(WITNESS_CLUSTER, PROFILE_CLUSTER):
+                fat12_set(fat, c, 0)
+            image[SECTOR:10 * SECTOR] = image[10 * SECTOR:19 * SECTOR] = fat
+            template.write_bytes(image)
+            write_pair(template, output, 'old', 'disk', 10080)
+            with zipfile.ZipFile(output) as result:
+                boot = result.read('mbr-target.img')
+                self.assertEqual(boot[-512:-504], b'RBTARG01')
+                self.assertEqual(boot[:-512], image[:-512])

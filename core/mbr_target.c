@@ -5,16 +5,8 @@
 #include "rescue_file.h"
 #include "rescue_text.h"
 #include "mbr_compare.h"
-
-static void print(const char *s)
-{
-    while (*s) { rb_putc(*s++); }
-}
-
-static void line(const char *s)
-{
-    print(s); rb_putc(13); rb_putc(10);
-}
+#include "mbr_review_ui.h"
+#include "mbr_console.h"
 
 static void field(const char *label, const rb_u8 *s, rb_u16 len)
 {
@@ -43,13 +35,8 @@ static void identity(const char *label, const rb_ata_identity *disk)
 static rb_u16 choice(rb_u16 accept)
 {
     rb_u16 key;
-    for (;;) {
-        key = rb_key_poll();
-        if (key == 0xffff) { rb_idle(); continue; }
-        key &= 255;
-        if (key >= 'a' && key <= 'z') { key -= 'a' - 'A'; }
-        if (key == 27 || key == accept) { return key; }
-    }
+    do { key = rb_mbr_review_key(); } while (key != 27 && key != accept);
+    return key;
 }
 
 rb_u16 __cdecl rb_mbr_target_run(rb_u16 drive)
@@ -59,18 +46,32 @@ rb_u16 __cdecl rb_mbr_target_run(rb_u16 drive)
     rb_mbr_original_io io;
     capture_medium carrier;
     rb_u8 sector[512];
-    rb_u16 rc;
+    static const rb_u8 zero[16] = {0};
+    rb_mbr_review_source source;
+    rb_u16 rc, key = 0;
     line("RB ATA TARGET");
     if (rb_floppy_read(2879, sector, &drive) || !rb_ata_decode_enrollment(&p, sector)) {
         line(RB_RS_D_PROFILE); return 1;
     }
+    if (!equal(p.witness_id, zero, 16)) {
+        source.binding = &p.binding; source.witness_id = p.witness_id;
+        source.matches = rb_ata_target_matches;
+        source.read = rb_ata_read_mbr; source.disk = &p; source.ata_profile = sector;
+        line(RB_RS_D_MENU);
+        line(RB_RS_D_FIRST);
+        do { key = rb_mbr_review_key(); } while (key != 'P' && key != 'E' && key != 'R' && key != 'V' && key != 27);
+        if (key == 27) { return 0; }
+    }
     identity(RB_RS_D_EXPECT, &p.device);
+    if (key == 'V') { return rb_mbr_review_action(key, drive, &source); }
     if (!rb_ata_identify(&live)) { line(RB_RS_D_ABSENT); return 1; }
     identity(RB_RS_D_LIVE, &live);
     if (!equal((const rb_u8 *)&p.device, (const rb_u8 *)&live, sizeof(live))) {
         line(RB_RS_D_WRONG); return 1;
     }
     line("TARGET MATCH");
+    if (key == 'P') { return 0; }
+    if (key) { return rb_mbr_review_action(key, drive, &source); }
     line(RB_RS_D_ACTION);
     if (choice('E') == 27) { return 0; }
     line(RB_RS_D_INSERT);

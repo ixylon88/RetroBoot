@@ -12,9 +12,11 @@ typedef struct {
 typedef struct {
     rb_mbr_binding binding;
     rb_ata_identity device;
+    rb_u8 witness_id[16]; /* zero on capture-only RBTARG01 media */
 } rb_ata_enrollment;
 
 int rb_ata_identify(rb_ata_identity *result);
+int __cdecl rb_ata_target_matches(void *profile);
 int rb_ata_decode_enrollment(rb_ata_enrollment *profile, const rb_u8 *sector);
 rb_u16 __cdecl rb_ata_read_mbr(rb_mbr_target *actual, rb_u8 *sector, void *profile);
 

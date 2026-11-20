@@ -102,5 +102,9 @@
   "D_ACTION": "Esc Finish check   E Confirm first install and capture original MBR",
   "D_INSERT": "Insert mbr-original-data.img in A and press Enter. Esc cancels.",
   "D_CANCEL": "Capture cancelled.",
-  "D_CAPTURE_FAIL": "Original MBR capture failed."
+  "D_CAPTURE_FAIL": "Original MBR capture failed.",
+  "D_MENU": "P Check hard disk   R Review changes   V Verify saved records",
+  "D_FIRST": "E First capture before installation   Esc Exit",
+  "D_BACK": "Insert mbr-target.img in A and press Enter.",
+  "D_SAVE_BACK": "Finish approval: insert mbr-target.img in A and press Enter."
 }

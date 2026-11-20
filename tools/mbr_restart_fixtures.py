@@ -60,9 +60,9 @@ def label(endpoint):
     return seal(data)
 
 
-def header(magic, point, carrier_id=CARRIER):
+def header(magic, point, carrier_id=CARRIER, *, target_id=TARGET, capacity=CAPACITY):
     data = bytearray(SECTOR)
-    struct.pack_into('<8s16sQ16s6I', data, 0, magic, TARGET, CAPACITY, carrier_id,
+    struct.pack_into('<8s16sQ16s6I', data, 0, magic, target_id, capacity, carrier_id,
                      point.generation, point.issued, point.approved, point.previous,
                      zlib.crc32(sector_body(0)), zlib.crc32(point.payload) if point.approved else 0)
     return seal(data)
