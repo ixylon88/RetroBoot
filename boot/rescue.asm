@@ -9,7 +9,11 @@ org 0x7C00
 %endif
     jmp short normalize
     nop
+%ifdef RB_ATA_RECOVERY_PROFILE
+    db 'RBTARG03'                ; template capability in the FAT OEM field
+%else
     db 'RETROBT '
+%endif
     dw 512
     db 1
     dw 1

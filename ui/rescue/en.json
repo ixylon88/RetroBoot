@@ -106,5 +106,14 @@
   "D_MENU": "P Check hard disk   R Review changes   V Verify saved records",
   "D_FIRST": "E First capture before installation   Esc Exit",
   "D_BACK": "Insert mbr-target.img in A and press Enter.",
-  "D_SAVE_BACK": "Finish approval: insert mbr-target.img in A and press Enter."
+  "D_SAVE_BACK": "Finish approval: insert mbr-target.img in A and press Enter.",
+  "D_BOTH": "P Check both disks   R Review changes   V Verify saved records",
+  "D_REC_EXPECT": "Expected recovery disk",
+  "D_REC_LIVE": "Attached recovery disk (secondary IDE master)",
+  "D_REC_CAP": "Recovery capacity in sectors",
+  "D_REC_ABSENT": "Recovery disk absent or this operation is unsupported.",
+  "D_REC_WRONG": "Different recovery disk. Access blocked.",
+  "D_REC_LABEL": "Recovery disk label mismatch. Access blocked.",
+  "D_REC_FIRST": "E Save original MBR on this recovery disk   Esc Exit",
+  "D_REC_REVIEW": "R Reserve a review number on this recovery disk   Esc Exit"
 }

@@ -8,7 +8,7 @@ from unittest.mock import patch
 from tools.build_rescue import fat12_set
 from tools.prepare_mbr_target import (FLOPPY_BYTES, PROFILE_CLUSTER, PROFILE_ENTRY, SECTOR, WITNESS_CLUSTER,
                                       WITNESS_ENTRY, WITNESS_START, allocate_profile, fat_link, prepare_pair,
-                                      sealed, write_pair)
+                                      sealed, write_disk_pair, write_pair)
 
 
 class TargetEnrollmentTest(unittest.TestCase):
@@ -103,3 +103,32 @@ class TargetEnrollmentTest(unittest.TestCase):
                 boot = result.read('mbr-target.img')
                 self.assertEqual(boot[-512:-504], b'RBTARG01')
                 self.assertEqual(boot[:-512], image[:-512])
+
+
+    def test_second_disk_enrollment_and_new_sparse_output(self):
+        current = self.blank[:3] + b'RBTARG03' + self.blank[11:]
+        witness = bytes(range(32, 48))
+        rec = ('disk', 'second', 10080)
+        boot, label = prepare_pair(current, 'disk', 'first', 10080, *self.ids, witness, recovery=rec)
+        self.assertEqual(boot[-512:-504], b'RBTARG03')
+        self.assertEqual(boot[-388:-320], b'second'.ljust(20) + b'disk'.ljust(40) + struct.pack('<Q', 10080))
+        self.assertEqual(boot[-320:-4], bytes(316))
+        self.assertEqual(label, sealed(b'RBMEDIA1' + self.ids[1]))
+        for template, w, recovery in ((self.blank, witness, rec), (current, None, rec),
+                (current, witness, ('disk', 'first ', 10081)), (current, witness, ('disk', 'other', 6)),
+                (current, witness, ('disk', 'other', 1 << 48))):
+            with self.subTest(recovery=recovery), self.assertRaises(ValueError):
+                prepare_pair(template, 'disk', 'first', 10080, *self.ids, w, recovery=recovery)
+        with tempfile.TemporaryDirectory() as tmp:
+            template, output = Path(tmp) / 'blank.img', Path(tmp) / 'pair'
+            template.write_bytes(current)
+            write_disk_pair(template, output, 'disk', 'first', 10080, rec)
+            actual = (output / 'mbr-target.img').read_bytes()
+            raw = (output / 'mbr-recovery.img').read_bytes()
+            self.assertEqual(len(raw), 10080 * SECTOR)
+            self.assertEqual(raw[:SECTOR], sealed(b'RBMEDIA1' + actual[-480:-464]))
+            self.assertFalse(any(raw[SECTOR:]))
+            with self.assertRaises(FileExistsError):
+                write_disk_pair(template, output, 'other', 'disk', 99, rec)
+            self.assertEqual((output / 'mbr-target.img').read_bytes(), actual)
+            self.assertEqual(template.read_bytes(), current)

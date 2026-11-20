@@ -106,5 +106,14 @@
   "D_MENU": "P Festplatte prüfen   R Änderungen prüfen   V Sicherungen prüfen",
   "D_FIRST": "E Ersterfassung vor der Installation   Esc Ende",
   "D_BACK": "mbr-target.img in A einlegen und Enter drücken.",
-  "D_SAVE_BACK": "Freigabe abschließen: mbr-target.img in A einlegen und Enter drücken."
+  "D_SAVE_BACK": "Freigabe abschließen: mbr-target.img in A einlegen und Enter drücken.",
+  "D_BOTH": "P Festplatten prüfen   R Änderungen prüfen   V Sicherungen prüfen",
+  "D_REC_EXPECT": "Vorgesehene Sicherungsfestplatte",
+  "D_REC_LIVE": "Angeschlossene Sicherungsfestplatte (zweiter IDE-Master)",
+  "D_REC_CAP": "Sicherungskapazität in Sektoren",
+  "D_REC_ABSENT": "Sicherungsfestplatte fehlt oder unterstützt diesen Zugriff nicht.",
+  "D_REC_WRONG": "Andere Sicherungsfestplatte. Zugriff gesperrt.",
+  "D_REC_LABEL": "Kennung der Sicherungsfestplatte stimmt nicht. Zugriff gesperrt.",
+  "D_REC_FIRST": "E Original-MBR auf dieser Sicherungsfestplatte sichern   Esc Ende",
+  "D_REC_REVIEW": "R Prüfnummer auf dieser Sicherungsfestplatte anlegen   Esc Ende"
 }

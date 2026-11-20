@@ -21,9 +21,13 @@ The [manual VirtualBox review in merged PR #68](https://github.com/ixylon88/Retr
 confirmed revision 2 after five byte changes. The [ATA comparison in VirtualBox](https://github.com/ixylon88/RetroBoot/pull/69#issuecomment-7039436142)
 matched the enrolled IDE disk and blocked a disk with a different serial.
 The [ATA-bound diskette pair](MbrTarget.md) now uses that identity for first
-capture and later explicit MBR approval. Both saved revisions can be checked
-with the HDD disconnected. General recovery-device enrollment remains open
-under #43. This recovery work precedes partition switching between DOS and Windows.
+capture and later explicit MBR approval. The [manual VirtualBox check of merged PR #70](https://github.com/ixylon88/RetroBoot/pull/70#issuecomment-7045896717)
+confirmed original revision 1 and approved revision 2. The [dedicated IDE
+recovery disk](MbrTarget.md#using-a-dedicated-ide-recovery-disk) binds those
+records to a separately enrolled secondary master. Verification uses the
+start diskette and recovery disk with the source disconnected. Independent
+validation of the complete backup stream (#44), external backup (#45) and
+targeted restore (#46) precede partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 

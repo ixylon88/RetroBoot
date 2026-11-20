@@ -152,7 +152,7 @@ def campaign(exe, bios, src, work, out, manifest, language):
     return dict(cases=cases, manual_media={n: sha256(out / n) for n in MEDIA})
 
 
-def main():
+def main(run=campaign, folder='mbr-review-test-ata', report_name='ata-history-results.json', media=MEDIA):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--language', choices=LANGUAGES, default='en')
     parser.add_argument('--qemu', default='qemu-system-i386')
@@ -164,10 +164,10 @@ def main():
     exe = Path(executable).resolve()
     bios = (args.bios or exe.parent.parent / 'share/seabios/bios-256k.bin').resolve()
     src = ROOT / 'build' / output_name('rescue', args.language)
-    out = ROOT / 'build' / ('mbr-review-test-ata' + ('-de' if args.language == 'de' else ''))
+    out = ROOT / 'build' / (folder + ('-de' if args.language == 'de' else ''))
     prepare_output(out)
-    report = out / 'ata-history-results.json'
-    for name in (report.name, *MEDIA):
+    report = out / report_name
+    for name in (report.name, *media):
         (out / name).unlink(missing_ok=True)
     manifest = json.loads((src / 'manifest.json').read_bytes())
     check_build_inputs(manifest, ROOT)
@@ -176,9 +176,9 @@ def main():
             raise ValueError('Changed ATA history input: ' + name)
     with tempfile.TemporaryDirectory() as directory:
         work = Path(directory)
-        (work / 'events.txt').write_text('ide_sector_read\nide_sector_write\nblk_co_pwritev\n')
+        (work / 'events.txt').write_text('ide_sector_read\nide_sector_write\nide_bus_exec_cmd\nblk_co_pwritev\n')
         try:
-            result = campaign(exe, bios, src, work, out, manifest, args.language)
+            result = run(exe, bios, src, work, out, manifest, args.language)
         except Exception:
             for log in work.glob('*.log'):
                 shutil.copyfile(log, out / log.name)

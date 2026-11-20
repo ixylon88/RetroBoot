@@ -27,7 +27,8 @@ def stop_at_transcript(q, vga, lines, name):
 
 
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
-                 *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw'):
+                 *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
+                 recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=()):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -40,12 +41,15 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             '-global', 'isa-debugcon.iobase=0xe9', '-debugcon', 'file:' + str(log),
             '-drive', f'if=floppy,id=floppy,format=raw,{access},file={boot_disk}',
             '-trace', f'events={out / "events.txt"},file={trace}']
-    if disk is not None:
-        device = 'ide-hd,drive=rb,bus=ide.0,unit=0,cyls=10,heads=16,secs=63,lcyls=10,lheads=16,lsecs=63'
-        if ata_identity is not None:
-            model, serial = ata_identity
+    for channel, path, fmt, identity, node in ((0, disk, disk_format, ata_identity, 'rb'),
+            (1, recovery_disk, recovery_format, recovery_identity, 'recovery')):
+        if path is None:
+            continue
+        device = f'ide-hd,drive={node},bus=ide.{channel},unit=0,cyls=10,heads=16,secs=63,lcyls=10,lheads=16,lsecs=63'
+        if identity is not None:
+            model, serial = identity
             device += ',model=' + model.replace(',', ',,') + ',serial=' + serial.replace(',', ',,')
-        args += ['-drive', f'file={disk},format={disk_format},if=none,id=rb', '-device', device]
+        args += ['-drive', f'file={path},format={fmt},if=none,id={node}', '-device', device]
     if rom:
         args += ['-option-rom', str(rom)]
 
@@ -67,6 +71,8 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             stop_at_transcript(q, vga, lines, name)
             q.call('pmemsave', {'val': 0x10000, 'size': 65536, 'filename': str(ram)})
             check_memory(ram.read_bytes(), fixture['binary'], fixture['memory'], zero_bss=False)
+            if recovery_disk is not None:
+                devices = {d['device']: d['stats'] for d in q.call('query-blockstats') if d.get('device')}
             if cut:
                 proc.kill()
             else:
@@ -82,11 +88,29 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
     if actual != lines + (['~'] if cut else []):
         raise ValueError(f'{name}: unexpected debug transcript {actual}')
     bus = trace.read_text()
-    if trace_reads(bus) != reads or 'ide_sector_write' in bus:
-        raise ValueError(f'{name}: unexpected HDD I/O {trace_reads(bus)}')
+    all_reads = trace_reads(bus)
+    result = dict(name=name, transcript=lines, hdd_read_lbas=reads, power_cut=cut, vga_sha256=sha256(vga))
+    if recovery_disk is None:
+        if all_reads != reads or 'ide_sector_write' in bus:
+            raise ValueError(f'{name}: unexpected HDD I/O {all_reads}')
+        result['floppy_write_lbas'] = write_lbas
+    else:
+        source = devices.get('rb', {'rd_bytes': 0, 'wr_bytes': 0})
+        backup = devices['recovery']
+        if (source['rd_bytes'] != len(reads) * 512 or source['wr_bytes'] or any(reads)
+                or backup['rd_bytes'] != (len(all_reads) - len(reads)) * 512 or any(n > 6 for n in all_reads)
+                or backup['wr_bytes'] != len(recovery_writes) * 512):
+            raise ValueError(f'{name}: unexpected per-drive physical I/O')
+        transfers = re.findall(r'ide_sector_write sector=(\d+) nsectors=(\d+)', bus)
+        commands = re.findall(r'ide_bus_exec_cmd[^\n]*state (0x[0-9a-f]+); cmd (0x30|0xe7)\b', bus)
+        if ([(int(l), int(n)) for l, n in transfers] != [(l, 1) for l in recovery_writes]
+                or [op for _, op in commands] != ['0x30', '0xe7'] * len(recovery_writes)
+                or len({state for state, _ in commands}) > 1):
+            raise ValueError(f'{name}: unexpected recovery writes or cache flushes')
+        result.update(ide_read_lbas=all_reads, recovery_read_sectors=backup['rd_bytes']//512,
+                      recovery_write_lbas=list(recovery_writes), floppy_write_lbas=[n for n in write_lbas if n > 6])
     spans = re.findall(r'blk_co_pwritev[^\n]*offset[ =]+(\d+)[, ]+bytes[ =]+(\d+)', bus)
     if bus.count('blk_co_pwritev') != len(spans) or [(int(a), int(b)) for a, b in spans] != [
             (n * 512, 512) for n in write_lbas]:
         raise ValueError(f'{name}: unexpected physical writes {spans}')
-    return dict(name=name, transcript=lines, hdd_read_lbas=reads, floppy_write_lbas=write_lbas,
-                power_cut=cut, vga_sha256=sha256(vga))
+    return result
