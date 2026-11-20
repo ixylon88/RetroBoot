@@ -60,7 +60,7 @@ def sealed(data):
     return body + struct.pack('<I', zlib.crc32(body))
 
 
-def prepare_pair(boot, model, serial, sectors, target_id, carrier_id, witness_id=None):
+def prepare_pair(boot, model, serial, sectors, target_id, carrier_id, witness_id=None, *, recovery=None):
     at = PROFILE_CLUSTER + PROFILE_CLUSTER // 2
     if (len(boot) != FLOPPY_BYTES or boot[PROFILE_ENTRY:PROFILE_ENTRY + 12] != FILE_NAME + b'\x01'
             or struct.unpack_from('<HI', boot, PROFILE_ENTRY + 26) != (PROFILE_CLUSTER, SECTOR)
@@ -83,10 +83,19 @@ def prepare_pair(boot, model, serial, sectors, target_id, carrier_id, witness_id
             raise ValueError('Invalid or occupied witness enrollment')
         version, suffix = b'RBTARG02', witness_id
         image[WITNESS_START:WITNESS_START + SECTOR] = sealed(b'RBMEDIA1' + witness_id)
+    source_fields = field(serial, 20) + field(model, 40)
+    carrier_label = sealed(b'RBMEDIA1' + carrier_id)
+    if recovery is not None:
+        recovery_model, recovery_serial, recovery_sectors = recovery
+        recovery_fields = field(recovery_serial, 20) + field(recovery_model, 40)
+        if (witness_id is None or boot[3:11] != b'RBTARG03' or recovery_fields == source_fields
+                or not 7 <= recovery_sectors < 1 << 48):
+            raise ValueError('Expected a current template and a distinct recovery disk with at least seven sectors')
+        version = b'RBTARG03'
+        suffix += recovery_fields + struct.pack('<Q', recovery_sectors)
     image[-SECTOR:] = sealed(struct.pack('<8s16sQ16s', version, target_id, sectors, carrier_id)
-                             + field(serial, 20) + field(model, 40) + suffix)
-    carrier = sealed(b'RBMEDIA1' + carrier_id) + bytes(FLOPPY_BYTES - SECTOR)
-    return bytes(image), carrier
+                             + source_fields + suffix)
+    return bytes(image), carrier_label if recovery else carrier_label.ljust(FLOPPY_BYTES, b'\0')
 
 
 def write_pair(template, output, model, serial, sectors):
@@ -111,16 +120,49 @@ def write_pair(template, output, model, serial, sectors):
             os.link(archive, output)
 
 
+def write_disk_pair(template, output, model, serial, sectors, recovery):
+    """Publish a new boot diskette and a sparse, dedicated raw recovery disk."""
+    ids = [uuid.uuid4().bytes for _ in range(3)]
+    boot, label = prepare_pair(template.read_bytes(), model, serial, sectors, *ids, recovery=recovery)
+    with tempfile.TemporaryDirectory(dir=output.parent) as directory:
+        stage = Path(directory)
+        start = stage / 'mbr-target.img'
+        disk = stage / 'mbr-recovery.img'
+        with disk.open('xb') as image:
+            image.write(label)
+            image.truncate(recovery[2] * SECTOR)
+        start.write_bytes(boot)
+        output.mkdir()  # exclusive even when two preparations target the same directory
+        try:
+            disk.rename(output / disk.name)
+            start.rename(output / start.name)
+        except OSError:
+            if not disk.exists():
+                (output / disk.name).unlink()
+            output.rmdir()
+            raise
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('template', type=Path)
     parser.add_argument('--model', required=True)
     parser.add_argument('--serial', required=True)
     parser.add_argument('--sectors', type=int, required=True, help='Number of 512-byte logical sectors')
-    parser.add_argument('--output', type=Path, required=True, help='New ZIP file for this enrollment')
+    parser.add_argument('--recovery-model')
+    parser.add_argument('--recovery-serial')
+    parser.add_argument('--recovery-sectors', type=int)
+    parser.add_argument('--output', type=Path, required=True,
+                        help='New ZIP for two diskettes, or new directory for a dedicated recovery disk')
     args = parser.parse_args()
     try:
-        write_pair(args.template, args.output, args.model, args.serial, args.sectors)
+        recovery = (args.recovery_model, args.recovery_serial, args.recovery_sectors)
+        if all(v is None for v in recovery):
+            write_pair(args.template, args.output, args.model, args.serial, args.sectors)
+        elif any(v is None for v in recovery):
+            parser.error('The recovery disk requires its model, serial and sector count')
+        else:
+            write_disk_pair(args.template, args.output, args.model, args.serial, args.sectors, recovery)
     except (OSError, ValueError) as exc:
         parser.exit(1, f'RetroBoot: {exc}\n')
 

@@ -189,8 +189,9 @@ def build(kind='rescue',language='en'):
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
+        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name == 'mbr-target' else []
         boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
-            '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),'boot/rescue.asm','-o',boot)
+            '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),*flags,'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
     for name,defines in (('retroboot-rescue',[]),('rescue-bss-fault',['-DRB_RESCUE_BAD_BSS=1']),
             ('rescue-model',['-DRB_RESCUE_MODEL=1']),('backup-model',['-DRB_RESCUE_BACKUP_MODEL=1']),

@@ -41,7 +41,7 @@ static rb_u16 __cdecl select_medium(rb_u16 phase, void *opaque)
     review_drive *drive = (review_drive *)opaque;
     capture_medium *m = &drive->medium;
     rb_u16 key, carrier = phase == RB_MBR_SELECT_CARRIER;
-    if (phase != RB_MBR_START_WITNESS) {
+    if (phase != RB_MBR_START_WITNESS && !drive->source->carrier_read) {
         if (carrier) { line(drive->saving ? RB_RS_A_SAVE_DATA : RB_RS_A_DATA); }
         else if (drive->source->ata_profile) { line(drive->saving ? RB_RS_D_SAVE_BACK : RB_RS_D_BACK); }
         else { line(drive->saving ? RB_RS_A_SAVE_BACK : RB_RS_A_BACK); }
@@ -52,6 +52,15 @@ static rb_u16 __cdecl select_medium(rb_u16 phase, void *opaque)
     m->sectors = carrier ? 6 : 4;
     m->id = carrier ? drive->source->binding->recovery_id : drive->source->witness_id;
     return !carrier && !witness_layout(drive);
+}
+
+static rb_u16 __cdecl read_record(rb_u16 n, rb_u8 *out, rb_u8 *id, void *opaque)
+{
+    review_drive *drive = (review_drive *)opaque;
+    if (!drive->medium.base && drive->source->carrier_read) {
+        return drive->source->carrier_read(n, out, id, drive->source->disk);
+    }
+    return rb_mbr_floppy_read(n, out, id, &drive->medium);
 }
 
 static rb_u16 __cdecl write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, void *opaque)
@@ -65,6 +74,10 @@ static rb_u16 __cdecl write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, v
         if (n < 2 && !(drive->enrolling && drive->source->ata_profile)) { return 0; }
     }
     if (drive->source->matches && !drive->source->matches(drive->source->disk)) { return 0; }
+    if (!m->base && drive->source->carrier_read) {
+        if (!drive->source->carrier_write) { return 0; }
+        return drive->source->carrier_write(n, in, id, drive->source->disk);
+    }
     if (!equal(m->id, id, 16) || !rb_mbr_floppy_matches(m)
         || rb_fixture_floppy_write(m->base + 1 + n, in, &m->drive) || !rb_mbr_floppy_matches(m)) { return 0; }
     return 512;
@@ -127,7 +140,7 @@ static rb_u16 verify(const rb_mbr_binding *binding, review_drive *drive)
     rb_mbr_recovered records;
     rb_mbr_restart_source source;
     rb_u16 rc;
-    source.read = rb_mbr_floppy_read; source.opaque = &drive->medium;
+    source.read = read_record; source.opaque = drive;
     if (select_medium(RB_MBR_START_WITNESS, drive)) { return RB_REOPEN_IO; }
     rc = rb_mbr_load_witness(&witness, binding, drive->source->witness_id, &source);
     if (rc) { return rc; }
@@ -150,8 +163,7 @@ rb_u16 rb_mbr_review_action(rb_u16 key, rb_u16 boot_drive, const rb_mbr_review_s
     drive.medium.drive = boot_drive;
     drive.source = source;
     drive.writing = key == 'R' || key == 'E';
-    /* The sector reader receives the capture_medium at the beginning of review_drive. */
-    media.read = rb_mbr_floppy_read; media.write = write_record;
+    media.read = read_record; media.write = write_record;
     media.select = select_medium; media.opaque = &drive;
     if (key == 'V') { rc = verify(source->binding, &drive); }
     else if (key == 'R') {
