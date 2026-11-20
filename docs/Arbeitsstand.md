@@ -25,9 +25,13 @@ capture and later explicit MBR approval. The [manual VirtualBox check of merged 
 confirmed original revision 1 and approved revision 2. The [dedicated IDE
 recovery disk](MbrTarget.md#using-a-dedicated-ide-recovery-disk) binds those
 records to a separately enrolled secondary master. Verification uses the
-start diskette and recovery disk with the source disconnected. Independent
-validation of the complete backup stream (#44), external backup (#45) and
-targeted restore (#46) precede partition switching between DOS and Windows.
+start diskette and recovery disk with the source disconnected. The [manual
+VirtualBox test of merged PR #71](https://github.com/ixylon88/RetroBoot/pull/71#issuecomment-7053214370)
+confirmed the saved original and approval and blocked the comparison disk at
+the same port. This completed #43. The [independent completion check](BackupVerification.md)
+for #44 reopens the provisional output and compares every serialized byte.
+A durable external backup (#45) and targeted restore (#46) precede partition
+switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)
 

@@ -115,5 +115,9 @@
   "D_REC_WRONG": "Different recovery disk. Access blocked.",
   "D_REC_LABEL": "Recovery disk label mismatch. Access blocked.",
   "D_REC_FIRST": "E Save original MBR on this recovery disk   Esc Exit",
-  "D_REC_REVIEW": "R Reserve a review number on this recovery disk   Esc Exit"
+  "D_REC_REVIEW": "R Reserve a review number on this recovery disk   Esc Exit",
+  "VERIFY_TITLE": "Read-only backup test",
+  "VERIFY_COUNT": "Verified sectors ",
+  "VERIFY_DAMAGE": "Damaged last sector rejected",
+  "VERIFY_APPROVAL": "Substituted approved MBR rejected"
 }
