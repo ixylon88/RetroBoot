@@ -1,25 +1,9 @@
 #include "mbr_first_witness.h"
-#include "mbr_current.h"
+#include "mbr_live_sample.h"
 #include "mbr_header.h"
 #include "mbr_media.h"
 
 static const rb_u8 blank[512] = {0};
-
-static rb_u16 sample(const rb_mbr_target *target, rb_mbr_current_reader read,
-                     void *disk, rb_u8 *bytes)
-{
-    rb_u16 rc = read_bound_mbr(target, read, disk, bytes);
-    if (rc == RB_MBR_BINDING) { return RB_REOPEN_BINDING; }
-    return rc == RB_MBR_OK ? RB_REOPEN_OK : RB_REOPEN_IO;
-}
-
-static rb_u16 verify_target(const rb_mbr_witness *first, rb_mbr_current_reader read, void *disk)
-{
-    rb_u8 bytes[512];
-    rb_u16 rc = sample(&first->binding.target, read, disk, bytes);
-    if (rc) { return rc; }
-    return equal(bytes, first->original, 512) ? RB_REOPEN_OK : RB_REOPEN_CHANGED;
-}
 
 static rb_u16 expect(const rb_mbr_restart_source *s, const rb_u8 *id, rb_u16 sector,
                      const rb_u8 *expected)
@@ -47,7 +31,6 @@ static rb_u16 pending_witness(const rb_mbr_restart_source *s, const rb_u8 *id,
 static rb_u16 stage_carrier(const rb_mbr_witness *first, const rb_mbr_restart_source *s,
                             const rb_mbr_exchange *media, rb_mbr_current_reader read, void *disk)
 {
-    rb_mbr_recovered recovered;
     rb_u8 header[512], slot[512];
     const rb_u8 *id = first->binding.recovery_id;
     rb_u16 n, rc;
@@ -61,10 +44,10 @@ static rb_u16 stage_carrier(const rb_mbr_witness *first, const rb_mbr_restart_so
 
     make_header(header, "RBCMT001", &first->binding, &first->commit);
     if (!equal(slot, header, 512) && !equal(slot, blank, 512)) { return RB_REOPEN_STALE; }
-    rc = verify_target(first, read, disk);
+    rc = recheck_mbr(&first->binding.target, first->original, read, disk);
     if (!rc && !equal(slot, header, 512)) { rc = write_checked(media, 2, header, id); }
     if (rc) { return rc; }
-    return rb_mbr_reopen(&recovered, first, s);
+    return rb_mbr_verify_carrier(first, s);
 }
 
 rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
@@ -87,7 +70,7 @@ rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
     first.binding = *b;
     first.commit.generation = first.commit.issued = 1;
     if (media->select(RB_MBR_START_WITNESS, media->opaque)) { return RB_REOPEN_IO; }
-    rc = sample(&b->target, read, disk, first.original);
+    rc = sample_mbr(&b->target, read, disk, first.original);
     if (rc) { return rc; }
     if (equal(first.original + 432, (const rb_u8 *)"RBM1", 4)) { return RB_FIRST_WITNESS_ORIGIN; }
     first.commit.original_crc = rb_crc32(first.original, 512);
@@ -103,7 +86,7 @@ rb_u16 rb_mbr_publish_first_witness(const rb_mbr_binding *b, const rb_u8 *id,
     if (rc) { return rc; }
     if (returned != staged) { return RB_REOPEN_CHANGED; }
     if (!staged) { rc = write_checked(media, 1, first.original, id); }
-    if (!rc) { rc = verify_target(&first, read, disk); }
+    if (!rc) { rc = recheck_mbr(&b->target, first.original, read, disk); }
     if (!rc) { rc = pending_witness(&source, id, first.original, &returned); }
     if (rc) { return rc; }
     if (!returned) { return RB_REOPEN_CHANGED; }

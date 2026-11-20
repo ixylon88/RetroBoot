@@ -106,6 +106,7 @@ rescue-test: rescue-check
 	$(PYTHON) tools/test_mbr_reservation.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_original.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_first_witness.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_mbr_approval.py --language $(RB_LANGUAGE)
 
 iso-deps:
 	$(PYTHON) -m pip install --require-hashes -r tools/requirements-iso.txt

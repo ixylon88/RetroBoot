@@ -12,6 +12,7 @@ org 0
 ; Rescue only: 10=one floppy payload read failure, 11=persistent failure.
 ; Rescue only: 19=one changed FAT32 tail byte in the second payload pass.
 ; 20/21=changed sector zero on the second/third read of the original-MBR fixture.
+; 22=substitute a different fixture MBR with the same CRC32 on the decision recheck.
     dw 0xAA55
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18
     db 2                       ; extra block for a replacement saved sector
@@ -272,7 +273,7 @@ handler:
     mov byte [cs:change_pending - handler], 1
 %endif
 %endif
-%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 21
+%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 22
 %if RB_ROM_MODE == 19
     cmp ah, 0x48
     jne .payload_read
@@ -293,6 +294,8 @@ handler:
     inc byte [cs:payload_count - handler]
 %if RB_ROM_MODE == 19
     cmp byte [cs:payload_count - handler], 4
+%elif RB_ROM_MODE == 22
+    cmp byte [cs:payload_count - handler], 2
 %else
     cmp byte [cs:payload_count - handler], RB_ROM_MODE - 18
 %endif
@@ -304,7 +307,12 @@ handler:
     push es
     push bx
     les bx, [si + 4]
-    xor byte [es:bx + 100], 1  ; only the returned buffer changes, never the HDD
+%if RB_ROM_MODE == 22
+    xor byte [es:bx + 77], 3           ; sector_body(10) -> sector_body(9)
+    xor dword [es:bx + 428], 0x3989e089 ; corresponding CRC of the fixture's first 428 bytes
+%else
+    xor byte [es:bx + 100], 1          ; only the returned buffer changes
+%endif
     pop bx
     pop es
 .payload_return:
@@ -360,7 +368,7 @@ floppy_failures: db 0
 probe_count: db 0
 change_pending: db 0
 %endif
-%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 21
+%if RB_ROM_MODE >= 19 && RB_ROM_MODE <= 22
 payload_count: db 0
 %endif
 %if RB_ROM_MODE >= 17 && RB_ROM_MODE <= 18

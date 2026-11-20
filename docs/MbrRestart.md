@@ -123,7 +123,8 @@ both the trusted witness and its matching carrier together requires an
 independent record of the latest generation to detect. The read-only probe
 assumes that custody and stable media during each acquisition. A separate
 [writable fixture](MbrReservation.md) reserves numbers and advances its witness
-after verified external staging. Publication of a new approval remains open.
+after verified external staging. The [approval fixture](MbrApproval.md) now publishes a reviewed live sector
+and retains a second witness payload until the header commits.
 Targeted repair also
 requires the independent backup and confirmation gates in the
 [provenance contract](MbrProvenance.md#evidence-for-targeted-recovery).

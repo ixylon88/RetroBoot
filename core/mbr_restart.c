@@ -53,13 +53,19 @@ static rb_u16 load(rb_mbr_witness *w, const rb_mbr_binding *b, const rb_u8 *id,
                    const rb_mbr_restart_source *s)
 {
     rb_u8 buf[512];
-    rb_u16 rc, pass;
+    rb_u16 rc, pass, alternate;
     rb_mbr_commit c;
     for (pass = 0; pass < 2; ++pass) {
         rc = acquire(s, id, 0, buf);
-        if (!rc) { rc = header(buf, "RBWIT001", b, &c); }
         if (rc) { return rc; }
-        if (pass && !same_commit(&w->commit, &c)) { return RB_REOPEN_CHANGED; }
+        alternate = equal(buf, (const rb_u8 *)"RBWIT002", 8);
+        rc = header(buf, alternate ? "RBWIT002" : "RBWIT001", b, &c);
+        if (rc) { return rc; }
+        if (alternate && !c.approved) { return RB_REOPEN_FORMAT; }
+        if (pass && (w->alternate_payload != alternate || !same_commit(&w->commit, &c))) {
+            return RB_REOPEN_CHANGED;
+        }
+        w->alternate_payload = alternate;
         w->commit = c;
         rc = acquire(s, id, 1, buf);
         if (rc) { return rc; }
@@ -67,7 +73,7 @@ static rb_u16 load(rb_mbr_witness *w, const rb_mbr_binding *b, const rb_u8 *id,
         if (equal(buf + 432, (const rb_u8 *)"RBM1", 4)) { return RB_REOPEN_FORMAT; }
         if (pass && !equal(w->original, buf, 512)) { return RB_REOPEN_CHANGED; }
         copy_sector(w->original, buf);
-        rc = acquire(s, id, 2, buf);
+        rc = acquire(s, id, 2 + alternate, buf);
         if (rc) { return rc; }
         if (!c.approved && !zero(buf, 512)) { return RB_REOPEN_FORMAT; }
         if (c.approved && rb_crc32(buf, 512) != c.approved_crc) { return RB_REOPEN_CRC; }
@@ -99,7 +105,8 @@ rb_u16 rb_mbr_verify_witness(const rb_mbr_witness *expected, const rb_u8 *id,
     if (!expected) { return RB_REOPEN_PARAMS; }
     rc = rb_mbr_load_witness(&actual, &expected->binding, id, source);
     if (rc) { return rc; }
-    if (!same_commit(&actual.commit, &expected->commit)
+    if (actual.alternate_payload != expected->alternate_payload
+        || !same_commit(&actual.commit, &expected->commit)
         || !equal(actual.original, expected->original, 512)
         || !equal(actual.approved, expected->approved, 512)) { return RB_REOPEN_CHANGED; }
     return RB_REOPEN_OK;
@@ -127,17 +134,24 @@ static rb_u16 check_carrier(const rb_mbr_witness *w, const rb_mbr_restart_source
     return equal(buf, w->approved, 512) ? RB_REOPEN_OK : RB_REOPEN_CHANGED;
 }
 
+rb_u16 rb_mbr_verify_carrier(const rb_mbr_witness *w, const rb_mbr_restart_source *s)
+{
+    rb_u16 rc;
+    if (!w || !s || !s->read || !valid_binding(&w->binding) || !valid_commit(&w->commit)) {
+        return RB_REOPEN_PARAMS;
+    }
+    rc = check_carrier(w, s);
+    if (!rc) { rc = check_carrier(w, s); }
+    return rc;
+}
+
 rb_u16 rb_mbr_reopen(rb_mbr_recovered *out, const rb_mbr_witness *w,
                      const rb_mbr_restart_source *s)
 {
     rb_u16 rc;
     if (!out) { return RB_REOPEN_PARAMS; }
     clear((rb_u8 *)out, sizeof(*out));
-    if (!w || !s || !s->read || !valid_binding(&w->binding) || !valid_commit(&w->commit)) {
-        return RB_REOPEN_PARAMS;
-    }
-    rc = check_carrier(w, s);
-    if (!rc) { rc = check_carrier(w, s); }
+    rc = rb_mbr_verify_carrier(w, s);
     if (rc) { return rc; }
     out->binding = w->binding;
     out->generation = w->commit.generation;

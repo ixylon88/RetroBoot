@@ -20,6 +20,7 @@ typedef struct {
 typedef struct {
     rb_mbr_binding binding;
     rb_mbr_commit commit;
+    rb_u16 alternate_payload; /* zero selects legacy witness sector 2, one selects sector 3 */
     rb_u8 original[512], approved[512];
 } rb_mbr_witness;
 
@@ -41,6 +42,8 @@ rb_u16 rb_mbr_load_witness(rb_mbr_witness *out, const rb_mbr_binding *enrollment
 /* Reload the retained witness and compare both complete sectors and all counters. */
 rb_u16 rb_mbr_verify_witness(const rb_mbr_witness *expected, const rb_u8 *witness_id,
                              const rb_mbr_restart_source *source);
+/* Check both complete carrier passes without allocating a recovered copy. */
+rb_u16 rb_mbr_verify_carrier(const rb_mbr_witness *witness, const rb_mbr_restart_source *carrier);
 /* Cold-start destination. Failure clears all bytes and revision claims.
    Success recovers historical roles only. The target disk is never read. */
 rb_u16 rb_mbr_reopen(rb_mbr_recovered *out, const rb_mbr_witness *witness,

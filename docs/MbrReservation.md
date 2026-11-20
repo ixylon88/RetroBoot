@@ -4,8 +4,8 @@ The standalone BIOS fixture boots from a writable witness floppy in A. A
 second writable test floppy holds two publication slots. Reserving a number
 advances the generation and the highest issued review number by one while
 preserving the original, the latest approved MBR and its predecessor. This
-operation releases a number only. First-install enrollment, capturing the
-live candidate and explicitly approving a new sector remain separate work.
+operation releases a number only. The [approval publisher](MbrApproval.md)
+uses its successful checkpoint to bind an explicit decision to fresh live bytes.
 [Reservation interface](../include/mbr_reservation.h) · [Record format](MbrRestart.md)
 
 ## Write and restart contract

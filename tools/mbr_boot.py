@@ -1,4 +1,5 @@
 """Shared SeaBIOS boot harness for original-MBR and first-witness tests."""
+from collections import Counter
 import re
 import subprocess
 
@@ -32,21 +33,24 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, text=True, bufsize=1) as proc:
         try:
             q = Qmp(proc)
+            visits = Counter()
             for prompt, key, medium, readonly in actions:
-                wait_marker(proc, log, prompt + '\n')
+                visits[prompt] += 1
+                wait_marker(proc, log, prompt + '\n', encoding='cp437', occurrence=visits[prompt])
                 if medium is not None:
                     q.call('blockdev-change-medium', {'device': 'floppy', 'filename': str(medium), 'format': 'raw',
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
                 q.call('send-key', {'keys': [{'type': 'qcode', 'data': key}], 'hold-time': 30})
-            wait_marker(proc, log, marker + '\n')
+            wait_marker(proc, log, marker + '\n', encoding='cp437')
             q.call('stop')
             ram, vga = out / (name + '-ram.bin'), out / (name + '-vga.bin')
             q.call('pmemsave', {'val': 0x10000, 'size': 65536, 'filename': str(ram)})
             q.call('pmemsave', {'val': 0xb8000, 'size': 4000, 'filename': str(vga)})
             check_memory(ram.read_bytes(), fixture['binary'], fixture['memory'], zero_bss=False)
             rows = [s.rstrip() for s in screen_rows(vga.read_bytes())]
-            index = rows.index(lines[0])
-            if rows[index:index + len(lines)] != lines or any(rows[index + len(lines):]):
+            visible = lines[-24:]  # BIOS teletype scrolls the 25th row on the final newline.
+            index = rows.index(visible[0]) if len(lines) <= 24 else 0
+            if rows[index:index + len(visible)] != visible or any(rows[index + len(visible):]):
                 raise ValueError(f'{name}: unexpected VGA transcript')
             if cut:
                 proc.kill()
@@ -59,7 +63,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             if proc.poll() is None:
                 proc.kill()
                 proc.wait(timeout=5)
-    actual = [s for s in log.read_text().splitlines() if not re.fullmatch('@[0-9A-F]{2}', s)]
+    actual = [s for s in log.read_text(encoding='cp437').splitlines() if not re.fullmatch('@[0-9A-F]{2}', s)]
     if actual != lines + (['~'] if cut else []):
         raise ValueError(f'{name}: unexpected debug transcript {actual}')
     bus = trace.read_text()

@@ -11,7 +11,7 @@ permissions:
 jobs:
   bios-probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -89,6 +89,7 @@ jobs:
             build/rescue/mbr-witness.img
             build/rescue-de/mbr-witness.img
             build/mbr-witness-test*/*
+            build/mbr-review-test*/*
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img

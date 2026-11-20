@@ -68,8 +68,8 @@ An interruption can leave the complete original on the carrier even when the
 caller received an error. A new first-install session with continuing custody
 verifies the actual bytes. Loss or replay of both an endpoint label and its
 history requires independently retained evidence. The [first witness](#publishing-and-checking-the-first-witness)
-records this capture separately. Durable approval of a later reviewed sector
-remains open in #43. Targeted restore requires the additional backup gates in #45 and
+records this capture separately. A later [explicitly reviewed sector](MbrApproval.md) can now be
+published on controlled media. Targeted restore requires the additional backup gates in #45 and
 #46.
 
 ### BIOS evidence
@@ -155,6 +155,9 @@ the HDD. It checks the physical write order, complete image bytes, cold
 retries and rejections, including different original sectors with equal CRC32.
 The retained boot medium must remain independently identifiable and current.
 Detecting a coordinated rollback of all evidence requires separate custody.
+
+The [later approval workflow](MbrApproval.md) preserves this original while
+recording a freshly reviewed MBR on both media.
 
 ## Evidence across a restart
 
