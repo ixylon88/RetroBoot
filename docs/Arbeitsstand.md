@@ -1,6 +1,6 @@
 # Project state and resumption
 
-Updated 19 November 2026.
+Updated 20 November 2026.
 
 ## Original DOS boot and current recovery work
 
@@ -17,7 +17,10 @@ fixture verified the pair with the HDD disconnected in the [manual VirtualBox
 test for merged PR #67](https://github.com/ixylon88/RetroBoot/pull/67#issuecomment-7020174792).
 The [approval fixture](MbrApproval.md) presents a later live MBR for an explicit
 decision and retains the original alongside the latest approved sector.
-Physical endpoint enrollment in the installer remains open under #43. This
+The [manual VirtualBox review in merged PR #68](https://github.com/ixylon88/RetroBoot/pull/68#issuecomment-7037596155)
+confirmed revision 2 after five byte changes. The [ATA capture](MbrTarget.md)
+checks a primary IDE master against independently enrolled device fields before
+capturing its original sector. General recovery endpoint enrollment remains open under #43. This
 recovery work precedes partition switching between DOS and Windows.
 
 ## Durable review numbers on two test floppies (#43)

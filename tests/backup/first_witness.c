@@ -33,8 +33,8 @@ static rb_u16 __cdecl write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, v
 {
     capture_medium *m = (capture_medium *)opaque;
     if ((m->base == 0 ? n != 2 : n > 1) || !same(id, m->id, 16)
-        || !medium_matches(m) || rb_fixture_floppy_write(m->base + 1 + n, in, &m->drive)
-        || !medium_matches(m)) { return 0; }
+        || !rb_mbr_floppy_matches(m) || rb_fixture_floppy_write(m->base + 1 + n, in, &m->drive)
+        || !rb_mbr_floppy_matches(m)) { return 0; }
     return 512;
 }
 
@@ -44,7 +44,7 @@ static rb_u16 verify_pair(const rb_mbr_binding *binding, capture_medium *medium)
     rb_mbr_recovered history;
     rb_mbr_restart_source source;
     rb_u16 rc;
-    source.read = read_record;
+    source.read = rb_mbr_floppy_read;
     source.opaque = medium;
     select_medium(RB_MBR_START_WITNESS, medium);
     rc = rb_mbr_load_witness(&witness, binding, witness_id, &source);
@@ -69,7 +69,7 @@ rb_u16 __cdecl rb_mbr_witness_demo(rb_u16 boot_drive)
         if (!rc) { line("ORIGINAL REV 1 VERIFIED"); }
     } else {
         media.select = select_medium;
-        media.read = read_record;
+        media.read = rb_mbr_floppy_read;
         media.write = write_record;
         media.opaque = &medium;
         rc = rb_mbr_publish_first_witness(&binding, witness_id,

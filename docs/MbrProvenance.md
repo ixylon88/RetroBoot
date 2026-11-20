@@ -80,8 +80,9 @@ test HDD. `mbr-original-data.img` is the recovery carrier. Under exclusive
 VM control, the fixture checks separately provisioned endpoint labels around
 every data access. The target label occupies the final HDD sector and the
 carrier label occupies LBA 0. The BIOS supplies the target capacity. These
-fixture labels support controlled VM tests. Physical-device identification
-for a general installer remains open.
+fixture labels support controlled VM tests. The [enrolled ATA capture](MbrTarget.md)
+uses the operating device’s model, serial and capacity on a legacy IDE route.
+General installer enrollment and recovery endpoint identification remain open.
 
 At the prompt, Enter confirms first-install custody and Esc cancels. The
 fixture writer addresses only LBAs 1 and 2 of the labelled recovery floppy.

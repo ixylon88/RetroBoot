@@ -45,8 +45,8 @@ static rb_u16 __cdecl write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, v
     if (m->base) {
         if (n >= m->sectors || (drive->enrolling ? n > 1 : n == 1)) { return 0; }
     } else if (n < 2 || n >= m->sectors || (drive->enrolling && n != 2)) { return 0; }
-    if (!same(m->id, id, 16) || !medium_matches(m)
-        || rb_fixture_floppy_write(m->base + 1 + n, in, &m->drive) || !medium_matches(m)) { return 0; }
+    if (!same(m->id, id, 16) || !rb_mbr_floppy_matches(m)
+        || rb_fixture_floppy_write(m->base + 1 + n, in, &m->drive) || !rb_mbr_floppy_matches(m)) { return 0; }
     return 512;
 }
 
@@ -107,7 +107,7 @@ static rb_u16 verify(const rb_mbr_binding *binding, review_drive *drive)
     rb_mbr_recovered records;
     rb_mbr_restart_source source;
     rb_u16 rc;
-    source.read = read_record; source.opaque = &drive->medium;
+    source.read = rb_mbr_floppy_read; source.opaque = &drive->medium;
     select_medium(RB_MBR_START_WITNESS, drive);
     rc = rb_mbr_load_witness(&witness, binding, witness_id, &source);
     if (rc) { return rc; }
@@ -131,7 +131,7 @@ rb_u16 __cdecl rb_mbr_review_demo(rb_u16 boot_drive)
     capture_binding(&binding);
     drive.medium.drive = boot_drive;
     /* The record reader uses the capture_medium at the beginning of review_drive. */
-    media.read = read_record; media.write = write_record;
+    media.read = rb_mbr_floppy_read; media.write = write_record;
     media.select = select_medium; media.opaque = &drive;
     line("RB MBR REVIEW");
     line(RB_RS_A_MENU);

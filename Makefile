@@ -105,6 +105,7 @@ rescue-test: rescue-check
 	$(PYTHON) tools/test_mbr_restart.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_reservation.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_original.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_mbr_target.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_first_witness.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_approval.py --language $(RB_LANGUAGE)
 

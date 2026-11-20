@@ -10,7 +10,7 @@ static int equal(const rb_u8 *a, const rb_u8 *b, rb_u16 size)
     return 1;
 }
 
-static void clear(rb_u8 *bytes, rb_u16 size)
+static __inline void clear(rb_u8 *bytes, rb_u16 size)
 {
     while (size) { bytes[--size] = 0; }
 }
