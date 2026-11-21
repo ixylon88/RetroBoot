@@ -24,6 +24,10 @@ Freigegebene MBR-Revision 2
 RB BACKUP DISK PASS
 ```
 
+The [German VirtualBox check on 21 November 2026](https://github.com/ixylon88/RetroBoot/pull/73#issuecomment-7065510774)
+confirmed both the save and the cold verification with the system disk detached.
+Both operations displayed 45 verified sectors and approved MBR revision 2.
+
 ## Source and publication
 
 The read-only profile and witness on the start diskette retain the enrolled
@@ -82,6 +86,25 @@ errors, a flush error, interrupted publication, a damaged last sector and a
 substituted approved MBR with a matching sector CRC. The package builder boots
 the extracted source and recovery VDIs in both languages, powers them down,
 and opens each saved backup in a fresh VM with the source detached.
+
+### Recovery disk removed during an operation
+
+The QEMU test pauses at a selected secondary-disk transfer before the guest
+receives its result. The monitor detaches the recovery disk's backing image.
+The test verifies that the image is absent and that the other drives still
+have their original media, then resumes the same guest. A fresh VM reopens
+the exact recovery image left by the preceding boot. This exercises loss of
+the medium while the IDE controller is still present.
+
+| Point of removal | Result in the running VM | Result after reconnecting the disk |
+| --- | --- | --- |
+| Eighth data-sector write | Save stops after seven successfully flushed data sectors | **V** reports an empty publication slot |
+| Final publication write | Save stops with all 45 data sectors flushed and the publication sector empty | **V** reports an empty slot. A fresh **S** publishes the complete file |
+| Read of the final data sector of an already published backup | **V** reports a failed verification | A fresh **V** reads the original 45 sectors and MBR revision 2 with the system disk detached |
+
+The campaign checks the complete recovery image against independently
+predicted bytes after each boot. The source disk and the start diskette stay
+byte-identical throughout the sequence.
 
 The test kit provisions the store and MBR history on owned fixture images.
 Qualification of the handoff from a separately performed enrollment and MBR

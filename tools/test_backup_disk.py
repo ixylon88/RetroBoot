@@ -67,7 +67,8 @@ def expected_recovery(blank, data, published=False):
 
 def boot_case(exe, bios, src, work, start, source, recovery, ui, name, key, lines,
               *, expected_writes=(), source_serial=SOURCE, recovery_serial=RECOVERY,
-              failed_write=False, input_format='raw', recovery_format='raw'):
+              failed_write=False, input_format='raw', recovery_format='raw',
+              remove_recovery=False):
     manifest = json.loads((src / 'manifest.json').read_bytes())
     binary = (src / 'backup-disk.bin').read_bytes()
     fixture = dict(binary=binary, memory=manifest['memory']['backup-disk'])
@@ -82,9 +83,16 @@ def boot_case(exe, bios, src, work, start, source, recovery, ui, name, key, line
         expected = ['0x30', '0xe7'] * len(expected_writes)
         if failed_write:
             expected = expected[:-1]
-        if (transfers != [(n, 1) for n in expected_writes] or [c for _, c in commands] != expected
+        writes = [(n, 1) for n in expected_writes]
+        if remove_recovery and failed_write:
+            # On resume QEMU retries the interrupted transfer to the now-empty backend.
+            # The guest issued only one command for this LBA and never flushed it.
+            writes.append(writes[-1])
+        if (transfers != writes or [c for _, c in commands] != expected
                 or len({dev for dev, _ in commands}) > 1):
             raise ValueError(f'{name}: unexpected IDE writes or flushes {transfers} {commands[-4:]}')
+        if remove_recovery and rec['wr_bytes'] != expected.count('0xe7') * 512:
+            raise ValueError(f'{name}: unexpected number of completed bytes at removal')
         if key != 's' and source_io.get('rd_bytes', 0):
             raise ValueError(f'{name}: read the system disk during verification')
         return dict(source_read_sectors=source_io.get('rd_bytes', 0)//512,
@@ -95,7 +103,7 @@ def boot_case(exe, bios, src, work, start, source, recovery, ui, name, key, line
                         [(ui['STORE_MENU'], key, None, False)], [], [], readonly_start=True,
                         ata_identity=(MODEL, source_serial), disk_format=input_format,
                         recovery_disk=recovery, recovery_identity=(MODEL, recovery_serial),
-                        recovery_format=recovery_format, io_check=check_io, timeout=100)
+                        recovery_format=recovery_format, io_check=check_io, timeout=100, remove_recovery=remove_recovery)
 
 
 def campaign(exe, bios, src, work, out, language):
@@ -113,7 +121,10 @@ def campaign(exe, bios, src, work, out, language):
     cases = []
 
     def run(name, key, lines, initial, expected=None, *, source=system, path=None, **options):
-        rec.write_bytes(initial)
+        if initial is None:  # restart with the same backing file, byte for byte as left by the guest
+            initial = rec.read_bytes()
+        else:
+            rec.write_bytes(initial)
         result = boot_case(exe, bios, src, work, start, source, rec if path is None else path,
                            ui, name, key, lines, **options)
         observed = rec.read_bytes()
@@ -164,6 +175,18 @@ def campaign(exe, bios, src, work, out, language):
     published = run('retry-and-publish', 's', save, unpublished, full, expected_writes=lbas+[8])
     run('cold-without-source', 'v', verify, published, source=None)
     run('last-read-error', 'v', invalid, published, source=None, path=fault('read_aio', lbas[-1]))
+    # Each restart below reopens the same file left on disk by the preceding boot.
+    partial = expected_recovery(blank, data[:7 * 512])
+    run('remove-during-write', 's', failure, blank, partial, path=fault('write_aio', lbas[7]),
+        expected_writes=lbas[:8], failed_write=True, remove_recovery=True)
+    run('reconnect-partial', 'v', empty, None, source=None)
+    run('remove-before-publication', 's', failure, None, staged, path=fault('write_aio', 8),
+        expected_writes=lbas + [8], failed_write=True, remove_recovery=True)
+    run('reconnect-unpublished', 'v', empty, None, source=None)
+    run('publish-after-reconnection', 's', save, None, full, expected_writes=lbas + [8])
+    run('remove-during-cold-read', 'v', invalid, None, source=None, path=fault('read_aio', lbas[-1]),
+        remove_recovery=True)
+    run('reconnect-published', 'v', verify, None, source=None)
     run('occupied', 's', [ui['STORE_USED'], BLOCK], published)
     damaged = bytearray(full)
     damaged[(DATA+size)*512-1] ^= 1

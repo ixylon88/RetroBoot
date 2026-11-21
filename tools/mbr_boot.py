@@ -26,9 +26,36 @@ def stop_at_transcript(q, vga, lines, name):
         time.sleep(0.01)
 
 
+def remove_failed_recovery(q, timeout):
+    """At a QEMU disk-error stop, remove the secondary backing disk and resume the same guest."""
+    deadline = time.monotonic() + timeout
+    while q.call('query-status')['status'] != 'io-error':
+        if time.monotonic() >= deadline:
+            raise ValueError('Recovery disk never reached the selected I/O error')
+        time.sleep(0.05)
+
+    def inserted(blocks):
+        return {d['device']: d['inserted']['node-name'] for d in blocks if 'inserted' in d}
+
+    blocks = q.call('query-block')
+    drives = inserted(blocks)
+    node = drives.pop('recovery')
+    failed = [d['device'] for d in blocks if d.get('io-status') == 'failed']
+    if failed != ['recovery']:
+        raise ValueError(f'Unexpected failed drives before removal: {failed}')
+    stats = next(d['stats'] for d in q.call('query-blockstats') if d.get('device') == 'recovery')
+    reply = q.call('human-monitor-command', {'command-line': 'drive_del recovery'})
+    if (reply or inserted(q.call('query-block')) != drives
+            or any(d['node-name'] == node for d in q.call('query-named-block-nodes'))):
+        raise ValueError(f'Recovery backing disk was not removed: {reply}')
+    q.call('cont')
+    return stats
+
+
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
-                 recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(), io_check=None, timeout=15):
+                 recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(),
+                 io_check=None, timeout=15, remove_recovery=False):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -49,7 +76,8 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
         if identity is not None:
             model, serial = identity
             device += ',model=' + model.replace(',', ',,') + ',serial=' + serial.replace(',', ',,')
-        args += ['-drive', f'file={path},format={fmt},if=none,id={node}', '-device', device]
+        policy = ',rerror=stop,werror=stop' if remove_recovery and node == 'recovery' else ''
+        args += ['-drive', f'file={path},format={fmt},if=none,id={node}{policy}', '-device', device]
     if rom:
         args += ['-option-rom', str(rom)]
 
@@ -66,6 +94,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                     q.call('blockdev-change-medium', {'device': 'floppy', 'filename': str(medium), 'format': 'raw',
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
                 q.call('send-key', {'keys': [{'type': 'qcode', 'data': key}], 'hold-time': 30})
+            removed = remove_failed_recovery(q, timeout) if remove_recovery else None
             wait_marker(proc, log, marker + '\n', timeout=timeout, encoding='cp437')
             ram, vga = out / (name + '-ram.bin'), out / (name + '-vga.bin')
             stop_at_transcript(q, vga, lines, name)
@@ -90,6 +119,9 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
     bus = trace.read_text()
     all_reads = trace_reads(bus)
     result = dict(name=name, transcript=lines, hdd_read_lbas=reads, power_cut=cut, vga_sha256=sha256(vga))
+    if removed is not None:
+        devices['recovery'] = removed
+        result['writes_completed_before_removal'] = removed['wr_bytes'] // 512
     if io_check:
         result.update(io_check(bus, devices))
         return result
