@@ -18,6 +18,7 @@ try:
     from .backup_vectors import cases as backup_cases
     from .backup_encode_vectors import assertions as encode_assertions
     from .backup_stream_vectors import assertions as stream_assertions
+    from .backup_verify_vectors import STAGE_ADDRESS, wire as completed_wire
     from .backup_live_vectors import assertions as live_assertions, check_reads as check_live_reads
     from .rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from .backup_boot_vectors import cases as boot_cases
@@ -34,6 +35,7 @@ except ImportError:
     from backup_vectors import cases as backup_cases
     from backup_encode_vectors import assertions as encode_assertions
     from backup_stream_vectors import assertions as stream_assertions
+    from backup_verify_vectors import STAGE_ADDRESS, wire as completed_wire
     from backup_live_vectors import assertions as live_assertions, check_reads as check_live_reads
     from rescue_file_fixtures import specifications as file_specs, expected_file_reads
     from backup_boot_vectors import cases as boot_cases
@@ -155,6 +157,7 @@ def scenarios():
             ('backup-encode-model','RB BACKUP ENCODE PASS'),
             ('backup-stream-model','RB BACKUP STREAM PASS'),
             ('backup-live-model','RB BACKUP LIVE PASS'),
+            ('backup-verify-model','RB BACKUP VERIFY PASS'),
             ('mbr-provenance-model','RB MBR PROVENANCE PASS'),
             ('rescue-data-fault','RB RESCUE STARTUP ERROR'),('rescue-crc-fault','RB RESCUE LOAD ERROR'),
             ('rescue-header-fault','RB RESCUE LOAD ERROR')):
@@ -167,6 +170,30 @@ def scenarios():
             spec=HDD_CASES['metadata-only'] if name=='file-demo-hdd' else dict(status=1),mode='EDD',
             rom=12 if name=='file-retry' else 13 if name=='file-root-io' else 0))
     return cases
+
+def check_completed_backup(qmp, source, out, manifest, strings, log):
+    name = 'backup-verify-model'
+    expected = completed_wire()
+    long_file = completed_wire(130)
+    paths = {}
+    for part, addr, size in (('ram', 0x10000, 65536), ('vga', 0xB8000, 4000),
+                             ('output', STAGE_ADDRESS, len(expected)), ('long-output', 0x30000, len(long_file))):
+        suffix = '.rbb' if part.endswith('output') else '.bin'
+        dest = out / (name + '-' + part + suffix)
+        qmp.call('pmemsave', {'val': addr, 'size': size, 'filename': str(dest)})
+        paths[part] = dest
+    check_memory(paths['ram'].read_bytes(), (source / (name+'.bin')).read_bytes(),
+                 manifest['memory'][name], zero_bss=False)
+    if paths['output'].read_bytes() != expected or paths['long-output'].read_bytes() != long_file:
+        raise ValueError('Staged bytes differ from the independent complete host file')
+    lines = [strings['VERIFY_TITLE'], strings['VERIFY_COUNT'] + str(len(expected)//512),
+             strings['VERIFY_DAMAGE'], strings['VERIFY_APPROVAL'], 'RB BACKUP VERIFY PASS']
+    rows = [s.rstrip() for s in screen_rows(paths['vga'].read_bytes())]
+    messages = [s for s in log.read_text(encoding='cp437').splitlines() if not s.startswith('@')]
+    if messages != lines or not any(rows[i:i+len(lines)] == lines for i in range(len(rows))):
+        raise ValueError('Unexpected completed-stream console or VGA result')
+    (out / (name+'.txt')).write_text('\n'.join(lines)+'\n', encoding='utf-8')
+
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--language',choices=LANGUAGES,default='en')
@@ -221,7 +248,7 @@ def main():
                 # Complete boot-area fault/boundary vectors stream substantially
                 # more model sectors; ordinary startup/UI deadlines stay at 15s.
                 wait_marker(process,log,case.get('marker','RB RESCUE READY'),
-                    timeout=120 if name=='backup-live-model' else 60 if name in ('backup-plan-model','backup-encode-model','backup-payload-model','backup-stream-model') else 15)
+                    encoding='cp437', timeout=120 if name in ('backup-live-model','backup-verify-model') else 60 if name in ('backup-plan-model','backup-encode-model','backup-payload-model','backup-stream-model') else 15)
                 if 'marker' not in case:
                     payload=(source/'retroboot-rescue.bin').read_bytes();memory=manifest['memory']['retroboot-rescue']
                     spec=case['spec'];mode=case['mode'];attempt=0
@@ -282,6 +309,8 @@ def main():
                         if marker not in visible or case['marker'] not in visible or '!' in visible:
                             raise ValueError('Stream result is not visible on VGA')
                         (out/(name+'.txt')).write_text(visible+'\n',encoding='utf-8')
+                    if name == 'backup-verify-model':
+                        check_completed_backup(qmp, source, out, manifest, strings, log)
                     if name == 'mbr-provenance-model':
                         ram = out / (name + '-ram.bin')
                         vga = out / (name + '-vga.bin')
@@ -334,7 +363,7 @@ def main():
                 if process.wait(timeout=5):raise ValueError('QEMU exit failed')
             finally:
                 if process.poll() is None:process.kill();process.wait(timeout=5)
-        text=log.read_text();trace_text=trace.read_text();lbas=trace_reads(trace_text)
+        text=log.read_text(encoding='cp437');trace_text=trace.read_text();lbas=trace_reads(trace_text)
         if lbas!=expected or '!W' in text or 'ide_sector_write' in trace_text or 'blk_co_pwritev' in trace_text:raise ValueError('Unexpected rescue I/O or write attempt')
         if text.count('!F')!={10:1,11:3,12:1,13:9}.get(case['rom'],0):raise ValueError('Wrong number of floppy retries')
         if 'marker' not in case:

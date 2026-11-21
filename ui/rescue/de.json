@@ -115,5 +115,9 @@
   "D_REC_WRONG": "Andere Sicherungsfestplatte. Zugriff gesperrt.",
   "D_REC_LABEL": "Kennung der Sicherungsfestplatte stimmt nicht. Zugriff gesperrt.",
   "D_REC_FIRST": "E Original-MBR auf dieser Sicherungsfestplatte sichern   Esc Ende",
-  "D_REC_REVIEW": "R Prüfnummer auf dieser Sicherungsfestplatte anlegen   Esc Ende"
+  "D_REC_REVIEW": "R Prüfnummer auf dieser Sicherungsfestplatte anlegen   Esc Ende",
+  "VERIFY_TITLE": "Sicherungstest im Arbeitsspeicher",
+  "VERIFY_COUNT": "Geprüfte Sektoren ",
+  "VERIFY_DAMAGE": "Beschädigter letzter Sektor abgelehnt",
+  "VERIFY_APPROVAL": "Ausgetauschter freigegebener MBR abgelehnt"
 }

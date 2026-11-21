@@ -48,6 +48,10 @@ extern _rb_backup_stream_selftest
 extern _rb_mbr_provenance_selftest
 %define RB_RESCUE_ANY_MODEL 1
 %endif
+%ifdef RB_RESCUE_VERIFY_MODEL
+extern _rb_backup_verify_selftest
+%define RB_RESCUE_ANY_MODEL 1
+%endif
 %ifdef RB_RESCUE_LIVE_MODEL
 extern _rb_backup_live_selftest
 %define RB_RESCUE_ANY_MODEL 1
@@ -125,6 +129,8 @@ rb_entry:
 %elifdef RB_RESCUE_ANY_MODEL
 %ifdef RB_RESCUE_PROVENANCE_MODEL
     call _rb_mbr_provenance_selftest
+%elifdef RB_RESCUE_VERIFY_MODEL
+    call _rb_backup_verify_selftest
 %elifdef RB_RESCUE_LIVE_MODEL
     call _rb_backup_live_selftest
 %elifdef RB_RESCUE_STREAM_MODEL
@@ -209,6 +215,8 @@ restart_blocked db 'RB MBR RESTART BLOCKED', 13, 10, 0
 %endif
 %ifdef RB_RESCUE_PROVENANCE_MODEL
 model_pass db 'RB MBR PROVENANCE PASS', 13, 10, 0
+%elifdef RB_RESCUE_VERIFY_MODEL
+model_pass db 'RB BACKUP VERIFY PASS', 13, 10, 0
 %elifdef RB_RESCUE_LIVE_MODEL
 model_pass db 'RB BACKUP LIVE PASS', 13, 10, 0
 %elifdef RB_RESCUE_STREAM_MODEL

@@ -92,6 +92,8 @@ jobs:
             build/rescue-de/mbr-witness.img
             build/mbr-witness-test*/*
             build/mbr-review-test*/*
+            build/rescue/backup-verify-model.img
+            build/rescue-de/backup-verify-model.img
             build/rescue/backup-live-model.img
             build/rescue-de/backup-live-model.img
             build/rescue/retroboot-rescue-target-hdd.img
@@ -126,6 +128,7 @@ jobs:
             build/rescue-test-de/*.txt
             build/rescue-test/*.png
             build/rescue-test-de/*.png
+            build/rescue-test*/backup-verify-model-*.rbb
             build/rescue-test/*.bin
             build/rescue-test-de/*.bin
             build/rescue-match-test/*.json

@@ -123,4 +123,7 @@ model. It matches independently acquired live extents, keeps both MBR roles
 explicit and revalidates the live source after emission. Fresh BIOS integration,
 normal-image memory work, original-MBR provenance, MBR approval, saved semantics,
 destination persistence/readback and targeted restore remain separate work.
-Normal rescue still creates no backup file.
+The [independent completion check](BackupVerification.md) now reopens actual
+provisional output and verifies both MBR roles against enrolled history.
+The bootable completion fixture stages its files in RAM. Normal rescue still
+creates no backup file.

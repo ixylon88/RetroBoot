@@ -19,6 +19,7 @@ try:
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from .backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from .backup_stream_vectors import model_header as stream_header, cases as stream_cases, assertions as stream_assertions
+    from .backup_verify_vectors import model_header as verify_header
     from .backup_live_vectors import model_header as live_header, cases as live_cases, assertions as live_assertions, expected_reads as live_reads
     from .rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain, put_backup
     from .backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
@@ -40,6 +41,7 @@ except ImportError:
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
     from backup_stream_vectors import model_header as stream_header, cases as stream_cases, assertions as stream_assertions
+    from backup_verify_vectors import model_header as verify_header
     from backup_live_vectors import model_header as live_header, cases as live_cases, assertions as live_assertions, expected_reads as live_reads
     from rescue_file_fixtures import make_fixture as file_fixture, specifications as file_specs, file_chain, put_backup
     from backup_boot_vectors import model_header as boot_header, cases as boot_cases, fixture as boot_fixture
@@ -144,6 +146,7 @@ def build(kind='rescue',language='en'):
     (destination/'backup_vectors.h').write_text(model_header(),encoding='ascii')
     (destination/'backup_encode_vectors.h').write_text(encode_header(),encoding='ascii')
     (destination/'backup_stream_vectors.h').write_text(stream_header(),encoding='ascii')
+    (destination/'backup_verify_vectors.h').write_text(verify_header(), encoding='ascii')
     (destination/'backup_live_vectors.h').write_text(live_header(),encoding='ascii')
     (destination/'backup_record_vectors.h').write_text(record_header(),encoding='ascii')
     (destination/'backup_boot_vectors.h').write_text(boot_header(),encoding='ascii')
@@ -166,6 +169,7 @@ def build(kind='rescue',language='en'):
             ('mbr-floppy','core/mbr_floppy.c'),('mbr-ata','core/mbr_ata.c'),('mbr-target-ui','core/mbr_target.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
+            ('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
@@ -198,6 +202,7 @@ def build(kind='rescue',language='en'):
             ('backup-encode-model',['-DRB_RESCUE_ENCODE_MODEL=1']),
             ('backup-stream-model',['-DRB_RESCUE_STREAM_MODEL=1']),
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
+            ('backup-verify-model',['-DRB_RESCUE_VERIFY_MODEL=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
@@ -254,6 +259,11 @@ def build(kind='rescue',language='en'):
         if name=='backup-live-model':
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
+        if name=='backup-verify-model':
+            extra=[destination/(n+'.obj') for n in ('backup-verify', 'backup-verify-tests', 'mbr-restart-core',
+                'backup', 'backup-records', 'backup-boot', 'backup-live', 'backup-stream', 'backup-encode',
+                'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
+                'saved-state', 'saved-record-io', 'saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
