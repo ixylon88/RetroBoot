@@ -4,7 +4,8 @@ The [completion check](../include/backup_verify.h) stages a complete version-1
 metadata backup from the live-source assembler. It reopens the actual destination,
 checks its contents with the existing saved-data readers and compares every
 staged byte with a fresh serialization. The fixture uses RAM for the destination.
-Durable external storage is tracked in #45 and targeted restore in #46.
+The [dedicated IDE recovery disk](BackupDisk.md) uses the same completion check
+for durable output under #45. Targeted restore is tracked in #46.
 
 ## Acceptance sequence
 

@@ -1,8 +1,14 @@
 # Project state and resumption
 
-Updated 20 November 2026.
+Updated 21 November 2026.
 
 ## Original DOS boot and current recovery work
+
+The maintainer confirmed the 45-sector RAM verification and both rejected
+changes in [merged PR #72](https://github.com/ixylon88/RetroBoot/pull/72#issuecomment-7053746430).
+This completed #44. Five of the 17 numbered roadmap packages are complete.
+The current [durable backup test](BackupDisk.md) writes to a separate IDE disk
+and reopens the published backup after power-off with the source disconnected.
 
 The prepared hard disk booted MS-DOS 6.22 in VirtualBox. The maintainer
 confirmed normal DOS operation and the version after the menu handoff.

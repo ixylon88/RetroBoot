@@ -16,13 +16,7 @@ typedef struct {
 
 rb_u16 rb_mbr_review_key(void)
 {
-    rb_u16 key;
-    do {
-        key = rb_key_poll();
-        if (key == 0xffff) { rb_idle(); }
-    } while (key == 0xffff);
-    key &= 255;
-    return key >= 'a' && key <= 'z' ? key - 'a' + 'A' : key;
+    return rb_console_key();
 }
 
 static int witness_layout(review_drive *drive)

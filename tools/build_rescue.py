@@ -169,7 +169,7 @@ def build(kind='rescue',language='en'):
             ('mbr-floppy','core/mbr_floppy.c'),('mbr-ata','core/mbr_ata.c'),('mbr-target-ui','core/mbr_target.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
-            ('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
+            ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
             ('fat-boot','core/fat_boot.c'),('fingerprint','core/fingerprint.c'),('backup-links','core/backup_links.c'),
@@ -190,10 +190,13 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_APPROVAL_WRITE=1','bios/floppy.asm','-o',destination/'approval-write.obj')
     run(nasm,'-Werror','-f','obj','bios/ata.asm','-o',destination/'ata-io.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_ATA_HISTORY_WRITE=1','bios/floppy.asm','-o',destination/'ata-history-write.obj')
+    run(nasm,'-Werror','-f','obj','-DRB_BACKUP_DISK=1','bios/ata.asm','-o',destination/'backup-ata.obj')
+    run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-dRB_READ_ONLY_RECOVERY=1',
+        '-fo='+str(destination/'backup-floppy.obj'),'core/mbr_floppy.c')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
-        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name == 'mbr-target' else []
+        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk') else []
         boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
             '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),*flags,'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
@@ -203,6 +206,7 @@ def build(kind='rescue',language='en'):
             ('backup-stream-model',['-DRB_RESCUE_STREAM_MODEL=1']),
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
             ('backup-verify-model',['-DRB_RESCUE_VERIFY_MODEL=1']),
+            ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
@@ -259,8 +263,9 @@ def build(kind='rescue',language='en'):
         if name=='backup-live-model':
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
-        if name=='backup-verify-model':
-            extra=[destination/(n+'.obj') for n in ('backup-verify', 'backup-verify-tests', 'mbr-restart-core',
+        if name in ('backup-disk','backup-verify-model'):
+            adapter = ['backup-verify-tests'] if name=='backup-verify-model' else ['backup-disk-ui','backup-ata','mbr-ata','backup-floppy','floppy']
+            extra=[destination/(n+'.obj') for n in (*adapter, 'backup-verify', 'mbr-restart-core',
                 'backup', 'backup-records', 'backup-boot', 'backup-live', 'backup-stream', 'backup-encode',
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
@@ -273,6 +278,8 @@ def build(kind='rescue',language='en'):
         if destination/'backup-target.obj' in extra:
             extra.append(destination/'fingerprint.obj')
         linked=[obj,*objects[:-1],*extra,objects[-1]]
+        if name == 'backup-disk':
+            linked.remove(destination / 'inspect.obj')  # interactive diagnosis belongs to the rescue UI
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
         symbols={n:int(a,16) for a,n in re.findall(r'^([0-9a-fA-F]{8})[+*]?\s+(\w+)\s*$',mapfile.read_text(),re.MULTILINE)}
@@ -284,9 +291,10 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
-    template = destination / 'mbr-target.img'
-    template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
-    remember(template)
+    for name in ('mbr-target.img','backup-disk.img'):
+        template = destination / name
+        template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
+        remember(template)
     for filename, data in original_media().items():
         media = destination / filename
         media.write_bytes(data)
