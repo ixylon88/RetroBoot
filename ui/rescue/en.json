@@ -119,5 +119,18 @@
   "VERIFY_TITLE": "Read-only backup test",
   "VERIFY_COUNT": "Verified sectors ",
   "VERIFY_DAMAGE": "Damaged last sector rejected",
-  "VERIFY_APPROVAL": "Substituted approved MBR rejected"
+  "VERIFY_APPROVAL": "Substituted approved MBR rejected",
+  "STORE_MENU": "S Save to recovery disk   V Verify saved backup   Esc Exit",
+  "STORE_SAVE": "Saving metadata from the system disk.",
+  "STORE_VERIFY": "Checking the backup on the recovery disk.",
+  "STORE_EMPTY": "No published backup.",
+  "STORE_USED": "A backup already occupies this recovery disk.",
+  "STORE_MEDIA": "Recovery disk missing, unsuitable or different.",
+  "STORE_SOURCE": "System disk missing, different or unreadable.",
+  "STORE_HISTORY": "MBR history could not be verified.",
+  "STORE_FAILED": "Backup verification failed.",
+  "STORE_DONE": "Backup published on the recovery disk.",
+  "STORE_READ": "Backup read from the recovery disk.",
+  "STORE_REV": "Approved MBR revision ",
+  "STORE_CANCEL": "Cancelled."
 }

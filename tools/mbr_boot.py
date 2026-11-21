@@ -28,7 +28,7 @@ def stop_at_transcript(q, vga, lines, name):
 
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
-                 recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=()):
+                 recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(), io_check=None, timeout=15):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -66,12 +66,12 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                     q.call('blockdev-change-medium', {'device': 'floppy', 'filename': str(medium), 'format': 'raw',
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
                 q.call('send-key', {'keys': [{'type': 'qcode', 'data': key}], 'hold-time': 30})
-            wait_marker(proc, log, marker + '\n', encoding='cp437')
+            wait_marker(proc, log, marker + '\n', timeout=timeout, encoding='cp437')
             ram, vga = out / (name + '-ram.bin'), out / (name + '-vga.bin')
             stop_at_transcript(q, vga, lines, name)
             q.call('pmemsave', {'val': 0x10000, 'size': 65536, 'filename': str(ram)})
             check_memory(ram.read_bytes(), fixture['binary'], fixture['memory'], zero_bss=False)
-            if recovery_disk is not None:
+            if recovery_disk is not None or io_check:
                 devices = {d['device']: d['stats'] for d in q.call('query-blockstats') if d.get('device')}
             if cut:
                 proc.kill()
@@ -90,6 +90,9 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
     bus = trace.read_text()
     all_reads = trace_reads(bus)
     result = dict(name=name, transcript=lines, hdd_read_lbas=reads, power_cut=cut, vga_sha256=sha256(vga))
+    if io_check:
+        result.update(io_check(bus, devices))
+        return result
     if recovery_disk is None:
         if all_reads != reads or 'ide_sector_write' in bus:
             raise ValueError(f'{name}: unexpected HDD I/O {all_reads}')

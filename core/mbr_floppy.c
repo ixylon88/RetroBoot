@@ -30,6 +30,7 @@ rb_u16 __cdecl rb_mbr_floppy_read(rb_u16 n, rb_u8 *out, rb_u8 *id, void *opaque)
     return 512;
 }
 
+#ifndef RB_READ_ONLY_RECOVERY
 rb_u16 __cdecl rb_mbr_floppy_save_original(rb_u16 n, const rb_u8 *in, const rb_u8 *id, void *opaque)
 {
     capture_medium *m = (capture_medium *)opaque;
@@ -37,3 +38,4 @@ rb_u16 __cdecl rb_mbr_floppy_save_original(rb_u16 n, const rb_u8 *in, const rb_u
         || rb_fixture_floppy_write(n + 1, in, &m->drive) || !rb_mbr_floppy_matches(m)) { return 0; }
     return 512;
 }
+#endif

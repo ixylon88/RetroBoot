@@ -108,6 +108,7 @@ rescue-test: rescue-check
 	$(PYTHON) tools/test_mbr_target.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_ata_history.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_recovery_disk.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_backup_disk.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_first_witness.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_mbr_approval.py --language $(RB_LANGUAGE)
 
