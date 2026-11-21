@@ -1,11 +1,24 @@
 ; Exclusive, polled PIO on the two legacy IDE masters. The primary master
 ; exposes only IDENTIFY and a read of LBA 0. Only the secondary entry point
-; can write, and only its six pre-enrolled recovery records.
+; can write its six pre-enrolled recovery records. The separate backup build
+; enables primary LBA28 reads and a disjoint secondary store at LBA 8 and 16..2063.
 bits 16
 cpu 386
 segment _TEXT public align=16 class=CODE use16
 global _rb_ata_identify_words, _rb_ata_read_sector, _rb_ata_write_recovery
 
+%ifdef RB_BACKUP_DISK
+global _rb_ata_source_read, _rb_ata_store_read, _rb_ata_store_write
+_rb_ata_source_read:            ; uint32 LBA, buffer; primary master, read-only
+    mov al, 0x21
+    jmp short transfer
+_rb_ata_store_read:             ; uint16 LBA, buffer; secondary master, 7..2063
+    mov al, 0x22
+    jmp short transfer
+_rb_ata_store_write:            ; uint16 LBA, buffer; secondary master, 8 and 16..2063
+    mov al, 0x31
+    jmp short transfer
+%endif
 _rb_ata_identify_words:         ; channel, buffer
     mov al, 0xec
     jmp short transfer
@@ -13,7 +26,12 @@ _rb_ata_read_sector:            ; channel, LBA, buffer
     mov al, 0x20
     jmp short transfer
 _rb_ata_write_recovery:         ; LBA, buffer (no caller-supplied channel)
+%ifdef RB_BACKUP_DISK
+    mov ax, 1                   ; this build cannot write the six history records
+    ret
+%else
     mov al, 0x30
+%endif
 transfer:
     push bp
     mov bp, sp
@@ -21,14 +39,56 @@ transfer:
     push es
     push fs
     pushad
+%ifdef RB_BACKUP_DISK
+    sub sp, 8
+%define LONG_LBA dword [ss:bp-46]
+%define IO_LBA byte [ss:bp-46]
+%else
     sub sp, 6
+%define IO_LBA byte [ss:bp-44]
+%endif
 %define TASK_PORT word [ss:bp-40]
 %define ALT_PORT  word [ss:bp-42]
-%define IO_LBA    byte [ss:bp-44]
     mov bl, al
     xor cx, cx
     mov ax, [bp+4]
     mov di, [bp+6]
+%ifdef RB_BACKUP_DISK
+    mov LONG_LBA, 0
+    cmp bl, 0x21
+    jne .not_source
+    mov ecx, [bp+4]
+    cmp ecx, 0x0fffffff
+    ja .invalid
+    mov LONG_LBA, ecx
+    mov di, [bp+8]
+    xor ax, ax
+    mov bl, 0x20
+    jmp short .buffer
+.not_source:
+    cmp bl, 0x22
+    je .store_read
+    cmp bl, 0x31
+    jne .legacy
+    cmp ax, 8
+    je .store_write
+    cmp ax, 16
+    jb .invalid
+.store_write:
+    mov bl, 0x30
+    jmp short .store
+.store_read:
+    cmp ax, 7
+    jb .invalid
+    mov bl, 0x20
+.store:
+    cmp ax, 2063
+    ja .invalid
+    mov word [ss:bp-46], ax
+    mov ax, 1
+    jmp short .buffer
+.legacy:
+%endif
     cmp bl, 0x30
     jne .input
     mov cx, ax
@@ -50,9 +110,10 @@ transfer:
 .bounds:
     cmp cx, 6
     ja .invalid
+    mov IO_LBA, cl
+.buffer:
     cmp di, 0xfe00
     ja .invalid
-    mov IO_LBA, cl
     mov dx, 0x1f0
     mov cl, 0x40                ; slave PIC IRQ14
     test ax, ax
@@ -86,7 +147,12 @@ transfer:
 .select:
     mov dx, TASK_PORT
     add dx, 6
+%ifdef RB_BACKUP_DISK
+    mov al, [ss:bp-43]          ; high four LBA28 bits
+    or al, 0xe0
+%else
     mov al, 0xe0                ; LBA, master, high nibble zero
+%endif
     out dx, al
     call .settle
 .ready:
@@ -110,9 +176,16 @@ transfer:
     mov al, IO_LBA
     out dx, al
     inc dx
+%ifdef RB_BACKUP_DISK
+    mov al, [ss:bp-45]
+%else
     xor al, al
+%endif
     out dx, al
     inc dx
+%ifdef RB_BACKUP_DISK
+    mov al, [ss:bp-44]
+%endif
     out dx, al
     add dx, 2
     mov al, bl
@@ -189,7 +262,11 @@ transfer:
 .invalid:
     mov word [bp-10], 1
 .done:
+%ifdef RB_BACKUP_DISK
+    add sp, 8
+%else
     add sp, 6
+%endif
     popad
     pop fs
     pop es

@@ -119,5 +119,18 @@
   "VERIFY_TITLE": "Sicherungstest im Arbeitsspeicher",
   "VERIFY_COUNT": "Geprüfte Sektoren ",
   "VERIFY_DAMAGE": "Beschädigter letzter Sektor abgelehnt",
-  "VERIFY_APPROVAL": "Ausgetauschter freigegebener MBR abgelehnt"
+  "VERIFY_APPROVAL": "Ausgetauschter freigegebener MBR abgelehnt",
+  "STORE_MENU": "S Auf Sicherungsfestplatte sichern   V Sicherung prüfen   Esc Ende",
+  "STORE_SAVE": "Metadaten der Systemfestplatte werden gesichert.",
+  "STORE_VERIFY": "Sicherung auf der Sicherungsfestplatte wird geprüft.",
+  "STORE_EMPTY": "Keine abgeschlossene Sicherung vorhanden.",
+  "STORE_USED": "Auf dieser Sicherungsfestplatte ist bereits eine Sicherung.",
+  "STORE_MEDIA": "Sicherungsfestplatte fehlt, ist ungeeignet oder wurde ausgetauscht.",
+  "STORE_SOURCE": "Systemfestplatte fehlt, ist eine andere oder ist nicht lesbar.",
+  "STORE_HISTORY": "MBR-Sicherungen konnten nicht geprüft werden.",
+  "STORE_FAILED": "Sicherungsprüfung fehlgeschlagen.",
+  "STORE_DONE": "Sicherung auf der Sicherungsfestplatte abgeschlossen.",
+  "STORE_READ": "Sicherung von der Sicherungsfestplatte gelesen.",
+  "STORE_REV": "Freigegebene MBR-Revision ",
+  "STORE_CANCEL": "Abgebrochen."
 }

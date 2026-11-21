@@ -41,27 +41,31 @@ English
 """
 
 
+def set_fixture_identity(dest, value, sectors):
+    with dest.open('r+b') as stream:
+        h = stream.read(512)
+        if struct.unpack_from('<II', h, 64) != (0xbeda107f, 0x10001):
+            raise ValueError('Unsupported VDI signature')
+        if struct.unpack_from('<I', h, 72)[0] == 384:
+            if any(h[456:472]):
+                raise ValueError('Unexpected data in the VDI geometry extension')
+            stream.seek(72)
+            stream.write(struct.pack('<I', 400))
+            stream.seek(468)
+            stream.write(struct.pack('<I', 512))
+        stream.seek(392)
+        disk_id = uuid.UUID(value)
+        stream.write(disk_id.bytes_le + uuid.uuid5(disk_id, 'RetroBoot recovery fixture').bytes_le)
+    set_vdi_geometry(dest, sectors, 16, 63)
+
+
 def make_vdis(converter, raw, work):
     base = work / 'base.vdi'
     subprocess.run([converter, 'convert', '-f', 'raw', '-O', 'vdi', raw, base], check=True)
     for name, value, _ in DISKS:
         dest = work / name
         shutil.copyfile(base, dest)
-        with dest.open('r+b') as stream:
-            h = stream.read(512)
-            if struct.unpack_from('<II', h, 64) != (0xbeda107f, 0x10001):
-                raise ValueError('Unsupported VDI signature')
-            if struct.unpack_from('<I', h, 72)[0] == 384:
-                if any(h[456:472]):
-                    raise ValueError('Unexpected data in the VDI geometry extension')
-                stream.seek(72)
-                stream.write(struct.pack('<I', 400))
-                stream.seek(468)
-                stream.write(struct.pack('<I', 512))
-            stream.seek(392)
-            disk_id = uuid.UUID(value)
-            stream.write(disk_id.bytes_le + uuid.uuid5(disk_id, 'RetroBoot recovery fixture').bytes_le)
-        set_vdi_geometry(dest, SECTORS, 16, 63)
+        set_fixture_identity(dest, value, SECTORS)
         subprocess.run([converter, 'compare', '-f', 'raw', '-F', 'vdi', raw, dest], check=True)
 
 

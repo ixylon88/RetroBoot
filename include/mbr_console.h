@@ -1,6 +1,17 @@
 #ifndef RB_MBR_CONSOLE_H
 #define RB_MBR_CONSOLE_H
-#include "abi.h"
+#include "bios_ui.h"
+
+static __inline rb_u16 rb_console_key(void)
+{
+    rb_u16 key;
+    do {
+        key = rb_key_poll();
+        if (key == 0xffff) { rb_idle(); }
+    } while (key == 0xffff);
+    key &= 255;
+    return key >= 'a' && key <= 'z' ? key - 'a' + 'A' : key;
+}
 
 static __inline void print(const char *s)
 {

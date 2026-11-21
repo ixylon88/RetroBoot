@@ -34,7 +34,9 @@ jobs:
           make rescue-test RB_LANGUAGE=en
           make rescue-test RB_LANGUAGE=de
       - name: Package and boot the bilingual VirtualBox recovery disk test
-        run: python3 tools/package_mbr_recovery.py
+        run: |
+          python3 tools/package_mbr_recovery.py
+          python3 tools/package_backup_disk.py
       - name: Package and boot English/German rescue CDs
         run: |
           make rescue-iso-test RB_LANGUAGE=en
@@ -92,6 +94,9 @@ jobs:
             build/rescue-de/mbr-witness.img
             build/mbr-witness-test*/*
             build/mbr-review-test*/*
+            build/backup-disk-test-*/*.json
+            build/backup-disk-test-*/*.rbb
+            build/backup-disk-kit/*.zip
             build/rescue/backup-verify-model.img
             build/rescue-de/backup-verify-model.img
             build/rescue/backup-live-model.img
