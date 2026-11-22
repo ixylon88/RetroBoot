@@ -46,6 +46,17 @@ operating system. A completed backup occupies its slot permanently.
 """
 
 
+def make_vdi(converter, source, dest, guid, count, serial):
+    subprocess.run([converter, 'convert', '-f', 'raw', '-O', 'vdi', source, dest], check=True)
+    set_fixture_identity(dest, guid, count)
+    with dest.open('rb') as stream:
+        stream.seek(392)
+        words = struct.unpack('<4I', stream.read(16))
+    if f'VB{words[0]:08x}-{words[3]:08x}' != serial:
+        raise ValueError('VDI creation UUID does not match the enrolled ATA serial')
+    subprocess.run([converter, 'compare', '-f', 'raw', '-F', 'vdi', source, dest], check=True)
+
+
 def main():
     converter = shutil.which('qemu-img')
     exe = Path(shutil.which('qemu-system-i386')).resolve()
@@ -78,14 +89,7 @@ def main():
         for name, source, guid, count, serial in ((SYSTEM,raw,GUID[0],size//512,SOURCE),
                                                   (BACKUP,carrier,GUID[1],CAPACITY,RECOVERY)):
             dest = work/name
-            subprocess.run([converter,'convert','-f','raw','-O','vdi',source,dest],check=True)
-            set_fixture_identity(dest,guid,count)
-            with dest.open('rb') as stream:
-                stream.seek(392)
-                words = struct.unpack('<4I',stream.read(16))
-            if f'VB{words[0]:08x}-{words[3]:08x}' != serial:
-                raise ValueError('VDI creation UUID does not match the enrolled ATA serial')
-            subprocess.run([converter,'compare','-f','raw','-F','vdi',source,dest],check=True)
+            make_vdi(converter, source, dest, guid, count, serial)
             files[name] = dest.read_bytes()
         bundle = work/'RetroBoot-Metadatensicherung.zip'
         with zipfile.ZipFile(bundle,'x') as archive:

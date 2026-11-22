@@ -106,8 +106,49 @@ The campaign checks the complete recovery image against independently
 predicted bytes after each boot. The source disk and the start diskette stay
 byte-identical throughout the sequence.
 
-The test kit provisions the store and MBR history on owned fixture images.
-Qualification of the handoff from a separately performed enrollment and MBR
-approval on a user-prepared pair remains part of #45. The container covers
-boot and management metadata. User files and operating systems have their
-own backup requirements.
+## From MBR capture to a cold-verified backup
+
+The combined `mbr-backup.img` diskette offers **1** for MBR capture and
+approval and **2** for metadata backup. Both choices reopen the same enrolled
+disk pair and the same witness on the diskette. The boot sector checks the
+length and CRC32 of the selected program before starting it.
+
+For a new pair, `tools/prepare_mbr_target.py` accepts the combined template
+and the ATA model, serial and capacity of each disk. For example, the
+following invocation uses the identities and capacities of the disposable
+VirtualBox fixtures. It creates `pair/mbr-backup.img` and a new sparse raw
+recovery hard-disk image, `pair/mbr-recovery.img`. The recovery disk starts
+with its carrier and allocation labels, an empty MBR history and an empty
+publication sector. The existing capture-only templates retain their layout.
+
+```sh
+python3 tools/prepare_mbr_target.py build/rescue-de/mbr-backup.img \
+  --model 'VBOX HARDDISK' --serial VB75757575-11111111 --sectors 262144 \
+  --recovery-model 'VBOX HARDDISK' --recovery-serial VB76767676-22222222 \
+  --recovery-sectors 10080 --output pair
+```
+
+1. Before installation, boot with the writable start diskette and both
+   enrolled disks. Select **1**, then **E** twice to capture the original MBR.
+2. After a separate change to the system MBR, boot from the same diskette,
+   select **1**, then **R** twice. Review the byte differences and explicitly
+   approve the revision (**J** in German, **Y** in English).
+3. Boot from A again and select **2**, **S** to save. The file contains the
+   captured original, the explicitly approved MBR and the live boot and
+   management metadata. A first capture on its own cannot publish a backup.
+4. Power off, detach the system disk and select **2**, **V** on the next boot.
+   The recovery disk and the independent witness on the start diskette verify
+   the saved file and report its approved MBR revision.
+
+`tools/package_backup_handoff.py` runs these steps in both languages. It also
+runs the documented preparation command with fresh enrollment IDs and verifies
+the resulting raw disk through capture, approval, save and cold read. The
+downloadable `RetroBoot-MBR-Sicherung.zip` starts after the actual first
+capture, with a four-byte change waiting for review. The test boots the
+extracted VDIs, checks the 45-sector file against an independent encoder and
+retries with an older witness. A further save with a later, unreviewed live
+MBR checks both saved MBR roles byte for byte. The [bilingual VirtualBox
+instructions](BackupHandoff.txt) give the three boots for the packaged pair.
+
+The container covers boot and management metadata. User files and operating
+systems have their own backup requirements.

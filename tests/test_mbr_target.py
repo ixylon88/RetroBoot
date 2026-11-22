@@ -132,3 +132,30 @@ class TargetEnrollmentTest(unittest.TestCase):
                 write_disk_pair(template, output, 'other', 'disk', 99, rec)
             self.assertEqual((output / 'mbr-target.img').read_bytes(), actual)
             self.assertEqual(template.read_bytes(), current)
+
+    def test_combined_diskette_provisions_only_a_new_empty_store(self):
+        template = self.blank[:3] + b'RBBKUP01' + self.blank[11:]
+        with tempfile.TemporaryDirectory() as tmp:
+            path, out = Path(tmp) / 'mbr-backup.img', Path(tmp) / 'pair'
+            path.write_bytes(template)
+            with self.assertRaises(ValueError):
+                write_pair(path, out, 'disk', 'source', 10080)
+            with self.assertRaises(ValueError):
+                write_disk_pair(path, out, 'disk', 'source', 10080, ('disk', 'recovery', 16))
+            self.assertFalse(out.exists())
+            for sectors, limit in ((17, 1), (10080, 2048)):
+                dest = out.with_name(str(sectors))
+                args = (path, dest, 'disk', 'source', 10080, ('disk', 'recovery', sectors))
+                write_disk_pair(*args)
+                boot = (dest / 'mbr-backup.img').read_bytes()
+                actual = (dest / 'mbr-recovery.img').read_bytes()
+                profile = boot[-512:]
+                target, carrier, witness = profile[8:24], profile[32:48], profile[108:124]
+                expected = bytearray(sectors * 512)
+                expected[:512] = sealed(b'RBMEDIA1' + carrier)
+                expected[7*512:8*512] = sealed(b'RBSTORE1' + target + carrier + witness + struct.pack('<I', limit))
+                self.assertEqual(actual, expected)
+                self.assertFalse(any(boot[WITNESS_START + 512:-512]))
+                with self.assertRaises(FileExistsError):
+                    write_disk_pair(*args)
+                self.assertEqual((dest / 'mbr-recovery.img').read_bytes(), actual)

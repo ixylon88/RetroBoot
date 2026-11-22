@@ -7,9 +7,17 @@ org 0x7C00
 %if RB_RESCUE_BYTES < 33 || RB_RESCUE_BYTES > RB_HDD_FILE_MAX
     %error Invalid rescue payload size
 %endif
+%define FIRST_END (33 + (RB_RESCUE_BYTES + 511) / 512)
+%ifdef RB_BACKUP_BYTES
+    %if RB_BACKUP_BYTES < 33 || RB_BACKUP_BYTES > RB_HDD_FILE_MAX
+        %error Invalid backup payload size
+    %endif
+%endif
     jmp short normalize
     nop
-%ifdef RB_ATA_RECOVERY_PROFILE
+%ifdef RB_BACKUP_BYTES
+    db 'RBBKUP01'                ; one witness shared by both boot choices
+%elifdef RB_ATA_RECOVERY_PROFILE
     db 'RBTARG03'                ; template capability in the FAT OEM field
 %else
     db 'RETROBT '
@@ -50,6 +58,24 @@ entry:
     cmp ax, RB_LOAD_SEG + RB_SEGMENT_BYTES / 16
     jb failed
 .memory:
+%ifdef RB_BACKUP_BYTES
+    mov si, menu
+    call print_line
+.choose:
+    xor ah, ah
+    push ds
+    int 0x16
+    pop ds
+    mov bp, history_program
+    cmp al, '1'
+    je .selected
+    mov bp, backup_program
+    cmp al, '2'
+    jne .choose
+.selected:
+    mov ax, [bp]
+    mov [lba], ax
+%endif
     mov ax, RB_LOAD_SEG
     mov es, ax
     xor di, di
@@ -97,11 +123,20 @@ entry:
 .read:
     add bx, 512
     inc word [lba]
-    cmp word [lba], 33 + (RB_RESCUE_BYTES + 511) / 512
+%ifdef RB_BACKUP_BYTES
+    mov ax, [lba]
+    cmp ax, [bp+2]
+%else
+    cmp word [lba], FIRST_END
+%endif
     jb .sector
     cld
     xor si, si
+%ifdef RB_BACKUP_BYTES
+    mov cx, [bp+4]
+%else
     mov cx, RB_RESCUE_BYTES
+%endif
     mov edx, 0xFFFFFFFF
 .byte:
     xor dl, [es:si]
@@ -116,13 +151,25 @@ entry:
     jnz .bit
     loop .byte
     not edx
+%ifdef RB_BACKUP_BYTES
+    cmp edx, [bp+6]
+%else
     cmp edx, RB_RESCUE_CRC
+%endif
     jne failed
     mov dl, [drive]
     jmp RB_LOAD_SEG:32
 failed:
     cld
     mov si, message
+%ifdef RB_BACKUP_BYTES
+    call print_line
+.halt:
+    cli
+    hlt
+    jmp .halt
+print_line:
+%endif
 .print:
     lodsb
     test al, al
@@ -141,9 +188,19 @@ failed:
     popad
     jmp .print
 .halt:
+%ifdef RB_BACKUP_BYTES
+    ret
+    ; First LBA, exclusive end, exact length, whole-file CRC32.
+history_program dw 33, FIRST_END, RB_RESCUE_BYTES
+    dd RB_RESCUE_CRC
+backup_program dw FIRST_END, FIRST_END + (RB_BACKUP_BYTES + 511) / 512, RB_BACKUP_BYTES
+    dd RB_BACKUP_CRC
+menu db RB_BACKUP_MENU, 13, 10, 0
+%else
     cli
     hlt
     jmp .halt
+%endif
 drive db 0
 retries db 0
 lba dw 33
