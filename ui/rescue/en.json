@@ -132,5 +132,6 @@
   "STORE_DONE": "Backup published on the recovery disk.",
   "STORE_READ": "Backup read from the recovery disk.",
   "STORE_REV": "Approved MBR revision ",
-  "STORE_CANCEL": "Cancelled."
+  "STORE_CANCEL": "Cancelled.",
+  "PAIR_MENU": "1 Capture and approve MBR   2 Save and verify metadata"
 }

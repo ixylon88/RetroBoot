@@ -48,13 +48,13 @@ def provision(template, capacity=2048):
     return bytes(start), bytes(recovery)
 
 
-def commit(data):
+def commit(data, ids=(TARGET, CARRIER, WITNESS)):
     digest = [0, 0]
     for pos in range(len(data)//512):
         block = data[pos*512:(pos+1)*512]
         for i, section in enumerate((block[:508], block[508:])):
             digest[i] = zlib.crc32(struct.pack('<III', digest[i], pos, zlib.crc32(section)))
-    return sealed(b'RBDONE01' + TARGET + CARRIER + WITNESS + struct.pack('<5I', len(data)//512, 3, 2, *digest))
+    return sealed(b'RBDONE01' + b''.join(ids) + struct.pack('<5I', len(data)//512, 3, 2, *digest))
 
 
 def expected_recovery(blank, data, published=False):
@@ -68,11 +68,15 @@ def expected_recovery(blank, data, published=False):
 def boot_case(exe, bios, src, work, start, source, recovery, ui, name, key, lines,
               *, expected_writes=(), source_serial=SOURCE, recovery_serial=RECOVERY,
               failed_write=False, input_format='raw', recovery_format='raw',
-              remove_recovery=False):
+              remove_recovery=False, combined=False):
     manifest = json.loads((src / 'manifest.json').read_bytes())
     binary = (src / 'backup-disk.bin').read_bytes()
     fixture = dict(binary=binary, memory=manifest['memory']['backup-disk'])
     menu = ['RB BACKUP DISK', ui['STORE_MENU']]
+    actions = [(ui['STORE_MENU'], key, None, False)]
+    if combined:
+        menu.insert(0, ui['PAIR_MENU'])
+        actions.insert(0, (ui['PAIR_MENU'], '2', None, False))
     def check_io(bus, stats):
         source_io = stats.get('rb', {})
         rec = stats.get('recovery', {})
@@ -100,7 +104,7 @@ def boot_case(exe, bios, src, work, start, source, recovery, ui, name, key, line
                     recovery_write_lbas=list(expected_writes), flush_commands=expected.count('0xe7'))
 
     return boot_fixture(exe, bios, fixture, work, start, source, name, menu + lines,
-                        [(ui['STORE_MENU'], key, None, False)], [], [], readonly_start=True,
+                        actions, [], [], readonly_start=True,
                         ata_identity=(MODEL, source_serial), disk_format=input_format,
                         recovery_disk=recovery, recovery_identity=(MODEL, recovery_serial),
                         recovery_format=recovery_format, io_check=check_io, timeout=100, remove_recovery=remove_recovery)

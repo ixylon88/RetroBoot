@@ -8,7 +8,14 @@ import uuid
 import zipfile
 import zlib
 
+try:
+    from .backup_container import MAX_SECTORS
+except ImportError:
+    from backup_container import MAX_SECTORS
+
 SECTOR = 512
+BACKUP_OEM = b'RBBKUP01'
+STORE_DATA = 16
 FLOPPY_BYTES = 2880 * SECTOR
 PROFILE_ENTRY = 19 * SECTOR + 64
 PROFILE_CLUSTER = 2848
@@ -61,6 +68,9 @@ def sealed(data):
 
 
 def prepare_pair(boot, model, serial, sectors, target_id, carrier_id, witness_id=None, *, recovery=None):
+    backup = boot[3:11] == BACKUP_OEM
+    if backup and recovery is None:
+        raise ValueError('The combined MBR and backup diskette requires a dedicated recovery disk')
     at = PROFILE_CLUSTER + PROFILE_CLUSTER // 2
     if (len(boot) != FLOPPY_BYTES or boot[PROFILE_ENTRY:PROFILE_ENTRY + 12] != FILE_NAME + b'\x01'
             or struct.unpack_from('<HI', boot, PROFILE_ENTRY + 26) != (PROFILE_CLUSTER, SECTOR)
@@ -84,18 +94,24 @@ def prepare_pair(boot, model, serial, sectors, target_id, carrier_id, witness_id
         version, suffix = b'RBTARG02', witness_id
         image[WITNESS_START:WITNESS_START + SECTOR] = sealed(b'RBMEDIA1' + witness_id)
     source_fields = field(serial, 20) + field(model, 40)
-    carrier_label = sealed(b'RBMEDIA1' + carrier_id)
+    carrier = sealed(b'RBMEDIA1' + carrier_id)
     if recovery is not None:
         recovery_model, recovery_serial, recovery_sectors = recovery
         recovery_fields = field(recovery_serial, 20) + field(recovery_model, 40)
-        if (witness_id is None or boot[3:11] != b'RBTARG03' or recovery_fields == source_fields
+        if (witness_id is None or boot[3:11] not in (b'RBTARG03', BACKUP_OEM) or recovery_fields == source_fields
                 or not 7 <= recovery_sectors < 1 << 48):
             raise ValueError('Expected a current template and a distinct recovery disk with at least seven sectors')
         version = b'RBTARG03'
         suffix += recovery_fields + struct.pack('<Q', recovery_sectors)
+        if backup:
+            capacity = min(recovery_sectors - STORE_DATA, MAX_SECTORS)
+            if capacity < 1:
+                raise ValueError('The recovery disk has no room for a backup slot')
+            layout = sealed(b'RBSTORE1' + target_id + carrier_id + witness_id + struct.pack('<I', capacity))
+            carrier = carrier.ljust(7 * SECTOR, b'\0') + layout
     image[-SECTOR:] = sealed(struct.pack('<8s16sQ16s', version, target_id, sectors, carrier_id)
                              + source_fields + suffix)
-    return bytes(image), carrier_label if recovery else carrier_label.ljust(FLOPPY_BYTES, b'\0')
+    return bytes(image), carrier if recovery else carrier.ljust(FLOPPY_BYTES, b'\0')
 
 
 def write_pair(template, output, model, serial, sectors):
@@ -123,13 +139,13 @@ def write_pair(template, output, model, serial, sectors):
 def write_disk_pair(template, output, model, serial, sectors, recovery):
     """Publish a new boot diskette and a sparse, dedicated raw recovery disk."""
     ids = [uuid.uuid4().bytes for _ in range(3)]
-    boot, label = prepare_pair(template.read_bytes(), model, serial, sectors, *ids, recovery=recovery)
+    boot, prefix = prepare_pair(template.read_bytes(), model, serial, sectors, *ids, recovery=recovery)
     with tempfile.TemporaryDirectory(dir=output.parent) as directory:
         stage = Path(directory)
-        start = stage / 'mbr-target.img'
+        start = stage / ('mbr-backup.img' if boot[3:11] == BACKUP_OEM else 'mbr-target.img')
         disk = stage / 'mbr-recovery.img'
         with disk.open('xb') as image:
-            image.write(label)
+            image.write(prefix)
             image.truncate(recovery[2] * SECTOR)
         start.write_bytes(boot)
         output.mkdir()  # exclusive even when two preparations target the same directory

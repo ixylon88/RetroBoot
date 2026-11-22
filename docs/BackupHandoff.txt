@@ -1,0 +1,42 @@
+RetroBoot – MBR-Freigabe und Metadatensicherung / MBR approval and metadata backup
+
+Deutsch
+
+Die Ersterfassung (Revision 1) ist bereits auf der Startdiskette und der
+Sicherungsfestplatte gespeichert. Sie stammt aus einem RetroBoot-Start mit
+der ursprünglichen Testfestplatte. Auf der Systemfestplatte haben sich danach
+vier Bytes geändert. Die Freigabe dieser Änderung erfolgt im ersten Schritt.
+
+1. ZIP entpacken. In der ausgeschalteten BIOS-Test-VM RB75-System.vdi als
+   primären IDE-Master (Port 0, Gerät 0) und RB75-Sicherung.vdi als sekundären
+   IDE-Master (Port 1, Gerät 0) anschließen. Deutsch/mbr-backup.img
+   schreibbar in Laufwerk A einlegen. Sie bleibt bei allen drei Starts in A.
+2. Von A starten und 1, R, R wählen. Die vier Änderungen erscheinen als
+   0x01B0 bis 0x01B3. J gibt Revision 2 frei. Erwartet wird APPROVED REV 2.
+3. Neu von A starten und 2, S wählen. Es folgen „Geprüfte Sektoren 45“,
+   „Freigegebene MBR-Revision 2“ und RB BACKUP DISK PASS.
+4. VM ausschalten und RB75-System.vdi abkoppeln. Die Sicherungsfestplatte
+   bleibt an Port 1. Von A starten und 2, V wählen. Erwartet werden „Sicherung
+   von der Sicherungsfestplatte gelesen.“ und dieselben drei Abschlusszeilen.
+
+Für eine Wiederholung mit leerem Sicherungsplatz die Dateien frisch entpacken.
+
+English
+
+The start diskette and recovery disk already hold the original MBR (revision 1).
+RetroBoot captured it in a boot with the original test disk. Four bytes changed
+on the system disk afterward. The first step reviews and approves those bytes.
+
+1. Extract the ZIP. With the BIOS VM off, attach RB75-System.vdi as primary
+   IDE master (port 0, device 0) and RB75-Sicherung.vdi as secondary IDE master
+   (port 1, device 0). Insert English/mbr-backup.img in A with writing enabled.
+   This diskette stays in A for all three boots.
+2. Boot from A and select 1, R, R. The review displays four changes at
+   0x01B0 through 0x01B3. Y approves revision 2. Expect APPROVED REV 2.
+3. Boot from A again and select 2, S. Expect “Verified sectors 45”,
+   “Approved MBR revision 2” and RB BACKUP DISK PASS.
+4. Power off and detach RB75-System.vdi. Leave the recovery disk on port 1.
+   Boot from A and select 2, V. Expect “Backup read from the recovery disk.”
+   followed by the same three completion lines.
+
+A fresh extraction provides an empty publication slot for another run.

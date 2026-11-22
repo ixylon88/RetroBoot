@@ -1,6 +1,6 @@
 # Project state and resumption
 
-Updated 21 November 2026.
+Updated 22 November 2026.
 
 ## Original DOS boot and current recovery work
 
@@ -10,9 +10,12 @@ This completed #44. Five of the 17 numbered roadmap packages are complete.
 The [manual test of merged PR #73](https://github.com/ixylon88/RetroBoot/pull/73#issuecomment-7065510774)
 confirmed that the separate IDE disk preserved a 45-sector metadata backup
 through power-off. The cold check read it with the source disk disconnected.
-The [media-removal campaign](BackupDisk.md#recovery-disk-removed-during-an-operation)
-also exercises interruptions during saving and verification. #45 still tracks the
-handoff from independently performed MBR capture and approval on a newly enrolled pair.
+The [media-removal campaign in merged PR #74](https://github.com/ixylon88/RetroBoot/pull/74)
+also covers interruptions during saving and verification. The new
+[combined start diskette](BackupDisk.md#from-mbr-capture-to-a-cold-verified-backup)
+carries the original capture and explicit approval through to a durable
+backup on the same pair. The VirtualBox package starts with revision 1
+captured and revision 2 ready for review. This is the final handoff in #45.
 
 The prepared hard disk booted MS-DOS 6.22 in VirtualBox. The maintainer
 confirmed normal DOS operation and the version after the menu handoff.

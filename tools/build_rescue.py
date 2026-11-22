@@ -14,7 +14,7 @@ try:
     from .mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from .build_abi_probe import inspect_map, prepare_output
     from .build_hdd import layout, write_fixture
-    from .rescue_text import LANGUAGES, metadata, output_name, render_header
+    from .rescue_text import LANGUAGES, load_catalog, metadata, output_name, render_header
     from .setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from .backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from .backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
@@ -36,7 +36,7 @@ except ImportError:
     from mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
     from build_abi_probe import inspect_map, prepare_output
     from build_hdd import layout, write_fixture
-    from rescue_text import LANGUAGES, metadata, output_name, render_header
+    from rescue_text import LANGUAGES, load_catalog, metadata, output_name, render_header
     from setup_toolchain import LOCK, ROOT, TOOLCHAIN, sha256, verify
     from backup_vectors import model_header, cases as backup_cases, sources as backup_sources
     from backup_encode_vectors import model_header as encode_header, cases as encode_cases, assertions as encode_assertions
@@ -115,6 +115,35 @@ def make_image(boot,payload):
     padded=payload+b'\xa5'*(-len(payload)%512)
     image[PAYLOAD_LBA*512:PAYLOAD_LBA*512+len(padded)]=padded
     return bytes(image)
+
+
+def build_backup_diskette(destination, language, nasm, run):
+    """Place the two independently sealed programs on the same enrolled FAT12 diskette."""
+    history = (destination / 'mbr-target.bin').read_bytes()
+    backup = (destination / 'backup-disk.bin').read_bytes()
+    boot = destination / 'mbr-backup-boot.bin'
+    menu = load_catalog(language)['PAIR_MENU'].encode('cp437')
+    run(nasm, '-Werror', '-f', 'bin', '-I', './', f'-DRB_RESCUE_BYTES={len(history)}',
+        f'-DRB_RESCUE_CRC={zlib.crc32(history)}', f'-DRB_BACKUP_BYTES={len(backup)}',
+        f'-DRB_BACKUP_CRC={zlib.crc32(backup)}', '-DRB_BACKUP_MENU=' + ','.join(map(str, menu)),
+        'boot/rescue.asm', '-o', boot)
+    image = bytearray((destination / 'mbr-target.img').read_bytes())
+    image[:512] = boot.read_bytes()
+    first = 2 + (len(history) + 511) // 512
+    end = first + (len(backup) + 511) // 512
+    fat = image[512:10 * 512]
+    for cluster in range(first, end):
+        fat12_set(fat, cluster, 0xfff if cluster + 1 == end else cluster + 1)
+    image[512:10 * 512] = image[10 * 512:19 * 512] = fat
+    entry = 19 * 512 + 4 * 32  # the preceding entries hold the profile and its witness
+    image[entry:entry + 12] = b'RBBACKUPBIN\x20'
+    struct.pack_into('<HI', image, entry + 26, first, len(backup))
+    start = (PAYLOAD_LBA + first - 2) * 512
+    image[start:start + len(backup)] = backup
+    diskette = destination / 'mbr-backup.img'
+    diskette.write_bytes(image)
+    return boot, diskette
+
 
 def hdd_fixture(name):
     if name not in HDD_CASES:raise ValueError('Unknown rescue HDD fixture')
@@ -295,6 +324,8 @@ def build(kind='rescue',language='en'):
         template = destination / name
         template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
         remember(template)
+    for path in build_backup_diskette(destination, language, nasm, run):
+        remember(path)
     for filename, data in original_media().items():
         media = destination / filename
         media.write_bytes(data)

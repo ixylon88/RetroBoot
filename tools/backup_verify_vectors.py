@@ -49,8 +49,8 @@ def wire(reserved=32):
     return encode(identity, chunks)
 
 
-def record(tag, point, capacity, original, approved):
-    data = bytearray(header(tag, point, capacity=capacity))
+def record(tag, point, capacity, original, approved, *, target_id=TARGET, carrier_id=CARRIER):
+    data = bytearray(header(tag, point, carrier_id, target_id=target_id, capacity=capacity))
     struct.pack_into('<II', data, 64, zlib.crc32(original), zlib.crc32(approved) if point.approved else 0)
     return seal(data)
 
