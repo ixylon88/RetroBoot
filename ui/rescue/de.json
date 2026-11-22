@@ -133,5 +133,17 @@
   "STORE_READ": "Sicherung von der Sicherungsfestplatte gelesen.",
   "STORE_REV": "Freigegebene MBR-Revision ",
   "STORE_CANCEL": "Abgebrochen.",
-  "PAIR_MENU": "1 MBR erfassen und freigeben   2 Metadaten sichern und prüfen"
+  "PAIR_MENU": "1 MBR erfassen und freigeben   2 Metadaten sichern und prüfen",
+  "RESTORE_CHECK": "Sicherung und Systemfestplatte werden geprüft.",
+  "RESTORE_BACKUP": "Sicherung oder unabhängige MBR-Freigabe konnte nicht geprüft werden.",
+  "RESTORE_TARGET": "Systemfestplatte oder aktuelle Partitionstabelle nicht bestätigt.",
+  "RESTORE_SCOPE_BAD": "Startcode oder Plattenzuordnung passt nicht zu dieser Reparatur.",
+  "RESTORE_INTACT": "Der freigegebene Startcode ist bereits vorhanden.",
+  "RESTORE_SCOPE": "MBR-Startcode wiederherstellen an LBA 0, Bytes 0x0000 bis 0x01AF.",
+  "RESTORE_KEEP": "Aktuellen Startzeiger, Datenträgersignatur und Partitionstabelle erhalten.",
+  "RESTORE_CONFIRM": "J Diese Bytes wiederherstellen   Esc Abbrechen",
+  "RESTORE_CANCEL": "Reparatur abgebrochen.",
+  "RESTORE_CHANGED": "Festplatte oder Sicherung geändert. Reparatur abgebrochen.",
+  "RESTORE_IO": "Schreiben, Leeren des Caches oder Rücklesen fehlgeschlagen. Erneut prüfen.",
+  "RESTORE_DONE": "Startcode wiederhergestellt. Alle 512 Bytes des MBR geprüft."
 }

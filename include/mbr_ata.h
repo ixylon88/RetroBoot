@@ -17,6 +17,7 @@ typedef struct {
 } rb_ata_enrollment;
 
 int rb_ata_identify(rb_ata_identity *result);
+int rb_ata_target_can_flush(const rb_ata_enrollment *profile);
 int rb_ata_identify_recovery(rb_ata_identity *result, int require_flush);
 int rb_ata_recovery_label(const rb_ata_enrollment *profile);
 int __cdecl rb_ata_pair_matches(void *profile);

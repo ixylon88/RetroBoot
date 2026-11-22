@@ -1,0 +1,55 @@
+RetroBoot – MBR-Startcode wiederherstellen / Restore the MBR start code
+
+Deutsch
+
+Die Systemfestplatte enthält vorbereitete Testdaten. Auf ihr fehlen die ersten
+432 Bytes des RetroBoot-Startcodes. Seit der Sicherung wurde das Aktiv-Flag der
+ersten Partition geändert. Bei der Reparatur gilt die aktuelle Partitionstabelle.
+
+1. ZIP entpacken. An der ausgeschalteten BIOS-Test-VM zwei IDE-Platten zuordnen:
+   Primäres Gerät 0  (primärer Master)   RB46-System.vdi
+   Sekundäres Gerät 0 (sekundärer Master) RB46-Sicherung.vdi
+   Deutsch/mbr-restore.img in A einlegen und von A starten.
+2. Die Rettungsdiskette prüft Sicherung, Systemfestplatte und Partitionstabelle.
+   Die Anzeige nennt Revision 2 und den Bereich 0x0000 bis 0x01AF an LBA 0.
+   J bestätigt die Reparatur. Esc bricht sie vor dem Schreiben ab.
+3. Nach J erscheinen „Startcode wiederhergestellt. Alle 512 Bytes des MBR
+   geprüft.“ und RB MBR RESTORE PASS. Erneut von A starten. Nun erscheint
+   „Der freigegebene Startcode ist bereits vorhanden.“ ohne erneute Freigabe.
+
+Die Sicherungsfestplatte und die Diskette bleiben während beider Starts
+angeschlossen. Die Testfestplatte enthält kein installiertes Betriebssystem.
+
+English
+
+The prepared system disk has lost the first 432 bytes of its RetroBoot boot
+code. The first partition's active flag changed after the backup was taken.
+The repair keeps the current partition table.
+
+1. Extract the ZIP. With the BIOS test VM off, attach both IDE disks:
+   Primary Device 0   (primary master)     RB46-System.vdi
+   Secondary Device 0 (secondary master)   RB46-Sicherung.vdi
+   Insert English/mbr-restore.img in A and boot from A.
+2. The rescue diskette checks the backup, system disk and partition table.
+   The screen identifies revision 2 and LBA 0, bytes 0x0000 through 0x01AF.
+   Y confirms the repair. Esc cancels before the write.
+3. After Y, expect “Start code restored. All 512 bytes of the MBR read back
+   and checked.” and RB MBR RESTORE PASS. Boot from A again. The screen now
+   reports “The approved start code is already present.” without a write prompt.
+
+Both disks and the diskette stay attached across these boots. The prepared
+system disk contains synthetic metadata and no installed operating system.
+
+Repair boundary
+
+The rescue diskette accepts a verified publication from the external backup
+disk and its independent floppy witness. The approved MBR must contain this
+build's Stage 1 code. The executable prefix on the primary IDE master must be
+fully erased or already intact. The retained RBM1 marker and loader pointer
+identify the live management volume. Both the BIOS and ATA reads must agree.
+The disk ID, partition layout and enrolled device identities are checked again
+after confirmation. Recovery writes one sector at LBA 0, flushes the drive and
+reads all 512 bytes back. Bytes 432 through 511 come from the live target.
+A write, flush or readback error ends the attempt. A new boot inspects the
+actual bytes before offering any further repair. Mixed or unknown code and
+unreadable targets require diagnosis.

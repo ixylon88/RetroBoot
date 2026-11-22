@@ -182,6 +182,13 @@ def build(kind='rescue',language='en'):
     (destination/'journal_io_fixture.h').write_text(io_model_header(),encoding='ascii')
     (destination/'backup_plan_vectors.h').write_text(plan_header(),encoding='ascii')
     (destination/'backup_payload_vectors.h').write_text(payload_header(),encoding='ascii')
+    stage1 = destination / 'restore-stage1.bin'
+    run(nasm, '-Werror', '-f', 'bin', '-I', './', 'boot/mbr.asm', '-o', stage1)
+    code = stage1.read_bytes()
+    if len(code) != 440 or code[432:] != b'RBM1' + bytes(4):
+        raise ValueError('Unexpected MBR executable and parameter boundary')
+    (destination / 'restore_stage1.h').write_text(
+        'static const rb_u8 stage1_code[] = {' + ','.join(map(str, code[:432])) + '};\n')
     objects=[]
     for name,source in (('runtime','core/rescue_runtime.c'),('inspect','core/rescue_inspect.c'),('partitions','core/partitions.c'),('config','core/config.c'),('model','tests/rescue/model.c')):
         obj=destination/(name+'.obj');run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),'-fo='+str(obj),source)
@@ -198,6 +205,7 @@ def build(kind='rescue',language='en'):
             ('mbr-floppy','core/mbr_floppy.c'),('mbr-ata','core/mbr_ata.c'),('mbr-target-ui','core/mbr_target.c'),
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
+            ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
             ('backup-boot','core/backup_boot.c'),('backup-boot-tests','tests/backup/boot.c'),
@@ -222,10 +230,11 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-DRB_BACKUP_DISK=1','bios/ata.asm','-o',destination/'backup-ata.obj')
     run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-dRB_READ_ONLY_RECOVERY=1',
         '-fo='+str(destination/'backup-floppy.obj'),'core/mbr_floppy.c')
+    run(nasm,'-Werror','-f','obj','-DRB_BACKUP_DISK=1','-DRB_RESTORE_MBR=1','bios/ata.asm','-o',destination/'restore-ata.obj')
     artifacts={};memory={}
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     def floppy(name,payload):
-        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk') else []
+        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk','mbr-restore') else []
         boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
             '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),*flags,'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
@@ -235,7 +244,7 @@ def build(kind='rescue',language='en'):
             ('backup-stream-model',['-DRB_RESCUE_STREAM_MODEL=1']),
             ('backup-live-model',['-DRB_RESCUE_LIVE_MODEL=1']),
             ('backup-verify-model',['-DRB_RESCUE_VERIFY_MODEL=1']),
-            ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),
+            ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),('mbr-restore',['-DRB_RESCUE_MBR_RESTORE=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
@@ -293,11 +302,16 @@ def build(kind='rescue',language='en'):
             extra=[destination/(n+'.obj') for n in ('backup-live','backup-live-tests','backup-stream','backup-encode',
                 'backup-plan','backup-target','backup-links','fat-boot','target-audit','saved-state','saved-record-io','saved-volume')]
         if name in ('backup-disk','backup-verify-model'):
-            adapter = ['backup-verify-tests'] if name=='backup-verify-model' else ['backup-disk-ui','backup-ata','mbr-ata','backup-floppy','floppy']
+            adapter = ['backup-verify-tests'] if name=='backup-verify-model' else ['backup-disk-ui','backup-store','backup-ata','mbr-ata','backup-floppy','floppy']
             extra=[destination/(n+'.obj') for n in (*adapter, 'backup-verify', 'mbr-restart-core',
                 'backup', 'backup-records', 'backup-boot', 'backup-live', 'backup-stream', 'backup-encode',
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
+        if name == 'mbr-restore':
+            extra = [destination / (n + '.obj') for n in (
+                'mbr-restore-ui', 'backup-store', 'restore-ata', 'mbr-ata', 'backup-floppy', 'floppy',
+                'mbr-restart-core', 'backup', 'backup-records', 'backup-boot', 'backup-target',
+                'backup-links', 'fat-boot', 'target-audit', 'saved-state', 'saved-record-io', 'saved-volume')]
         if name in ('retroboot-rescue','rescue-bss-fault'):
             extra=[destination/(n+'.obj') for n in ('rescue-ui','rescue-file','rescue-backup','floppy',
                 'backup','backup-records','backup-links','saved-state','saved-record-io','saved-volume','backup-boot','backup-target','target-audit',
@@ -307,7 +321,7 @@ def build(kind='rescue',language='en'):
         if destination/'backup-target.obj' in extra:
             extra.append(destination/'fingerprint.obj')
         linked=[obj,*objects[:-1],*extra,objects[-1]]
-        if name == 'backup-disk':
+        if name in ('backup-disk','mbr-restore'):
             linked.remove(destination / 'inspect.obj')  # interactive diagnosis belongs to the rescue UI
         run(wlink,'@core/stage2.wlink','name',binary,'option','map='+str(mapfile),'file',','.join(map(str,linked)))
         data=seal_payload(binary.read_bytes());binary.write_bytes(data);header=inspect_payload(data)
@@ -320,10 +334,11 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
-    for name in ('mbr-target.img','backup-disk.img'):
+    for name in ('mbr-target.img','backup-disk.img','mbr-restore.img'):
         template = destination / name
         template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
         remember(template)
+    remember(stage1)
     for path in build_backup_diskette(destination, language, nasm, run):
         remember(path)
     for filename, data in original_media().items():

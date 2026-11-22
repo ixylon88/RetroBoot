@@ -116,6 +116,11 @@ static int matches(rb_u16 channel, const rb_ata_identity *expected, int writing)
         && equal((const rb_u8 *)&live, (const rb_u8 *)expected, sizeof(live));
 }
 
+int rb_ata_target_can_flush(const rb_ata_enrollment *profile)
+{
+    return matches(RB_ATA_SOURCE, &profile->device, 1);
+}
+
 int __cdecl rb_ata_target_matches(void *profile)
 {
     const rb_ata_enrollment *p = (const rb_ata_enrollment *)profile;

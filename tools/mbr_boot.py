@@ -55,7 +55,7 @@ def remove_failed_recovery(q, timeout):
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
                  recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(),
-                 io_check=None, timeout=15, remove_recovery=False):
+                 io_check=None, timeout=15, remove_recovery=False, before_key=None):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -90,6 +90,8 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             for prompt, key, medium, readonly in actions:
                 visits[prompt] += 1
                 wait_marker(proc, log, prompt + '\n', encoding='cp437', occurrence=visits[prompt])
+                if before_key is not None:
+                    before_key(q, prompt)
                 if medium is not None:
                     q.call('blockdev-change-medium', {'device': 'floppy', 'filename': str(medium), 'format': 'raw',
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
