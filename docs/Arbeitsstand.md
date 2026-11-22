@@ -7,8 +7,12 @@ Updated 21 November 2026.
 The maintainer confirmed the 45-sector RAM verification and both rejected
 changes in [merged PR #72](https://github.com/ixylon88/RetroBoot/pull/72#issuecomment-7053746430).
 This completed #44. Five of the 17 numbered roadmap packages are complete.
-The current [durable backup test](BackupDisk.md) writes to a separate IDE disk
-and reopens the published backup after power-off with the source disconnected.
+The [manual test of merged PR #73](https://github.com/ixylon88/RetroBoot/pull/73#issuecomment-7065510774)
+confirmed that the separate IDE disk preserved a 45-sector metadata backup
+through power-off. The cold check read it with the source disk disconnected.
+The [media-removal campaign](BackupDisk.md#recovery-disk-removed-during-an-operation)
+also exercises interruptions during saving and verification. #45 still tracks the
+handoff from independently performed MBR capture and approval on a newly enrolled pair.
 
 The prepared hard disk booted MS-DOS 6.22 in VirtualBox. The maintainer
 confirmed normal DOS operation and the version after the menu handoff.
