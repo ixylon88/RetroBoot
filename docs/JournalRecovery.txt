@@ -2,48 +2,55 @@ RetroBoot – Unterbrochenen Partitionswechsel abschließen
 
 Deutsch
 
-Die vorbereitete Systemfestplatte enthält einen unterbrochenen ersten Wechsel.
-Die vorgesehene Partition ist schon aktiv. Im Journal fehlt der Abschluss.
+Die vorgesehene Partition ist bereits aktiv. In der zweiten Journal-Kopie
+hat die vorbereitete Testplatte erst einen Teil des neuen MBR-Abbilds
+gespeichert. Die Rettungsdiskette ergänzt die Kopie und bestätigt den Wechsel.
 
-1. ZIP entpacken und die ausgeschaltete BIOS-Test-VM wie folgt bestücken.
-   Primäres Gerät 0    (primärer Master)    RB77-System.vdi
-   Sekundäres Gerät 0  (sekundärer Master)  RB77-Sicherung.vdi
+1. ZIP entpacken. An der ausgeschalteten BIOS-Test-VM die Platten anschließen.
+   Primäres Gerät 0    (primärer Master)    RB78-System.vdi
+   Sekundäres Gerät 0  (sekundärer Master)  RB78-Sicherung.vdi
    Deutsch/journal-recovery.img in A einlegen und von A starten.
-2. Die Rettungsdiskette prüft beide Festplatten und zeigt die freigegebene
-   MBR-Revision 2. Auf der vorbereiteten Platte nennt sie den Journal-Eintrag
-   RBTXN.B. J speichert den Abschluss. Esc bricht vor dem Schreiben ab.
-3. Nach J erscheinen „Partitionswechsel abgeschlossen. Journal und aktueller
-   MBR geprüft.“ und RB JOURNAL RECOVERY PASS.
-4. Beide Platten und die Diskette angeschlossen lassen. Erneut von A starten.
+2. Die Diskette zeigt die freigegebene MBR-Revision 2. Sie nennt zwei Sektoren
+   in RBTXN.B. Die MBR-Kopie liegt an 0x00001C5D, der Abschluss an 0x00001C59.
+   J bestätigt beide Schritte. Esc bricht vor dem Schreiben ab.
+3. Nach J erscheinen „MBR-Kopie im Journal gespeichert und geprüft.“, dann
+   „Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.“
+   und RB JOURNAL RECOVERY PASS.
+4. Beide Platten und die Diskette angeschlossen lassen und erneut von A starten.
    Es erscheint „Der Partitionswechsel ist bereits abgeschlossen.“
 
 English
 
-The prepared system disk contains an interrupted first partition switch.
-The intended partition is active. The journal is missing its completion header.
+The intended partition is already active. The second journal slot on the
+prepared system disk contains only part of the new MBR snapshot. The rescue
+diskette completes the snapshot, then publishes the completion header.
 
-1. Extract the ZIP and attach the media to the powered-off BIOS test VM.
-   Primary Device 0    (primary master)     RB77-System.vdi
-   Secondary Device 0  (secondary master)   RB77-Sicherung.vdi
+1. Extract the ZIP and attach the disks to the powered-off BIOS test VM.
+   Primary Device 0    (primary master)     RB78-System.vdi
+   Secondary Device 0  (secondary master)   RB78-Sicherung.vdi
    Insert English/journal-recovery.img in A and boot from A.
-2. The rescue diskette checks both disks and displays approved MBR revision 2.
-   It identifies journal header RBTXN.B on the included disk. Y records the
-   completion. Esc cancels before the write.
-3. After Y, expect “Switch completed. Journal and current MBR verified.”
-   and RB JOURNAL RECOVERY PASS.
-4. Leave both disks and the diskette attached and boot from A again.
+2. The screen shows approved MBR revision 2 and two sectors in RBTXN.B.
+   The MBR copy is at 0x00001C5D and its completion header is at 0x00001C59.
+   Y confirms both steps. Esc cancels before writing.
+3. After Y, expect “MBR copy saved to the journal and verified.” followed by
+   “Switch completed. Journal and current MBR verified.” and RB JOURNAL RECOVERY PASS.
+4. Leave the disks and diskette attached and boot from A again.
    The screen reports “The partition switch is already complete.”
 
 Recovery scope
 
-The floppy witness and the published external backup must independently agree
-on the full current MBR. The validated live FAT allocation supplies the six
-journal sector addresses. One slot must hold a valid prepared sequence 2, with
-both complete MBR snapshots already present in the other slot. The accepted
-prior header is the sequence 1 baseline for that old MBR, or a prefix of the
-expected completion followed by the matching baseline suffix. After keyboard
-confirmation the program rechecks the media, both complete records and their
-locations. It writes and flushes the one journal header, reads the sector back,
-then validates the actual journal pair, disk identities and current MBR again.
-An already completed pair can be checked on a cold boot. Other interruption
-points require separate recovery procedures. The kit uses synthetic data.
+The floppy witness and the published external backup must agree on the full
+current MBR. The live FAT audit identifies all six journal sectors. One slot
+must contain a valid prepared sequence 2 with the approved new MBR. The other
+must retain the exact old snapshot. With the baseline header intact, its new
+snapshot can be the old image, the complete new image, or an exact prefix of
+the new image followed by the corresponding suffix of the old one. Once that
+snapshot is complete, a prefix of the correct completion header followed by
+its baseline suffix can also be recovered.
+
+Confirmation pins both actual sectors and their audited locations. Each write
+is flushed and read back through BIOS and ATA. After a snapshot repair the
+diskette checks both drives, the external backup, the file allocation, both
+records and the live MBR again before publishing the header. A restart after
+that first sector offers only the remaining header. A fully completed pair
+requires zero writes. Earlier interruptions and later sequences remain open.
