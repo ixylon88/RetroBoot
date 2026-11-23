@@ -57,6 +57,17 @@ jobs:
           path: ${{ runner.temp }}/retroboot-mbr-restore/
           if-no-files-found: error
           retention-days: 30
+      - name: Test interrupted journal completion and prepare both VirtualBox languages
+        run: |
+          python3 tools/package_journal_recovery.py
+          python3 -m zipfile -e build/journal-recovery/RetroBoot-Partitionswechsel-Reparatur.zip "$RUNNER_TEMP/retroboot-journal-recovery"
+      - name: Upload the partition switch recovery kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: RetroBoot-Partitionswechsel-Reparatur
+          path: ${{ runner.temp }}/retroboot-journal-recovery/
+          if-no-files-found: error
+          retention-days: 30
       - name: Package and boot English/German rescue CDs
         run: |
           make rescue-iso-test RB_LANGUAGE=en
@@ -119,6 +130,7 @@ jobs:
             build/backup-disk-kit/*.zip
             build/backup-handoff/*
             build/mbr-restore/results.json
+            build/journal-recovery/results.json
             build/rescue/mbr-backup.img
             build/rescue-de/mbr-backup.img
             build/rescue/backup-verify-model.img

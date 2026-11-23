@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {
     rb_partition_scan scan;
     rb_u32 record_lba[4]; /* Config A/B, state A/B, from the audited allocation. */
+    rb_u32 journal_lba[2][3]; /* Complete physical maps from the same audit. */
     rb_backup_ready ready[4];
     rb_u16 ready_count;
 } rb_backup_sources;
@@ -53,6 +54,9 @@ void rb_backup_observe_target(rb_backup_target *result, rb_backup_sources *sourc
    boot authority. Stable sources and a non-reentrant call are required;
    only status/detail/error_lba survive failure. No BIOS discovery is performed. */
 void rb_backup_match_target(rb_backup_target *result, const rb_backup *backup,
+    const rb_rescue_device *device, rb_sector_reader read, void *opaque);
+/* Returns the audited source maps only on a full saved/live match. */
+void rb_backup_match_sources(rb_backup_target *result, rb_backup_sources *sources, const rb_backup *backup,
     const rb_rescue_device *device, rb_sector_reader read, void *opaque);
 rb_u16 __cdecl rb_backup_target_selftest(void);
 

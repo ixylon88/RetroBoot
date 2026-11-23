@@ -145,5 +145,11 @@
   "RESTORE_CANCEL": "Reparatur abgebrochen.",
   "RESTORE_CHANGED": "Festplatte oder Sicherung geändert. Reparatur abgebrochen.",
   "RESTORE_IO": "Schreiben, Leeren des Caches oder Rücklesen fehlgeschlagen. Erneut prüfen.",
-  "RESTORE_DONE": "Startcode wiederhergestellt. Alle 512 Bytes des MBR geprüft."
+  "RESTORE_DONE": "Startcode wiederhergestellt. Alle 512 Bytes des MBR geprüft.",
+  "JR_SCOPE": "Die vorgesehene Partition ist aktiv. Der Abschluss für Wechsel 2 fehlt.",
+  "JR_HEADER": "Journal-Eintrag",
+  "JR_CONFIRM": "J Abschluss speichern   Esc Abbrechen",
+  "JR_DONE": "Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.",
+  "JR_INTACT": "Der Partitionswechsel ist bereits abgeschlossen.",
+  "JR_BAD": "Das Journal belegt keinen reparierbaren ersten Partitionswechsel."
 }
