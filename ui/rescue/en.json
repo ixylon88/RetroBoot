@@ -154,5 +154,10 @@
   "JR_BAD": "The journal does not identify a recoverable first switch.",
   "JR_SNAPSHOT": "MBR copy in journal",
   "JR_CONFIRM_BOTH": "Y Save MBR copy and completion   Esc Cancel",
-  "JR_SNAPSHOT_DONE": "MBR copy saved to the journal and verified."
+  "JR_SNAPSHOT_DONE": "MBR copy saved to the journal and verified.",
+  "JR_PREPARED": "Switch 2 is prepared. The partition table still matches its old state.",
+  "JR_MBR": "System partition table, MBR at LBA 0",
+  "JR_DELTA": "Offset     Current byte -> Planned byte",
+  "JR_APPLY": "Y Apply and complete the partition switch   Esc Cancel",
+  "JR_MBR_DONE": "Partition table written and verified."
 }
