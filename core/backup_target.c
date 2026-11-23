@@ -135,7 +135,7 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     const rb_rescue_device *d, rb_sector_reader read, void *opaque)
 {
     rb_u32 digest[2];
-    rb_u16 reads, i;
+    rb_u16 reads, i, j;
     clear(&work, sizeof(work)); fail(r, RB_BTARGET_PARAMS, 0, 0);
     if (sources) { clear(sources, sizeof(*sources)); }
     if (!d || !read) { return; }
@@ -154,6 +154,9 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     }
     if (!r->status && sources) {
         sources->scan = work.audit.scan;
+        for (i = 0; i < 2; ++i) {
+            for (j = 0; j < 3; ++j) { sources->journal_lba[i][j] = work.audit.journal_lba[i][j]; }
+        }
         for (i = 0; i < 4; ++i) { sources->record_lba[i] = work.audit.files[i + 2].first_lba; }
         for (i = 0; i < work.state.state.count; ++i) {
             if (work.state.state.entries[i].phase == RB_INSTALL_READY) {
@@ -166,11 +169,12 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     clear(&work, sizeof(work));
 }
 
-void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
+void rb_backup_match_sources(rb_backup_target *r, rb_backup_sources *sources, const rb_backup *b,
     const rb_rescue_device *d, rb_sector_reader read, void *opaque)
 {
     rb_u16 route;
     clear(&work, sizeof(work)); fail(r, RB_BTARGET_PARAMS, 0, 0);
+    if (sources) { clear(sources, sizeof(*sources)); }
     if (!b || !d || !read) { return; }
     route = d->mode ? 1 : 2;
     if (!b->disk_id || !nonzero(b->media_id) || !b->admin_start || !b->admin_sectors
@@ -189,7 +193,7 @@ void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
     if (b->route != route || b->heads != d->heads || b->sectors_per_track != d->sectors_per_track) {
         fail(r, RB_BTARGET_GEOMETRY, 0, 0); return;
     }
-    rb_backup_observe_target(r, (rb_backup_sources *)0, d, read, opaque);
+    rb_backup_observe_target(r, sources, d, read, opaque);
     if (!r->status) {
         if (r->disk_id != b->disk_id || !same(r->media_id, b->media_id, 16)) {
             fail(r, RB_BTARGET_IDENTITY, 4, 0);
@@ -197,4 +201,11 @@ void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
             fail(r, RB_BTARGET_LAYOUT, 0, 0);
         }
     }
+    if (r->status && sources) { clear(sources, sizeof(*sources)); }
+}
+
+void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque)
+{
+    rb_backup_match_sources(r, (rb_backup_sources *)0, b, d, read, opaque);
 }

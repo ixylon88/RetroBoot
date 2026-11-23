@@ -9,8 +9,9 @@ The model is now used by the [F8/Enter diagnosis](JournalDiagnosis.md).
 The released images contain two preallocated three-sector journal slots and
 an empty EDD baseline. The eight-file allocation auditor supplies a checked,
 fragmentation-aware sector map. The reader binds all identity records, reads
-the complete journal pair and checks the current MBR again. Persistent writes
-and independent external rescue remain separate work.
+the complete journal pair and checks the current MBR again. The independent
+rescue diskette can complete the first switch when the authorized MBR and both
+snapshot pairs are already on disk. See [journal recovery](JournalRecovery.txt).
 
 ## Three-sector record, version 1
 
@@ -141,7 +142,6 @@ they retain the same core implementations and existing file/stack budgets.
 
 The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
 42 native reader assertions, 495 UI states per language, manual check and
-remaining limitations. F10 now recognizes all eight files. An independent
-external rescue path is still required before any first write tests, followed
-by fresh ownership/identity checks, verified prepare/MBR/completion writes and
-fault injection after every step.
+remaining limitations. F10 now recognizes all eight files. External rescue
+covers the completion header of the first switch. Earlier interruption points
+and the normal switch still require independent recovery and write tests.

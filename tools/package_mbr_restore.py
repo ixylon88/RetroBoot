@@ -30,10 +30,10 @@ CODE = 432
 PASS, BLOCK = 'RB MBR RESTORE PASS', 'RB MBR RESTORE BLOCKED'
 
 
-def checked_build(directory):
+def checked_build(directory, program='mbr-restore'):
     manifest = json.loads((directory / 'manifest.json').read_bytes())
     check_build_inputs(manifest, ROOT)
-    for name in (START, FLOPPY, 'mbr-restore.bin', 'mbr-target.bin', 'backup-disk.bin', 'restore-stage1.bin'):
+    for name in (START, program + '.img', program + '.bin', 'mbr-target.bin', 'backup-disk.bin', 'restore-stage1.bin'):
         if sha256(directory / name) != manifest['artifacts'][name]['sha256']:
             raise ValueError(f'Build artifact changed: {name}')
     return manifest
@@ -45,12 +45,13 @@ def write_at(path, offset, data):
         out.write(data)
 
 
-def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, approved):
+def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, approved, *,
+                        primary=PRIMARY, secondary=SECONDARY, ids=IDS):
     """Use the guest's capture, approval and publication paths before injecting damage."""
     count = size // 512
     start = work / START
-    template, prefix = prepare_pair((src / START).read_bytes(), MODEL, PRIMARY, count, *IDS,
-                                    recovery=(MODEL, SECONDARY, CAPACITY))
+    template, prefix = prepare_pair((src / START).read_bytes(), MODEL, primary, count, *ids,
+                                    recovery=(MODEL, secondary, CAPACITY))
     start.write_bytes(template)
     blank = prefix.ljust(CAPACITY * 512, b'\0')
     carrier.write_bytes(blank)
@@ -58,20 +59,20 @@ def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, ap
     write_fixture(source, size, {**extents, 0: original})
     ui = load_catalog('en')
     args = exe, bios, src, work, start, source, carrier, ui
-    serials = dict(source_serial=PRIMARY, recovery_serial=SECONDARY)
-    expected, first = history_boot(*args, 'restore-capture', original, approved, count, blank, IDS,
+    serials = dict(source_serial=primary, recovery_serial=secondary)
+    expected, first = history_boot(*args, 'restore-capture', original, approved, count, blank, ids,
                                    capture=True, **serials)
     if carrier.read_bytes() != expected:
         raise ValueError('Original capture differs from the expected carrier')
     stale_witness = start.read_bytes()[WITNESS_START:]
     write_at(source, 0, approved)
-    expected, review = history_boot(*args, 'restore-approve', original, approved, count, expected, IDS, **serials)
+    expected, review = history_boot(*args, 'restore-approve', original, approved, count, expected, ids, **serials)
     if carrier.read_bytes() != expected:
         raise ValueError('Approval differs from the expected carrier')
     witness = start.read_bytes()[WITNESS_START:]
     data = expected_file(original, approved)
     sectors = len(data) // 512
-    record = commit(data, IDS)
+    record = commit(data, ids)
     published = bytearray(expected)
     published[8 * 512:9 * 512] = record
     published[STORE_DATA * 512:STORE_DATA * 512 + len(data)] = data
@@ -81,6 +82,22 @@ def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, ap
     if carrier.read_bytes() != published or start.read_bytes()[WITNESS_START:] != witness:
         raise ValueError('Publication differs from the expected bytes')
     return witness, stale_witness, [first, review, save]
+
+
+def primary_write_check(name, lba, writes, stored):
+    """Verify the exact ATA commands, physical LBA and per-device write counts."""
+    def check_io(trace, devices):
+        commands = re.findall(r'ide_bus_exec_cmd[^\n]*state (0x[0-9a-f]+); cmd (0x30|0xe7)\b', trace)
+        transfers = re.findall(r'ide_sector_write sector=(\d+) nsectors=(\d+)', trace)
+        if (devices['floppy']['wr_bytes'] or devices.get('recovery', {}).get('wr_bytes', 0)
+                or devices.get('rb', {}).get('wr_bytes', 0) != stored
+                or [op for _, op in commands] != list(writes) or len({dev for dev, _ in commands}) > 1
+                or transfers != [(str(lba), '1')] * writes.count('0x30')):
+            raise ValueError(f'{name}: unexpected disk writes {transfers}, commands {commands}')
+        return dict(source_write_lbas=[lba] * len(transfers), source_written_bytes=stored,
+                    flush_commands=writes.count('0xe7'))
+
+    return check_io
 
 
 def restore_boot(exe, bios, src, manifest, work, start, system, recovery, ui, name, outcome, *,
@@ -94,21 +111,11 @@ def restore_boot(exe, bios, src, manifest, work, start, system, recovery, ui, na
         keys.append((ui['RESTORE_CONFIRM'], key, change_floppy, True))
     lines += [ui[outcome], PASS if outcome in ('RESTORE_CANCEL', 'RESTORE_DONE', 'RESTORE_INTACT') else BLOCK]
 
-    def check_io(trace, devices):
-        commands = re.findall(r'ide_bus_exec_cmd[^\n]*state (0x[0-9a-f]+); cmd (0x30|0xe7)\b', trace)
-        transfers = re.findall(r'ide_sector_write sector=(\d+) nsectors=(\d+)', trace)
-        if (devices['floppy']['wr_bytes'] or devices.get('recovery', {}).get('wr_bytes', 0)
-                or devices.get('rb', {}).get('wr_bytes', 0) != stored
-                or [op for _, op in commands] != list(writes) or len({dev for dev, _ in commands}) > 1
-                or transfers != [('0', '1')] * writes.count('0x30')):
-            raise ValueError(f'{name}: unexpected disk writes {transfers}, commands {commands}')
-        return dict(source_write_lbas=[0] * len(transfers), source_written_bytes=stored,
-                    flush_commands=writes.count('0xe7'))
-
     fixture = dict(binary=(src / 'mbr-restore.bin').read_bytes(), memory=manifest['memory']['mbr-restore'])
     return boot_fixture(exe, bios, fixture, work, start, system, name, lines, keys, [], [], readonly_start=True,
                         ata_identity=(MODEL, serial), disk_format=fmt, recovery_disk=recovery, recovery_format=fmt,
-                        recovery_identity=(MODEL, recovery_serial), io_check=check_io, before_key=before_key, timeout=90)
+                        recovery_identity=(MODEL, recovery_serial), io_check=primary_write_check(name, 0, writes, stored),
+                        before_key=before_key, timeout=90)
 
 
 def qualify_kit(exe, bios, work, bundle, fixed, damaged):
@@ -236,6 +243,29 @@ def fault_cases(exe, bios, work, start, stale, system, carrier, damaged, fixed):
     return cases
 
 
+def repair_kit(work, system, carrier, size, witness, *, program, kit, guide, ids, primary, secondary):
+    """Package new VDIs and localized boot programs with the retained independent witness."""
+    floppy = program + '.img'
+    for path, (name, guid, serial), count in ((system, primary, size // 512), (carrier, secondary, CAPACITY)):
+        make_vdi('qemu-img', path, work / name, guid, count, serial)
+    docs = (ROOT / 'docs' / guide).read_text(encoding='utf-8')
+    files = {'Anleitung.txt': docs.replace('\n', '\r\n').encode('utf-8-sig'),
+             primary[0]: (work / primary[0]).read_bytes(), secondary[0]: (work / secondary[0]).read_bytes()}
+    for lang, suffix, folder in LANGS:
+        directory = ROOT / 'build' / ('rescue' + suffix)
+        checked_build(directory, program)
+        base, _ = prepare_pair((directory / floppy).read_bytes(), MODEL, primary[2], size // 512, *ids,
+                               recovery=(MODEL, secondary[2], CAPACITY))
+        if base[-512:] != witness[-512:] or base[WITNESS_START:WITNESS_START+512] != witness[:512]:
+            raise ValueError('Recovery diskette and retained witness enrollment differ')
+        files[folder + '/' + floppy] = base[:WITNESS_START] + witness
+    bundle = work / kit
+    with zipfile.ZipFile(bundle, 'x') as archive:
+        for name, data in files.items():
+            archive.writestr(zipfile.ZipInfo(name), data, compress_type=zipfile.ZIP_DEFLATED)
+    return bundle
+
+
 def main():
     exe = Path(shutil.which('qemu-system-i386')).resolve()
     bios = exe.parent.parent / 'share/seabios/bios-256k.bin'
@@ -261,25 +291,10 @@ def main():
         write_at(system, 0, damaged)
         fixed = work / 'fixed.raw'
         write_fixture(fixed, size, {**extents, 0: repaired})
-        for path, name, guid, count, serial in (
-                (system, SYSTEM, '46460101-d413-4b6c-a346-000011111111', size // 512, PRIMARY),
-                (carrier, RECOVERY, '46460202-d413-4b6c-a346-000022222222', CAPACITY, SECONDARY)):
-            make_vdi('qemu-img', path, work / name, guid, count, serial)
-        docs = (ROOT / 'docs/MBRRestore.txt').read_text(encoding='utf-8')
-        files = {'Anleitung.txt': docs.replace('\n', '\r\n').encode('utf-8-sig'),
-                 SYSTEM: (work / SYSTEM).read_bytes(), RECOVERY: (work / RECOVERY).read_bytes()}
-        for lang, suffix, folder in LANGS:
-            directory = ROOT / 'build' / ('rescue' + suffix)
-            checked_build(directory)
-            base, _ = prepare_pair((directory / FLOPPY).read_bytes(), MODEL, PRIMARY, size // 512, *IDS,
-                                   recovery=(MODEL, SECONDARY, CAPACITY))
-            if base[-512:] != witness[-512:] or base[WITNESS_START:WITNESS_START+512] != witness[:512]:
-                raise ValueError('Recovery diskette and retained witness enrollment differ')
-            files[folder + '/' + FLOPPY] = base[:WITNESS_START] + witness
-        bundle = work / KIT
-        with zipfile.ZipFile(bundle, 'x') as archive:
-            for name, data in files.items():
-                archive.writestr(zipfile.ZipInfo(name), data, compress_type=zipfile.ZIP_DEFLATED)
+        bundle = repair_kit(work, system, carrier, size, witness, program='mbr-restore', kit=KIT,
+                            guide='MBRRestore.txt', ids=IDS,
+                            primary=(SYSTEM, '46460101-d413-4b6c-a346-000011111111', PRIMARY),
+                            secondary=(RECOVERY, '46460202-d413-4b6c-a346-000022222222', SECONDARY))
         manual = qualify_kit(exe, bios, work, bundle, fixed, system)
         floppy = work / 'en/English' / FLOPPY
         stale = work / 'stale.img'

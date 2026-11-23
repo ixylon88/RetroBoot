@@ -145,5 +145,11 @@
   "RESTORE_CANCEL": "Repair cancelled.",
   "RESTORE_CHANGED": "The disk or backup changed. Repair cancelled.",
   "RESTORE_IO": "Write, flush or readback failed. Boot recovery again to check.",
-  "RESTORE_DONE": "Start code restored. All 512 bytes of the MBR read back and checked."
+  "RESTORE_DONE": "Start code restored. All 512 bytes of the MBR read back and checked.",
+  "JR_SCOPE": "The intended partition is active. Switch 2 is awaiting completion.",
+  "JR_HEADER": "Journal header",
+  "JR_CONFIRM": "Y Record the completed switch   Esc Cancel",
+  "JR_DONE": "Switch completed. Journal and current MBR verified.",
+  "JR_INTACT": "The partition switch is already complete.",
+  "JR_BAD": "The journal does not identify a recoverable first switch."
 }
