@@ -1,23 +1,26 @@
-/* Complete the first visibility change after both snapshots reached disk. */
+/* Recover the completion copy of the first visibility change on the enrolled disk. */
 #include "restore_target.h"
 #include "backup_target.h"
 #include "journal.h"
 #include "restore_stage1.h"
 
-rb_u16 __cdecl rb_ata_write_journal_header(rb_u32 lba, const rb_u8 *sector);
+rb_u16 __cdecl rb_ata_write_journal_sector(rb_u32 lba, const rb_u8 *sector);
 
-enum { BAD_BACKUP, BAD_TARGET, BAD_JOURNAL, CHANGED, READY, COMPLETE };
-enum { SHOW, CONFIRM, READBACK };
+enum { BAD_BACKUP, BAD_TARGET, BAD_JOURNAL, CHANGED, NEED_SNAPSHOT, NEED_HEADER, COMPLETE };
+enum { SHOW, CONFIRM, AFTER_SNAPSHOT, AFTER_HEADER };
+enum { HEADER_SECTOR = 0, NEW_SECTOR = 2 };
 
-static rb_backup_sources sources;
-static rb_u8 records[2][RB_JOURNAL_BYTES], scratch[512];
-/* Pin every byte that defines the operator's decision across the keypress. */
+static rb_u8 records[2][RB_JOURNAL_BYTES];
 static struct {
     rb_ata_enrollment profile;
     rb_u32 lba[2][3];
     rb_u16 dest;
-    rb_u8 publication[512], prepared[RB_JOURNAL_BYTES], previous[512];
+    rb_u8 publication[512], prepared[RB_JOURNAL_BYTES];
 } shown;
+
+typedef struct {
+    rb_u8 header[512], snapshot[512];
+} journal_preimage;
 
 static void seal_header(rb_u8 *h)
 {
@@ -26,19 +29,35 @@ static void seal_header(rb_u8 *h)
     for (i = 0; i < 4; ++i) { h[508 + i] = (rb_u8)crc; crc >>= 8; }
 }
 
-/* The possible old header is unique for sequence 2: the empty baseline
-   described this exact before-image twice. A prefix of the exact completion
-   followed by its exact baseline suffix is also safe to finish after a tear. */
-static int expected_header(const rb_u8 *current, const rb_u8 *done, const rb_u8 *prepared)
+/* A partially written sector must be an exact new prefix and old suffix. */
+static int prefix_write(const rb_u8 *actual, const rb_u8 *next, const rb_u8 *old)
 {
     rb_u16 i = 0;
-    rb_store_copy(scratch, prepared, 512);
-    scratch[16] = 1;
-    scratch[36] = RB_TX_EMPTY;
-    rb_store_copy(scratch + 68, scratch + 64, 4);
-    seal_header(scratch);
-    while (i < 512 && current[i] == done[i]) { ++i; }
-    return equal(current + i, scratch + i, 512 - i);
+    while (i < 512 && actual[i] == next[i]) { ++i; }
+    return equal(actual + i, old + i, 512 - i);
+}
+
+static int classify(const rb_u8 *current, const rb_u8 *prepared, rb_u8 *done, rb_u8 *seed)
+{
+    const rb_u8 *old = prepared + 512, *next = prepared + 1024;
+    if (!equal(current + 512, old, 512)) { return BAD_JOURNAL; }
+
+    /* Sequence 1 stored this exact before-image twice. Its header must still
+       be intact if the new snapshot in the completion slot is unfinished. */
+    rb_store_copy(seed, prepared, 512);
+    seed[16] = 1; seed[36] = RB_TX_EMPTY;
+    rb_store_copy(seed + 68, seed + 64, 4);
+    seal_header(seed);
+
+    rb_store_copy(done, prepared, 512);
+    done[36] = RB_TX_COMMITTED;
+    seal_header(done);
+    if (!equal(current + 1024, next, 512)) {
+        if (equal(current, seed, 512) && prefix_write(current + 1024, next, old)) { return NEED_SNAPSHOT; }
+        return BAD_JOURNAL;
+    }
+    if (equal(current, done, 512)) { return COMPLETE; }
+    return prefix_write(current, done, seed) ? NEED_HEADER : BAD_JOURNAL;
 }
 
 static int pin(rb_u8 *field, const rb_u8 *value, rb_u16 size, int step)
@@ -47,17 +66,18 @@ static int pin(rb_u8 *field, const rb_u8 *value, rb_u16 size, int step)
     return equal(field, value, size);
 }
 
-static int inspect(rb_u16 drive, int step)
+static int inspect(rb_u16 drive, int step, journal_preimage *before)
 {
     const rb_backup *saved;
     const rb_u8 *approved = rb_store.witness.approved;
+    rb_backup_sources sources;
     rb_backup_target target;
     rb_journal_context ctx;
     rb_journal_record record;
     rb_journal_result result;
-    rb_u8 done[512], *prepared, *current;
+    rb_u8 done[512], scratch[512], *prepared, *current;
     rb_u16 i, j, dest, source = RB_JOURNAL_NONE;
-    int complete;
+    int state;
 
     if (rb_store_open(drive) != RB_STORE_OCCUPIED || !(saved = rb_store_verify())) { return BAD_BACKUP; }
     if (!rb_store_probe_source() || !rb_ata_target_can_flush(&rb_store.profile)
@@ -83,62 +103,81 @@ static int inspect(rb_u16 drive, int step)
     }
     if (source == RB_JOURNAL_NONE) { return BAD_JOURNAL; }
     dest = 1 - source; prepared = records[source]; current = records[dest];
-    if (!equal(prepared + 1024, approved, 512) || !equal(prepared + 512, current + 512, 1024)) { return BAD_JOURNAL; }
-    rb_store_copy(done, prepared, 512);
-    done[36] = RB_TX_COMMITTED;
-    seal_header(done);
-    complete = equal(current, done, 512);
-    if (!complete && !expected_header(current, done, prepared)) { return BAD_JOURNAL; }
+    if (!equal(prepared + 1024, approved, 512)) { return BAD_JOURNAL; }
+    state = classify(current, prepared, done, scratch);
+    if (state == BAD_JOURNAL) { return state; }
 
     if (step == SHOW) { shown.dest = dest; }
     if (shown.dest != dest || !pin((rb_u8 *)&shown.profile, (const rb_u8 *)&rb_store.profile, sizeof(shown.profile), step)
         || !pin((rb_u8 *)shown.lba, (const rb_u8 *)sources.journal_lba, sizeof(shown.lba), step)
-        || !pin(shown.publication, rb_store.metadata, 512, step) || !pin(shown.prepared, prepared, RB_JOURNAL_BYTES, step)
-        || (step != READBACK && !pin(shown.previous, current, 512, step))) { return CHANGED; }
+        || !pin(shown.publication, rb_store.metadata, 512, step) || !pin(shown.prepared, prepared, RB_JOURNAL_BYTES, step)) {
+        return CHANGED;
+    }
+    if (step != AFTER_HEADER && !pin(before->header, current, 512, step)) { return CHANGED; }
+    if ((step == SHOW || step == CONFIRM) && !pin(before->snapshot, current + 1024, 512, step)) { return CHANGED; }
+    if ((step == AFTER_SNAPSHOT && state != NEED_HEADER) || (step == AFTER_HEADER && state != COMPLETE)) {
+        return CHANGED;
+    }
 
-    /* Project the one proposed sector in memory and use the ordinary journal
-       selector. During readback the on-disk header itself must be complete. */
-    if (step == READBACK && !complete) { return BAD_JOURNAL; }
+    /* Validate the proposed final pair before a write. In the final check
+       classify() already proved that these bytes are physically present. */
+    rb_store_copy(current + 1024, approved, 512);
     rb_store_copy(current, done, 512);
     rb_journal_inspect(&result, records[0], records[1], 3, &ctx, approved);
     if (result.status || result.source != dest || result.observation != RB_TX_COMMITTED_NEW) { return BAD_JOURNAL; }
     if (!same_source() || !read_live(0, scratch) || !equal(scratch, approved, 512)) { return BAD_TARGET; }
-    return complete ? COMPLETE : READY;
+    return state;
 }
 
-static void show_header(void)
+static void show_sector(const char *label, rb_u16 index)
 {
     static const char hex[] = "0123456789ABCDEF";
-    rb_u32 lba = shown.lba[shown.dest][0];
+    rb_u32 lba = shown.lba[shown.dest][index];
     int shift;
-    print(RB_RS_JR_HEADER); print(shown.dest ? " RBTXN.B, LBA 0x" : " RBTXN.A, LBA 0x");
+    print(label); print(shown.dest ? " RBTXN.B, LBA 0x" : " RBTXN.A, LBA 0x");
     for (shift = 28; shift >= 0; shift -= 4) { rb_putc(hex[(lba >> shift) & 15]); }
     line("");
 }
 
+static int write_checked(rb_u16 index, const rb_u8 *before)
+{
+    rb_u8 sector[512];
+    rb_u32 lba = shown.lba[shown.dest][index];
+    const rb_u8 *next = records[shown.dest] + 512 * index;
+    return rb_ata_target_can_flush(&shown.profile)
+        && read_live(lba, sector) && equal(sector, before, 512)
+        && !rb_ata_write_journal_sector(lba, next) && same_source()
+        && read_live(lba, sector) && equal(sector, next, 512);
+}
+
 rb_u16 __cdecl rb_journal_recovery_run(rb_u16 drive)
 {
-    int status;
+    journal_preimage before;
+    int state;
     rb_u16 key;
-    rb_u32 lba;
     line("RB JOURNAL RECOVERY"); line(RB_RS_RESTORE_CHECK);
-    status = inspect(drive, SHOW);
-    if (status == COMPLETE) { line(RB_RS_JR_INTACT); return 0; }
-    if (status != READY) {
-        line(status == BAD_BACKUP ? RB_RS_RESTORE_BACKUP : status == BAD_TARGET ? RB_RS_RESTORE_TARGET : RB_RS_JR_BAD);
+    state = inspect(drive, SHOW, &before);
+    if (state == COMPLETE) { line(RB_RS_JR_INTACT); return 0; }
+    if (state != NEED_HEADER && state != NEED_SNAPSHOT) {
+        line(state == BAD_BACKUP ? RB_RS_RESTORE_BACKUP : state == BAD_TARGET ? RB_RS_RESTORE_TARGET : RB_RS_JR_BAD);
         return 1;
     }
-    show_source(&shown.profile); line(RB_RS_JR_SCOPE); show_header(); line(RB_RS_JR_CONFIRM);
+    show_source(&shown.profile); line(RB_RS_JR_SCOPE);
+    if (state == NEED_SNAPSHOT) { show_sector(RB_RS_JR_SNAPSHOT, NEW_SECTOR); }
+    show_sector(RB_RS_JR_HEADER, HEADER_SECTOR);
+    line(state == NEED_SNAPSHOT ? RB_RS_JR_CONFIRM_BOTH : RB_RS_JR_CONFIRM);
     do { key = rb_console_key(); } while (key != RB_RS_A_YES[0] && key != 27);
     if (key == 27) { line(RB_RS_RESTORE_CANCEL); return 0; }
-    status = inspect(drive, CONFIRM);
-    lba = shown.lba[shown.dest][0];
-    if (status != READY || !rb_ata_target_can_flush(&shown.profile)
-            || !read_live(lba, scratch) || !equal(scratch, shown.previous, 512)) {
-        line(RB_RS_RESTORE_CHANGED); return 1;
+    if (inspect(drive, CONFIRM, &before) != state) { line(RB_RS_RESTORE_CHANGED); return 1; }
+
+    if (state == NEED_SNAPSHOT) {
+        if (!write_checked(NEW_SECTOR, before.snapshot) || inspect(drive, AFTER_SNAPSHOT, &before) != NEED_HEADER) {
+            line(RB_RS_RESTORE_IO); return 1;
+        }
+        line(RB_RS_JR_SNAPSHOT_DONE);
     }
-    if (rb_ata_write_journal_header(lba, records[shown.dest]) || !same_source()
-            || !read_live(lba, scratch) || !equal(scratch, records[shown.dest], 512)
-            || inspect(drive, READBACK) != COMPLETE) { line(RB_RS_RESTORE_IO); return 1; }
+    if (!write_checked(HEADER_SECTOR, before.header) || inspect(drive, AFTER_HEADER, &before) != COMPLETE) {
+        line(RB_RS_RESTORE_IO); return 1;
+    }
     line(RB_RS_JR_DONE); return 0;
 }

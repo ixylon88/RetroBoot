@@ -84,7 +84,7 @@ def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, ap
     return witness, stale_witness, [first, review, save]
 
 
-def primary_write_check(name, lba, writes, stored):
+def primary_write_check(name, lbas, writes, stored):
     """Verify the exact ATA commands, physical LBA and per-device write counts."""
     def check_io(trace, devices):
         commands = re.findall(r'ide_bus_exec_cmd[^\n]*state (0x[0-9a-f]+); cmd (0x30|0xe7)\b', trace)
@@ -92,9 +92,9 @@ def primary_write_check(name, lba, writes, stored):
         if (devices['floppy']['wr_bytes'] or devices.get('recovery', {}).get('wr_bytes', 0)
                 or devices.get('rb', {}).get('wr_bytes', 0) != stored
                 or [op for _, op in commands] != list(writes) or len({dev for dev, _ in commands}) > 1
-                or transfers != [(str(lba), '1')] * writes.count('0x30')):
+                or len(lbas) != writes.count('0x30') or transfers != [(str(lba), '1') for lba in lbas]):
             raise ValueError(f'{name}: unexpected disk writes {transfers}, commands {commands}')
-        return dict(source_write_lbas=[lba] * len(transfers), source_written_bytes=stored,
+        return dict(source_write_lbas=list(lbas), source_written_bytes=stored,
                     flush_commands=writes.count('0xe7'))
 
     return check_io
@@ -114,7 +114,7 @@ def restore_boot(exe, bios, src, manifest, work, start, system, recovery, ui, na
     fixture = dict(binary=(src / 'mbr-restore.bin').read_bytes(), memory=manifest['memory']['mbr-restore'])
     return boot_fixture(exe, bios, fixture, work, start, system, name, lines, keys, [], [], readonly_start=True,
                         ata_identity=(MODEL, serial), disk_format=fmt, recovery_disk=recovery, recovery_format=fmt,
-                        recovery_identity=(MODEL, recovery_serial), io_check=primary_write_check(name, 0, writes, stored),
+                        recovery_identity=(MODEL, recovery_serial), io_check=primary_write_check(name, [0] * writes.count('0x30'), writes, stored),
                         before_key=before_key, timeout=90)
 
 

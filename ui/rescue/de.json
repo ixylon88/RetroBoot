@@ -151,5 +151,8 @@
   "JR_CONFIRM": "J Abschluss speichern   Esc Abbrechen",
   "JR_DONE": "Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.",
   "JR_INTACT": "Der Partitionswechsel ist bereits abgeschlossen.",
-  "JR_BAD": "Das Journal belegt keinen reparierbaren ersten Partitionswechsel."
+  "JR_BAD": "Das Journal belegt keinen reparierbaren ersten Partitionswechsel.",
+  "JR_SNAPSHOT": "MBR-Kopie im Journal",
+  "JR_CONFIRM_BOTH": "J MBR-Kopie und Abschluss speichern   Esc Abbrechen",
+  "JR_SNAPSHOT_DONE": "MBR-Kopie im Journal gespeichert und geprüft."
 }

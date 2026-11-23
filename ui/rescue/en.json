@@ -151,5 +151,8 @@
   "JR_CONFIRM": "Y Record the completed switch   Esc Cancel",
   "JR_DONE": "Switch completed. Journal and current MBR verified.",
   "JR_INTACT": "The partition switch is already complete.",
-  "JR_BAD": "The journal does not identify a recoverable first switch."
+  "JR_BAD": "The journal does not identify a recoverable first switch.",
+  "JR_SNAPSHOT": "MBR copy in journal",
+  "JR_CONFIRM_BOTH": "Y Save MBR copy and completion   Esc Cancel",
+  "JR_SNAPSHOT_DONE": "MBR copy saved to the journal and verified."
 }

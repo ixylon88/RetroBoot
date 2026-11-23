@@ -26,23 +26,28 @@ def stop_at_transcript(q, vga, lines, name):
         time.sleep(0.01)
 
 
-def remove_failed_recovery(q, timeout):
-    """At a QEMU disk-error stop, remove the secondary backing disk and resume the same guest."""
+def wait_disk_error(q, node, timeout):
+    """Wait for the injected I/O error on the specified device."""
     deadline = time.monotonic() + timeout
     while q.call('query-status')['status'] != 'io-error':
         if time.monotonic() >= deadline:
-            raise ValueError('Recovery disk never reached the selected I/O error')
+            raise ValueError(f'{node} never reached the selected I/O error')
         time.sleep(0.05)
 
+    blocks = q.call('query-block')
+    failed = [d['device'] for d in blocks if d.get('io-status') == 'failed']
+    if failed != [node]:
+        raise ValueError(f'Unexpected failed drives: {failed}')
+    return blocks
+
+
+def remove_failed_recovery(q, timeout):
+    """At a QEMU disk-error stop, remove the secondary backing disk and resume the same guest."""
     def inserted(blocks):
         return {d['device']: d['inserted']['node-name'] for d in blocks if 'inserted' in d}
 
-    blocks = q.call('query-block')
-    drives = inserted(blocks)
+    drives = inserted(wait_disk_error(q, 'recovery', timeout))
     node = drives.pop('recovery')
-    failed = [d['device'] for d in blocks if d.get('io-status') == 'failed']
-    if failed != ['recovery']:
-        raise ValueError(f'Unexpected failed drives before removal: {failed}')
     stats = next(d['stats'] for d in q.call('query-blockstats') if d.get('device') == 'recovery')
     reply = q.call('human-monitor-command', {'command-line': 'drive_del recovery'})
     if (reply or inserted(q.call('query-block')) != drives
@@ -55,12 +60,13 @@ def remove_failed_recovery(q, timeout):
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
                  recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(),
-                 io_check=None, timeout=15, remove_recovery=False, before_key=None):
+                 io_check=None, timeout=15, remove_recovery=False, before_key=None, cut_on_source_error=False):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
     log.unlink(missing_ok=True)
     trace.unlink(missing_ok=True)
+    power_cut = cut or cut_on_source_error
     access = 'readonly=on' if readonly_start else 'cache=writethrough'
     args = [str(exe), '-L', str(bios.parent), '-bios', str(bios), '-machine', 'pc-i440fx-8.2,accel=tcg',
             '-cpu', '486', '-m', '16', '-nodefaults', '-vga', 'std', '-boot', 'a', '-display', 'none',
@@ -77,6 +83,8 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             model, serial = identity
             device += ',model=' + model.replace(',', ',,') + ',serial=' + serial.replace(',', ',,')
         policy = ',rerror=stop,werror=stop' if remove_recovery and node == 'recovery' else ''
+        if cut_on_source_error and node == 'rb':
+            policy = ',werror=stop'
         args += ['-drive', f'file={path},format={fmt},if=none,id={node}{policy}', '-device', device]
     if rom:
         args += ['-option-rom', str(rom)]
@@ -96,6 +104,8 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                     q.call('blockdev-change-medium', {'device': 'floppy', 'filename': str(medium), 'format': 'raw',
                            'read-only-mode': 'read-only' if readonly else 'read-write'})
                 q.call('send-key', {'keys': [{'type': 'qcode', 'data': key}], 'hold-time': 30})
+            if cut_on_source_error:
+                wait_disk_error(q, 'rb', timeout)
             removed = remove_failed_recovery(q, timeout) if remove_recovery else None
             wait_marker(proc, log, marker + '\n', timeout=timeout, encoding='cp437')
             ram, vga = out / (name + '-ram.bin'), out / (name + '-vga.bin')
@@ -104,12 +114,12 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             check_memory(ram.read_bytes(), fixture['binary'], fixture['memory'], zero_bss=False)
             if recovery_disk is not None or io_check:
                 devices = {d['device']: d['stats'] for d in q.call('query-blockstats') if d.get('device')}
-            if cut:
+            if power_cut:
                 proc.kill()
             else:
                 q.call('quit')
             code = proc.wait(timeout=5)
-            if (code != 0) != cut:
+            if (code != 0) != power_cut:
                 raise ValueError(f'{name}: unexpected QEMU exit {code}')
         finally:
             if proc.poll() is None:
@@ -120,7 +130,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
         raise ValueError(f'{name}: unexpected debug transcript {actual}')
     bus = trace.read_text()
     all_reads = trace_reads(bus)
-    result = dict(name=name, transcript=lines, hdd_read_lbas=reads, power_cut=cut, vga_sha256=sha256(vga))
+    result = dict(name=name, transcript=lines, hdd_read_lbas=reads, power_cut=power_cut, vga_sha256=sha256(vga))
     if removed is not None:
         devices['recovery'] = removed
         result['writes_completed_before_removal'] = removed['wr_bytes'] // 512

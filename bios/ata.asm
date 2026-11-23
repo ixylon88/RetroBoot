@@ -23,8 +23,8 @@ _rb_ata_restore_mbr:            ; buffer only; fixed primary master and LBA 0
     mov al, 0x32
     jmp short transfer
 %elifdef RB_RESTORE_JOURNAL
-global _rb_ata_write_journal_header
-_rb_ata_write_journal_header:   ; uint32 audited header LBA, buffer; primary master
+global _rb_ata_write_journal_sector
+_rb_ata_write_journal_sector:   ; uint32 audited journal LBA, buffer; primary master
     mov al, 0x33
     jmp short transfer
 %else
