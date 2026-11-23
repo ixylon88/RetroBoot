@@ -10,9 +10,10 @@ The released images contain two preallocated three-sector journal slots and
 an empty EDD baseline. The eight-file allocation auditor supplies a checked,
 fragmentation-aware sector map. The reader binds all identity records, reads
 the complete journal pair and checks the current MBR again. The independent
-rescue diskette can complete the first switch once the intended, approved MBR
-is active. It can repair a partially written new snapshot in the completion
-slot and publish the header. See [journal recovery](JournalRecovery.txt).
+rescue diskette can apply the approved first switch when the complete prepare,
+its baseline and the old live MBR agree. When the intended MBR is already
+active, it can complete the journal snapshot and header. The bilingual test
+kit exercises the three writes and a cold restart. [Journal recovery](JournalRecovery.txt).
 
 ## Three-sector record, version 1
 
@@ -144,5 +145,6 @@ they retain the same core implementations and existing file/stack budgets.
 The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
 42 native reader assertions, 495 UI states per language, manual check and
 remaining limitations. F10 now recognizes all eight files. External rescue
-covers the completion snapshot and header of the first switch. Earlier
-interruption points and the normal switch still require recovery and write tests.
+covers the first prepared pair with an intact old MBR and the completion
+snapshot and header with the new MBR active. Incomplete preparations, a live
+MBR that matches neither snapshot, and the normal switch remain open.

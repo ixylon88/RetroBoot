@@ -2,14 +2,17 @@
 ; exposes only IDENTIFY and a read of LBA 0. Only the secondary entry point
 ; can write its six pre-enrolled recovery records. The separate backup build
 ; enables primary LBA28 reads and a disjoint secondary store at LBA 8 and 16..2063.
-; MBR repair writes fixed LBA 0. Journal repair writes a caller-audited primary
-; data sector. Neither repair binary contains the secondary store writer.
+; Repairs use a dedicated fixed-LBA-0 entry. Journal recovery can also write
+; an audited journal sector. Neither repair includes the secondary store writer.
 bits 16
 cpu 386
 segment _TEXT public align=16 class=CODE use16
 global _rb_ata_identify_words, _rb_ata_read_sector, _rb_ata_write_recovery
 
 %ifdef RB_BACKUP_DISK
+%ifdef RB_RESTORE_JOURNAL
+%define RB_RESTORE_MBR 1         ; roll forward a verified prepared MBR at LBA 0
+%endif
 global _rb_ata_source_read, _rb_ata_store_read
 _rb_ata_source_read:            ; uint32 LBA, buffer; primary master, read-only
     mov al, 0x21
@@ -22,12 +25,13 @@ global _rb_ata_restore_mbr
 _rb_ata_restore_mbr:            ; buffer only; fixed primary master and LBA 0
     mov al, 0x32
     jmp short transfer
-%elifdef RB_RESTORE_JOURNAL
+%endif
+%ifdef RB_RESTORE_JOURNAL
 global _rb_ata_write_journal_sector
 _rb_ata_write_journal_sector:   ; uint32 audited journal LBA, buffer; primary master
     mov al, 0x33
     jmp short transfer
-%else
+%elifndef RB_RESTORE_MBR
 global _rb_ata_store_write
 _rb_ata_store_write:            ; uint16 LBA, buffer; secondary master, 8 and 16..2063
     mov al, 0x31
@@ -103,8 +107,6 @@ transfer:
     xor ax, ax                  ; primary master, LONG_LBA already zero
     mov bl, 0x30
     jmp short .buffer
-%elifdef RB_RESTORE_JOURNAL
-    jmp short .legacy
 %else
     cmp bl, 0x31
     jne .legacy

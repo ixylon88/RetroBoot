@@ -1,56 +1,69 @@
-RetroBoot – Unterbrochenen Partitionswechsel abschließen
+RetroBoot – Vorbereiteten Partitionswechsel abschließen
 
 Deutsch
 
-Die vorgesehene Partition ist bereits aktiv. In der zweiten Journal-Kopie
-hat die vorbereitete Testplatte erst einen Teil des neuen MBR-Abbilds
-gespeichert. Die Rettungsdiskette ergänzt die Kopie und bestätigt den Wechsel.
+Wechsel 2 steht vollständig im Journal. Auf der vorbereiteten Testplatte ist
+die erste primäre Partition noch inaktiv und verborgen. Die Rettungsdiskette
+zeigt die freigegebenen Änderungen und schließt den Wechsel nach Bestätigung ab.
 
-1. ZIP entpacken. An der ausgeschalteten BIOS-Test-VM die Platten anschließen.
-   Primäres Gerät 0    (primärer Master)    RB78-System.vdi
-   Sekundäres Gerät 0  (sekundärer Master)  RB78-Sicherung.vdi
+1. ZIP entpacken. Platten an die ausgeschaltete BIOS-Test-VM anschließen.
+   Primäres Gerät 0    (primärer Master)    RB79-System.vdi
+   Sekundäres Gerät 0  (sekundärer Master)  RB79-Sicherung.vdi
    Deutsch/journal-recovery.img in A einlegen und von A starten.
-2. Die Diskette zeigt die freigegebene MBR-Revision 2. Sie nennt zwei Sektoren
-   in RBTXN.B. Die MBR-Kopie liegt an 0x00001C5D, der Abschluss an 0x00001C59.
-   J bestätigt beide Schritte. Esc bricht vor dem Schreiben ab.
-3. Nach J erscheinen „MBR-Kopie im Journal gespeichert und geprüft.“, dann
-   „Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.“
-   und RB JOURNAL RECOVERY PASS.
+2. Die Anzeige nennt MBR-Revision 2 und zwei Änderungen an LBA 0.
+   0x01BE     00 -> 80    Erste primäre Partition aktivieren
+   0x01C2     1B -> 0B    FAT32-Partition sichtbar machen
+   Dazu kommen die MBR-Kopie in RBTXN.B an 0x00001C5D und der Abschluss
+   an 0x00001C59. Esc bricht vor dem ersten Schreiben ab.
+3. J bestätigt den Wechsel. Danach erscheinen diese Meldungen.
+   Partitionstabelle geschrieben und geprüft.
+   MBR-Kopie im Journal gespeichert und geprüft.
+   Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.
+   RB JOURNAL RECOVERY PASS
 4. Beide Platten und die Diskette angeschlossen lassen und erneut von A starten.
    Es erscheint „Der Partitionswechsel ist bereits abgeschlossen.“
 
 English
 
-The intended partition is already active. The second journal slot on the
-prepared system disk contains only part of the new MBR snapshot. The rescue
-diskette completes the snapshot, then publishes the completion header.
+Switch 2 has a complete prepared journal record. The first primary partition
+on the supplied system disk is still hidden and inactive. The rescue diskette
+shows the approved changes and completes the switch after confirmation.
 
 1. Extract the ZIP and attach the disks to the powered-off BIOS test VM.
-   Primary Device 0    (primary master)     RB78-System.vdi
-   Secondary Device 0  (secondary master)   RB78-Sicherung.vdi
+   Primary Device 0    (primary master)     RB79-System.vdi
+   Secondary Device 0  (secondary master)   RB79-Sicherung.vdi
    Insert English/journal-recovery.img in A and boot from A.
-2. The screen shows approved MBR revision 2 and two sectors in RBTXN.B.
-   The MBR copy is at 0x00001C5D and its completion header is at 0x00001C59.
-   Y confirms both steps. Esc cancels before writing.
-3. After Y, expect “MBR copy saved to the journal and verified.” followed by
-   “Switch completed. Journal and current MBR verified.” and RB JOURNAL RECOVERY PASS.
+2. The screen shows approved MBR revision 2 and two changes at LBA 0.
+   0x01BE     00 -> 80    Activate the first primary partition
+   0x01C2     1B -> 0B    Make the FAT32 partition visible
+   RBTXN.B holds the MBR snapshot at 0x00001C5D and the completion header
+   at 0x00001C59. Esc cancels before the first write.
+3. Y confirms the switch. The following lines appear.
+   Partition table written and verified.
+   MBR copy saved to the journal and verified.
+   Switch completed. Journal and current MBR verified.
+   RB JOURNAL RECOVERY PASS
 4. Leave the disks and diskette attached and boot from A again.
    The screen reports “The partition switch is already complete.”
 
 Recovery scope
 
-The floppy witness and the published external backup must agree on the full
-current MBR. The live FAT audit identifies all six journal sectors. One slot
-must contain a valid prepared sequence 2 with the approved new MBR. The other
-must retain the exact old snapshot. With the baseline header intact, its new
-snapshot can be the old image, the complete new image, or an exact prefix of
-the new image followed by the corresponding suffix of the old one. Once that
-snapshot is complete, a prefix of the correct completion header followed by
-its baseline suffix can also be recovered.
+Before changing LBA 0, the complete live MBR must match the old snapshot in a
+fully validated sequence-1 baseline and sequence-2 prepared pair. The floppy
+witness and the published external backup must agree on the entire intended
+MBR. Only supported primary visibility and active bytes may differ. Confirmation
+pins the hardware enrollment, external publication, prepared transaction,
+journal allocation and sector contents. A fresh check precedes each write.
 
-Confirmation pins both actual sectors and their audited locations. Each write
-is flushed and read back through BIOS and ATA. After a snapshot repair the
-diskette checks both drives, the external backup, the file allocation, both
-records and the live MBR again before publishing the header. A restart after
-that first sector offers only the remaining header. A fully completed pair
-requires zero writes. Earlier interruptions and later sequences remain open.
+If the approved MBR is already live, only the unfinished journal sectors are
+offered. The completion slot must retain its exact old snapshot. With the seed
+header intact its new snapshot may still be old, be complete, or consist of an
+exact new prefix and old suffix. A partly written completion header is eligible
+only once its new snapshot is complete.
+
+Every changed sector is flushed and read back through BIOS and ATA. After a
+confirmed MBR change the diskette reopens the backup and checks the current MBR
+and both journal slots again before publishing any completion data. A restart
+offers only the remaining sectors. A completed pair requires zero writes.
+An incomplete preparation or a live MBR matching neither snapshot blocks the
+repair. The normal boot-menu switch is a separate work package.
