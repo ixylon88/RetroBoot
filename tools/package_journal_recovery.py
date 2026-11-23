@@ -23,9 +23,9 @@ from test_mbr_target import MODEL
 PROGRAM = 'journal-recovery'
 FLOPPY = PROGRAM + '.img'
 KIT = 'RetroBoot-Partitionswechsel-Reparatur.zip'
-PRIMARY = ('RB79-System.vdi', '46460707-d413-4b6c-a346-000011111111', 'VB46460707-11111111')
-SECONDARY = ('RB79-Sicherung.vdi', '46460808-d413-4b6c-a346-000022222222', 'VB46460808-22222222')
-IDS = tuple(b'RB79-TEST-PAIR-' + bytes([i]) for i in (1, 2, 3))
+PRIMARY = ('RB80-System.vdi', '46460909-d413-4b6c-a346-000011111111', 'VB46460909-11111111')
+SECONDARY = ('RB80-Sicherung.vdi', '46461010-d413-4b6c-a346-000022222222', 'VB46461010-22222222')
+IDS = tuple(b'RB80-TEST-PAIR-' + bytes([i]) for i in (1, 2, 3))
 MBR_CHANGES = ((446, 0, 0x80), (450, 0x1B, 0x0B))
 WRITE_FLUSH = ('0x30', '0xe7')
 PASS, BLOCK = 'RB JOURNAL RECOVERY PASS', 'RB JOURNAL RECOVERY BLOCKED'
@@ -66,15 +66,16 @@ def record_extents(lbas, record):
 
 def run_boot(exe, bios, work, lang, start, system, carrier, name, outcome, lba, *, key=None,
              slot='B', fmt='raw', serial=PRIMARY[2], writes=(), stored=0, swap=None, before_key=None,
-             snapshot_lba=None, snapshot_checked=False, mbr_changes=(), mbr_checked=False, cut_on_source_error=False):
+             snapshot_lba=None, snapshot_checked=False, mbr_changes=(), mbr_checked=False,
+             partial_mbr=False, cut_on_source_error=False):
     ui = load_catalog(lang)
     src = ROOT / 'build' / ('rescue' if lang == 'en' else 'rescue-' + lang)
     manifest = checked_build(src, PROGRAM)
     lines = ['RB JOURNAL RECOVERY', ui['RESTORE_CHECK']]
     actions = []
     if key:
-        lines += [ui['D_SERIAL'] + ' ' + PRIMARY[2], ui['STORE_REV'] + '2',
-                  ui['JR_PREPARED' if mbr_changes else 'JR_SCOPE']]
+        scope = 'JR_PREPARED' if mbr_changes else 'JR_SCOPE'
+        lines += [ui['D_SERIAL'] + ' ' + PRIMARY[2], ui['STORE_REV'] + '2', ui['JR_PARTIAL' if partial_mbr else scope]]
         if mbr_changes:
             lines += [ui['JR_MBR'], ui['JR_DELTA']]
             lines.extend(f'0x{offset:04X}     {old:02X} -> {new:02X}' for offset, old, new in mbr_changes)
@@ -110,12 +111,11 @@ def qualify_kit(exe, bios, work, bundle, pending, fixed, dest_lbas):
         external = sha256(floppy), sha256(carrier)
         args = exe, bios, work, lang, floppy, system, carrier
         ui = load_catalog(lang)
-        cases.append(run_boot(*args, lang + '-cancel', 'RESTORE_CANCEL', header_lba, fmt='vdi', key='esc',
-                              snapshot_lba=snapshot_lba, mbr_changes=MBR_CHANGES))
+        plan = dict(fmt='vdi', snapshot_lba=snapshot_lba, partial_mbr=True, mbr_changes=MBR_CHANGES[1:])
+        cases.append(run_boot(*args, lang + '-cancel', 'RESTORE_CANCEL', header_lba, key='esc', **plan))
         compare_image(pending, system)
-        cases.append(run_boot(*args, lang + '-finish', 'JR_DONE', header_lba, fmt='vdi', key=ui['A_YES'].lower(),
-                              snapshot_lba=snapshot_lba, snapshot_checked=True, mbr_changes=MBR_CHANGES,
-                              mbr_checked=True, writes=WRITE_FLUSH * 3, stored=1536))
+        cases.append(run_boot(*args, lang + '-finish', 'JR_DONE', header_lba, key=ui['A_YES'].lower(),
+                              snapshot_checked=True, mbr_checked=True, writes=WRITE_FLUSH * 3, stored=1536, **plan))
         compare_image(fixed, system)
         cases.append(run_boot(*args, lang + '-restart', 'JR_INTACT', header_lba, fmt='vdi'))
         compare_image(fixed, system)
@@ -335,6 +335,8 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
     old, new = prepared[512:1024], prepared[1024:]
     header_lba, _, snapshot_lba = lbas[1]
     prompt = dict(key='y', mbr_changes=MBR_CHANGES, snapshot_lba=snapshot_lba)
+    torn = torn_snapshot(prepared)
+    partial_prompt = dict(key='y', mbr_changes=MBR_CHANGES[1:], snapshot_lba=snapshot_lba, partial_mbr=True)
     cases = []
     external = sha256(start), sha256(carrier)
     final_hash = sha256(fixed)
@@ -355,13 +357,21 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
             raise ValueError(f'{name}: unexpected changes to system disk')
 
     next_hash = arrange(new)
+    partial_hash = arrange(torn)
     initial_hash = arrange(old)
     run('prepared-missing-backup', 'RESTORE_BACKUP', initial_hash, backup=None)
     run('prepared-wrong-target', 'RESTORE_TARGET', initial_hash, serial=SECONDARY[2])
     run('prepared-witness-replaced', 'RESTORE_CHANGED', initial_hash, swap=stale, **prompt)
+    run('prepared-intact-mbr', 'JR_DONE', final_hash, mbr_checked=True, snapshot_checked=True,
+        writes=WRITE_FLUSH * 3, stored=1536, **prompt)
     for name, live, peer, outcome in (
-            ('live-partial', torn_snapshot(prepared), seed, 'RESTORE_TARGET'),
             ('live-reverse-tear', old[:450] + new[450:], seed, 'RESTORE_TARGET'),
+            ('partial-with-damaged-code', bytes([torn[0] ^ 1]) + torn[1:], seed, 'RESTORE_TARGET'),
+            ('partial-with-foreign-reserved-byte', torn[:444] + bytes([torn[444] ^ 1]) + torn[445:], seed, 'RESTORE_TARGET'),
+            ('partial-with-advanced-snapshot', torn, seed[:1024] + new, 'JR_BAD'),
+            ('partial-with-partial-journal', torn, seed[:1024] + torn, 'JR_BAD'),
+            ('partial-with-committed-peer', torn, done, 'JR_BAD'),
+            ('partial-with-duplicate-prepare', torn, prepared, 'JR_BAD'),
             ('old-with-partial-snapshot', old, seed[:1024] + torn_snapshot(prepared), 'JR_BAD'),
             ('old-with-committed-peer', old, done, 'JR_BAD')):
         run(name, outcome, arrange(live, second=peer))
@@ -376,14 +386,24 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
                       seal(seed[:512] + foreign_old * 2))
     run('internally-valid-unapproved-mbr', 'JR_BAD', foreign)
 
-    def activate_before_confirmation(q, _prompt):
-        q.call('stop')
-        write_at(system, 0, new)
-        q.call('cont')
+    def change_live_mbr(sector):
+        def change(q, _prompt):
+            q.call('stop')
+            write_at(system, 0, sector)
+            q.call('cont')
+        return change
 
     arrange(old)
     run('live-mbr-changed-at-confirmation', 'RESTORE_CHANGED', next_hash,
-        before_key=activate_before_confirmation, **prompt)
+        before_key=change_live_mbr(new), **prompt)
+
+    # Both valid preimages would offer an MBR write, but authorize different bytes.
+    arrange(old)
+    run('old-to-partial-at-confirmation', 'RESTORE_CHANGED', partial_hash, before_key=change_live_mbr(torn), **prompt)
+    run('partial-to-old-at-confirmation', 'RESTORE_CHANGED', initial_hash,
+        before_key=change_live_mbr(old), **partial_prompt)
+    arrange(torn)
+    run('partial-witness-replaced', 'RESTORE_CHANGED', partial_hash, swap=stale, **partial_prompt)
 
     def inject(name, rules):
         conf = work / (name + '.ini')
@@ -394,6 +414,17 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
     arrange(old)
     run('prepared-mbr-write-error', 'RESTORE_IO', initial_hash,
         target=inject('write-mbr', fail_write + 'sector = "0"\n'), writes=('0x30',), **prompt)
+
+    # QEMU traps the guest's sector write before committing it. After the hard
+    # stop, model a torn sector by persisting exactly the intended prefix.
+    run('cut-on-live-mbr-write', None, initial_hash, target=inject('cut-live-mbr', fail_write + 'sector = "0"\n'),
+        cut_on_source_error=True, writes=('0x30',), **prompt)
+    write_at(system, 0, new[:450])
+    if sha256(system) != partial_hash:
+        raise ValueError('Injected partial write differs from the exact expected disk')
+    run('cold-recover-partial-mbr', 'JR_DONE', final_hash, mbr_checked=True, snapshot_checked=True,
+        writes=WRITE_FLUSH * 3, stored=1536, **partial_prompt)
+    run('cold-after-partial-mbr-repair', 'JR_INTACT', final_hash)
 
     after_flush = '[set-state]\nevent = "flush_to_disk"\nnew_state = "2"\n'
     fail_read = '[inject-error]\nevent = "read_aio"\niotype = "read"\nstate = "2"\nerrno = "5"\n'
@@ -415,6 +446,18 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
     run('cold-after-live-mbr', 'JR_DONE', final_hash, key='y', snapshot_lba=snapshot_lba,
         snapshot_checked=True, writes=WRITE_FLUSH * 2, stored=1024)
     run('second-cold-after-live-mbr', 'JR_INTACT', final_hash)
+
+    arrange(torn)
+    run('partial-mbr-readback-error', 'RESTORE_IO', next_hash, writes=WRITE_FLUSH, stored=512,
+        target=inject('partial-readback', after_flush + fail_read + 'sector = "0"\n'), **partial_prompt)
+    run('cold-after-partial-readback-error', 'JR_DONE', final_hash, key='y', snapshot_lba=snapshot_lba,
+        snapshot_checked=True, writes=WRITE_FLUSH * 2, stored=1024)
+
+    expected = arrange(new, done, prepared)
+    arrange(torn, seed, prepared)
+    run('partial-mbr-reversed-slots', 'JR_DONE', expected, key='y', slot=0, snapshot_lba=lbas[0][2],
+        partial_mbr=True, mbr_changes=MBR_CHANGES[1:], mbr_checked=True, snapshot_checked=True,
+        writes=WRITE_FLUSH * 3, stored=1536)
 
     # Reverse the physical slots and start with a visible but inactive primary.
     # Its confirmation may advertise only the one byte that will actually change.
@@ -448,7 +491,7 @@ def main():
         system, carrier, fixed = work / 'system.raw', work / 'recovery.raw', work / 'complete.raw'
         witness, stale_witness, setup = capture_and_publish(exe, bios, src, work, system, carrier, size, extents,
                                                            new, primary=PRIMARY[2], secondary=SECONDARY[2], ids=IDS)
-        write_at(system, 0, prepared[512:1024])
+        write_at(system, 0, torn_snapshot(prepared))
         write_fixture(fixed, size, {**extents, 0: new, **record_extents(lbas[1], done)})
         bundle = repair_kit(work, system, carrier, size, witness, program=PROGRAM, kit=KIT, guide='JournalRecovery.txt',
                             ids=IDS, primary=PRIMARY, secondary=SECONDARY)

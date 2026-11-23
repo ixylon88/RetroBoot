@@ -1,17 +1,17 @@
-RetroBoot – Vorbereiteten Partitionswechsel abschließen
+RetroBoot – Teilweise geänderte Partitionstabelle vervollständigen
 
 Deutsch
 
-Wechsel 2 steht vollständig im Journal. Auf der vorbereiteten Testplatte ist
-die erste primäre Partition noch inaktiv und verborgen. Die Rettungsdiskette
-zeigt die freigegebenen Änderungen und schließt den Wechsel nach Bestätigung ab.
+Wechsel 2 steht vollständig im Journal. Auf der Testplatte ist die erste
+primäre Partition bereits aktiv, aber noch verborgen. Die Rettungsdiskette
+zeigt die eine verbleibende Änderung und schließt den Wechsel nach Bestätigung ab.
 
 1. ZIP entpacken. Platten an die ausgeschaltete BIOS-Test-VM anschließen.
-   Primäres Gerät 0    (primärer Master)    RB79-System.vdi
-   Sekundäres Gerät 0  (sekundärer Master)  RB79-Sicherung.vdi
+   Primäres Gerät 0    (primärer Master)    RB80-System.vdi
+   Sekundäres Gerät 0  (sekundärer Master)  RB80-Sicherung.vdi
    Deutsch/journal-recovery.img in A einlegen und von A starten.
-2. Die Anzeige nennt MBR-Revision 2 und zwei Änderungen an LBA 0.
-   0x01BE     00 -> 80    Erste primäre Partition aktivieren
+2. Die Anzeige meldet „Wechsel 2 ist vorbereitet. Die Partitionstabelle ist
+   teilweise geändert.“ und nennt genau eine Änderung am MBR an LBA 0.
    0x01C2     1B -> 0B    FAT32-Partition sichtbar machen
    Dazu kommen die MBR-Kopie in RBTXN.B an 0x00001C5D und der Abschluss
    an 0x00001C59. Esc bricht vor dem ersten Schreiben ab.
@@ -25,16 +25,16 @@ zeigt die freigegebenen Änderungen und schließt den Wechsel nach Bestätigung 
 
 English
 
-Switch 2 has a complete prepared journal record. The first primary partition
-on the supplied system disk is still hidden and inactive. The rescue diskette
-shows the approved changes and completes the switch after confirmation.
+Switch 2 has a complete prepared journal record. On the supplied system disk
+the first primary partition is already active but still hidden. The rescue
+diskette displays the one remaining change before confirmation.
 
 1. Extract the ZIP and attach the disks to the powered-off BIOS test VM.
-   Primary Device 0    (primary master)     RB79-System.vdi
-   Secondary Device 0  (secondary master)   RB79-Sicherung.vdi
+   Primary Device 0    (primary master)     RB80-System.vdi
+   Secondary Device 0  (secondary master)   RB80-Sicherung.vdi
    Insert English/journal-recovery.img in A and boot from A.
-2. The screen shows approved MBR revision 2 and two changes at LBA 0.
-   0x01BE     00 -> 80    Activate the first primary partition
+2. The screen reports “Switch 2 is prepared. The partition table has been
+   partly updated.” and lists exactly one change to the MBR at LBA 0.
    0x01C2     1B -> 0B    Make the FAT32 partition visible
    RBTXN.B holds the MBR snapshot at 0x00001C5D and the completion header
    at 0x00001C59. Esc cancels before the first write.
@@ -48,12 +48,15 @@ shows the approved changes and completes the switch after confirmation.
 
 Recovery scope
 
-Before changing LBA 0, the complete live MBR must match the old snapshot in a
-fully validated sequence-1 baseline and sequence-2 prepared pair. The floppy
-witness and the published external backup must agree on the entire intended
-MBR. Only supported primary visibility and active bytes may differ. Confirmation
-pins the hardware enrollment, external publication, prepared transaction,
-journal allocation and sector contents. A fresh check precedes each write.
+An LBA 0 repair requires a fully valid sequence-1 baseline and sequence-2
+prepare, a valid live layout, and independent approval of the entire intended
+MBR by the floppy witness and the published external backup. The complete live
+sector must be the old snapshot or exactly a prefix of the intended snapshot
+followed by the matching suffix of the old snapshot. Only supported primary
+type and active bytes may differ. The screen compares the actual MBR with the
+approved final bytes. Confirmation pins the complete observed MBR, hardware
+enrollment, external publication, prepared record and audited journal sectors.
+The repair rechecks all 512 live bytes before writing LBA 0.
 
 If the approved MBR is already live, only the unfinished journal sectors are
 offered. The completion slot must retain its exact old snapshot. With the seed
@@ -65,5 +68,6 @@ Every changed sector is flushed and read back through BIOS and ATA. After a
 confirmed MBR change the diskette reopens the backup and checks the current MBR
 and both journal slots again before publishing any completion data. A restart
 offers only the remaining sectors. A completed pair requires zero writes.
-An incomplete preparation or a live MBR matching neither snapshot blocks the
-repair. The normal boot-menu switch is a separate work package.
+Incomplete preparations, changes to protected bytes, invalid layouts and
+other mixed MBRs block the repair. The normal boot-menu switch is a separate
+work package.

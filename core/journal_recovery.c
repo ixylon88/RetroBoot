@@ -20,8 +20,8 @@ static struct {
 } shown;
 
 typedef struct {
-    rb_u8 header[512], snapshot[512];
-} journal_preimage;
+    rb_u8 mbr[512], header[512], snapshot[512];
+} recovery_preimage;
 
 static void seal_header(rb_u8 *h)
 {
@@ -67,7 +67,7 @@ static int pin(rb_u8 *field, const rb_u8 *value, rb_u16 size, int step)
     return equal(field, value, size);
 }
 
-static int inspect(rb_u16 drive, int step, journal_preimage *before)
+static int inspect(rb_u16 drive, int step, recovery_preimage *before)
 {
     const rb_backup *saved;
     const rb_u8 *approved = rb_store.witness.approved;
@@ -108,11 +108,13 @@ static int inspect(rb_u16 drive, int step, journal_preimage *before)
     state = classify(current, prepared, done, scratch);
     if (state == BAD_JOURNAL) { return state; }
     if (!equal(live, approved, 512)) {
-        if (!equal(live, prepared + 512, 512)) { return BAD_TARGET; }
-        /* Only a fully valid baseline/prepare pair can authorize LBA 0.
-           The decoder restricts every changed byte to primary type/active flags. */
+        /* Only an old MBR or an exact new prefix followed by its old suffix
+           is eligible. The validated prepare permits only visibility bytes. */
+        if (!prefix_write(live, approved, prepared + 512)) { return BAD_TARGET; }
         rb_journal_inspect(&result, records[0], records[1], 3, &ctx, live);
-        if (result.status || result.source != source || result.observation != RB_TX_PREPARED_OLD) { return BAD_JOURNAL; }
+        /* Selecting this unique sequence-2 prepare requires an intact baseline
+           peer. A committed, damaged or advanced peer cannot authorize LBA 0. */
+        if (result.status || result.source != source) { return BAD_JOURNAL; }
         state = NEED_MBR;
     }
 
@@ -122,6 +124,7 @@ static int inspect(rb_u16 drive, int step, journal_preimage *before)
         || !pin(shown.publication, rb_store.metadata, 512, step) || !pin(shown.prepared, prepared, RB_JOURNAL_BYTES, step)) {
         return CHANGED;
     }
+    if (step <= CONFIRM && !pin(before->mbr, live, 512, step)) { return CHANGED; }
     if (step != AFTER_HEADER && !pin(before->header, current, 512, step)) { return CHANGED; }
     if (step <= AFTER_MBR && !pin(before->snapshot, current + 1024, 512, step)) { return CHANGED; }
     if ((step == AFTER_MBR && state != NEED_SNAPSHOT) || (step == AFTER_SNAPSHOT && state != NEED_HEADER)
@@ -145,14 +148,14 @@ static void hex_digits(rb_u32 value, rb_u16 digits)
     while (digits) { --digits; rb_putc(hex[(value >> (digits * 4)) & 15]); }
 }
 
-static void show_mbr(void)
+static void show_mbr(const rb_u8 *live)
 {
-    const rb_u8 *old = shown.prepared + 512, *next = old + 512;
+    const rb_u8 *next = shown.prepared + 1024;
     rb_u16 i;
     line(RB_RS_JR_MBR); line(RB_RS_JR_DELTA);
     for (i = 0; i < 512; ++i) {
-        if (old[i] != next[i]) {
-            print("0x"); hex_digits(i, 4); print("     "); hex_digits(old[i], 2);
+        if (live[i] != next[i]) {
+            print("0x"); hex_digits(i, 4); print("     "); hex_digits(live[i], 2);
             print(" -> "); hex_digits(next[i], 2); line("");
         }
     }
@@ -176,7 +179,7 @@ static int write_checked(rb_u16 index, const rb_u8 *before)
 
 rb_u16 __cdecl rb_journal_recovery_run(rb_u16 drive)
 {
-    journal_preimage before;
+    recovery_preimage before;
     int state;
     rb_u16 key;
     line("RB JOURNAL RECOVERY"); line(RB_RS_RESTORE_CHECK);
@@ -186,8 +189,11 @@ rb_u16 __cdecl rb_journal_recovery_run(rb_u16 drive)
         line(state == BAD_BACKUP ? RB_RS_RESTORE_BACKUP : state == BAD_TARGET ? RB_RS_RESTORE_TARGET : RB_RS_JR_BAD);
         return 1;
     }
-    show_source(&shown.profile); line(state == NEED_MBR ? RB_RS_JR_PREPARED : RB_RS_JR_SCOPE);
-    if (state == NEED_MBR) { show_mbr(); }
+    show_source(&shown.profile);
+    if (state == NEED_MBR) {
+        line(equal(before.mbr, shown.prepared + 512, 512) ? RB_RS_JR_PREPARED : RB_RS_JR_PARTIAL);
+        show_mbr(before.mbr);
+    } else { line(RB_RS_JR_SCOPE); }
     if (state != NEED_HEADER) { show_sector(RB_RS_JR_SNAPSHOT, NEW_SECTOR); }
     show_sector(RB_RS_JR_HEADER, HEADER_SECTOR);
     line(state == NEED_MBR ? RB_RS_JR_APPLY : state == NEED_SNAPSHOT ? RB_RS_JR_CONFIRM_BOTH : RB_RS_JR_CONFIRM);
@@ -196,7 +202,7 @@ rb_u16 __cdecl rb_journal_recovery_run(rb_u16 drive)
     if (inspect(drive, CONFIRM, &before) != state) { line(RB_RS_RESTORE_CHANGED); return 1; }
 
     if (state == NEED_MBR) {
-        if (!write_checked(LIVE_MBR, shown.prepared + 512) || inspect(drive, AFTER_MBR, &before) != NEED_SNAPSHOT) {
+        if (!write_checked(LIVE_MBR, before.mbr) || inspect(drive, AFTER_MBR, &before) != NEED_SNAPSHOT) {
             line(RB_RS_RESTORE_IO); return 1;
         }
         line(RB_RS_JR_MBR_DONE);
