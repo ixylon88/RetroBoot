@@ -46,6 +46,17 @@ jobs:
           path: ${{ runner.temp }}/retroboot-mbr-backup/
           if-no-files-found: error
           retention-days: 30
+      - name: Test targeted MBR repair and prepare the VirtualBox kit
+        run: |
+          python3 tools/package_mbr_restore.py
+          python3 -m zipfile -e build/mbr-restore/RetroBoot-Startcode-Reparatur.zip "$RUNNER_TEMP/retroboot-mbr-restore"
+      - name: Upload the bilingual MBR repair kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: RetroBoot-Startcode-Reparatur
+          path: ${{ runner.temp }}/retroboot-mbr-restore/
+          if-no-files-found: error
+          retention-days: 30
       - name: Package and boot English/German rescue CDs
         run: |
           make rescue-iso-test RB_LANGUAGE=en
@@ -107,6 +118,7 @@ jobs:
             build/backup-disk-test-*/*.rbb
             build/backup-disk-kit/*.zip
             build/backup-handoff/*
+            build/mbr-restore/results.json
             build/rescue/mbr-backup.img
             build/rescue-de/mbr-backup.img
             build/rescue/backup-verify-model.img

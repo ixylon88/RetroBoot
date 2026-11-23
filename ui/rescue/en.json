@@ -133,5 +133,17 @@
   "STORE_READ": "Backup read from the recovery disk.",
   "STORE_REV": "Approved MBR revision ",
   "STORE_CANCEL": "Cancelled.",
-  "PAIR_MENU": "1 Capture and approve MBR   2 Save and verify metadata"
+  "PAIR_MENU": "1 Capture and approve MBR   2 Save and verify metadata",
+  "RESTORE_CHECK": "Checking backup and system disk.",
+  "RESTORE_BACKUP": "Backup or independent MBR approval could not be verified.",
+  "RESTORE_TARGET": "System disk or current partition layout could not be verified.",
+  "RESTORE_SCOPE_BAD": "Boot code or its disk binding is outside this repair scope.",
+  "RESTORE_INTACT": "The approved start code is already present.",
+  "RESTORE_SCOPE": "Restore MBR start code at LBA 0, bytes 0x0000 through 0x01AF.",
+  "RESTORE_KEEP": "Keep the current loader pointer, disk ID and partition table.",
+  "RESTORE_CONFIRM": "Y Restore these bytes   Esc Cancel",
+  "RESTORE_CANCEL": "Repair cancelled.",
+  "RESTORE_CHANGED": "The disk or backup changed. Repair cancelled.",
+  "RESTORE_IO": "Write, flush or readback failed. Boot recovery again to check.",
+  "RESTORE_DONE": "Start code restored. All 512 bytes of the MBR read back and checked."
 }

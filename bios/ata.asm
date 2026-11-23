@@ -2,22 +2,31 @@
 ; exposes only IDENTIFY and a read of LBA 0. Only the secondary entry point
 ; can write its six pre-enrolled recovery records. The separate backup build
 ; enables primary LBA28 reads and a disjoint secondary store at LBA 8 and 16..2063.
+; The restore build can write only the primary master at fixed LBA 0.
 bits 16
 cpu 386
 segment _TEXT public align=16 class=CODE use16
 global _rb_ata_identify_words, _rb_ata_read_sector, _rb_ata_write_recovery
 
 %ifdef RB_BACKUP_DISK
-global _rb_ata_source_read, _rb_ata_store_read, _rb_ata_store_write
+global _rb_ata_source_read, _rb_ata_store_read
 _rb_ata_source_read:            ; uint32 LBA, buffer; primary master, read-only
     mov al, 0x21
     jmp short transfer
 _rb_ata_store_read:             ; uint16 LBA, buffer; secondary master, 7..2063
     mov al, 0x22
     jmp short transfer
+%ifdef RB_RESTORE_MBR
+global _rb_ata_restore_mbr
+_rb_ata_restore_mbr:            ; buffer only; fixed primary master and LBA 0
+    mov al, 0x32
+    jmp short transfer
+%else
+global _rb_ata_store_write
 _rb_ata_store_write:            ; uint16 LBA, buffer; secondary master, 8 and 16..2063
     mov al, 0x31
     jmp short transfer
+%endif
 %endif
 _rb_ata_identify_words:         ; channel, buffer
     mov al, 0xec
@@ -68,6 +77,14 @@ transfer:
 .not_source:
     cmp bl, 0x22
     je .store_read
+%ifdef RB_RESTORE_MBR
+    cmp bl, 0x32
+    jne .legacy
+    mov di, ax                  ; sole argument is the sector buffer
+    xor ax, ax                  ; primary master, LONG_LBA already zero
+    mov bl, 0x30
+    jmp short .buffer
+%else
     cmp bl, 0x31
     jne .legacy
     cmp ax, 8
@@ -77,6 +94,7 @@ transfer:
 .store_write:
     mov bl, 0x30
     jmp short .store
+%endif
 .store_read:
     cmp ax, 7
     jb .invalid
@@ -245,7 +263,7 @@ transfer:
     jne .fail
     cmp bl, 0x30
     jne .ok
-    mov bl, 0xe7                ; FLUSH CACHE on the same secondary master
+    mov bl, 0xe7                ; FLUSH CACHE on the same master
     mov al, bl
     out dx, al
     call .deadline

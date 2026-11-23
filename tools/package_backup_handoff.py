@@ -49,15 +49,16 @@ def expected_file(original, approved):
 
 
 def history_boot(exe, bios, src, work, start, system, recovery, ui, name, original, approved, sectors,
-                 carrier_bytes, ids, *, capture=False, fmt='raw'):
+                 carrier_bytes, ids, *, capture=False, fmt='raw', source_serial=SOURCE_SERIAL,
+                 recovery_serial=RECOVERY_SERIAL):
     """Predict both media from their prior contents and boot the actual E or R action."""
     manifest = json.loads((src / 'manifest.json').read_bytes())
     fixture = dict(binary=(src / 'mbr-target.bin').read_bytes(), memory=manifest['memory']['mbr-target'])
     screen = [ui['PAIR_MENU'], 'RB ATA TARGET', ui['D_BOTH'], ui['D_FIRST']]
-    screen += disk_fields(ui, 'D_EXPECT', MODEL, SOURCE_SERIAL, sectors)
-    screen += disk_fields(ui, 'D_LIVE', MODEL, SOURCE_SERIAL, sectors) + ['TARGET MATCH']
+    screen += disk_fields(ui, 'D_EXPECT', MODEL, source_serial, sectors)
+    screen += disk_fields(ui, 'D_LIVE', MODEL, source_serial, sectors) + ['TARGET MATCH']
     for title in ('D_REC_EXPECT', 'D_REC_LIVE'):
-        screen += recovery_fields(ui, title, MODEL, RECOVERY_SERIAL, CAPACITY)
+        screen += recovery_fields(ui, title, MODEL, recovery_serial, CAPACITY)
     screen.append('RECOVERY MATCH')
     prompt = ui['D_REC_FIRST'] if capture else ui['D_REC_REVIEW']
     key = 'e' if capture else 'r'
@@ -89,8 +90,8 @@ def history_boot(exe, bios, src, work, start, system, recovery, ui, name, origin
     source_hash = sha256(system)
     report = boot_fixture(exe, bios, fixture, work, start, system, name, screen + ['RB ATA TARGET PASS'],
                           [(p, k, None, False) for p, k in keys], [n for n, _ in changes],
-                          [0] * (6 if capture else 3), ata_identity=(MODEL, SOURCE_SERIAL), disk_format=fmt,
-                          recovery_disk=recovery, recovery_identity=(MODEL, RECOVERY_SERIAL), recovery_format=fmt,
+                          [0] * (6 if capture else 3), ata_identity=(MODEL, source_serial), disk_format=fmt,
+                          recovery_disk=recovery, recovery_identity=(MODEL, recovery_serial), recovery_format=fmt,
                           recovery_writes=[n for n, _ in changes if n < WITNESS_HEADER])
     if start.read_bytes() != expected_start or sha256(system) != source_hash:
         raise ValueError(f'{name}: unexpected change to the start diskette or system disk')
