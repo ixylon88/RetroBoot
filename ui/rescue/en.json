@@ -164,5 +164,9 @@
   "JR_INCOMPLETE": "Preparation for switch 2 is incomplete. The MBR is unchanged.",
   "JR_PREPARE_HEADER": "Preparation header",
   "JR_PREPARE_APPLY": "Y finish preparation and complete the switch   Esc cancel",
-  "JR_PREPARE_DONE": "Preparation saved to the journal and verified."
+  "JR_PREPARE_DONE": "Preparation saved to the journal and verified.",
+  "JR_UNFINISHED": "The new MBR copy is incomplete. The live MBR still has its old contents.",
+  "JR_DISCARD": "Y restore the journal baseline   Esc cancel",
+  "JR_DISCARDED": "Journal baseline restored. Partition table verified.",
+  "JR_BASELINE": "No partition switch is pending. Both journal copies verified."
 }

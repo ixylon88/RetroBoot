@@ -15,6 +15,18 @@ static rb_u16 same(const rb_u8 *a, const rb_u8 *b, rb_u16 n)
 {
     while (n) { --n; if (a[n] != b[n]) { return 0; } } return 1;
 }
+
+/* A torn copy left a new prefix followed by old bytes. A torn discard can
+   already have restored the beginning of that prefix. At least one new byte
+   and one later missing change must still be visible. */
+rb_u16 rb_journal_unfinished_snapshot(const rb_u8 *actual, const rb_u8 *next, const rb_u8 *old)
+{
+    rb_u16 i = 0;
+    while (i < 512 && actual[i] == old[i]) { ++i; }
+    while (i < 512 && actual[i] == next[i]) { ++i; }
+    return i < 512 && same(actual + i, old + i, 512 - i);
+}
+
 static rb_u16 visible(rb_u16 type)
 {
     switch (type) {

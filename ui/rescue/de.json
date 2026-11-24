@@ -164,5 +164,9 @@
   "JR_INCOMPLETE": "Die Vorbereitung für Wechsel 2 ist unvollständig. Der MBR ist unverändert.",
   "JR_PREPARE_HEADER": "Vorbereitung im Journal",
   "JR_PREPARE_APPLY": "J Vorbereitung ergänzen und Wechsel abschließen   Esc Abbrechen",
-  "JR_PREPARE_DONE": "Vorbereitung im Journal gespeichert und geprüft."
+  "JR_PREPARE_DONE": "Vorbereitung im Journal gespeichert und geprüft.",
+  "JR_UNFINISHED": "Die neue MBR-Kopie ist unvollständig. Der MBR hat den alten Stand.",
+  "JR_DISCARD": "J Alten Stand im Journal wiederherstellen   Esc Abbrechen",
+  "JR_DISCARDED": "Alter Stand im Journal wiederhergestellt. Partitionstabelle geprüft.",
+  "JR_BASELINE": "Kein Partitionswechsel offen. Beide Journalkopien sind geprüft."
 }

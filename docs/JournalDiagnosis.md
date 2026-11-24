@@ -122,8 +122,9 @@ The native reader model has 42 assertions (`D=002A`, `RB JOURNAL IO PASS`),
 including fragmented three-sector maps, every payload-sector read failure,
 identity defects, a changed/failing final MBR read and success-to-failure cleanup.
 The allocation model has 80 assertions (`A=0050`), including the 122-cluster
-maximum and fragmented journal-sector maps. The pure journal model retains
-126 assertions (`T=007E`). Four new host tests check fixture boundaries,
+maximum and fragmented journal-sector maps. The pure journal model has
+144 assertions (`T=0090`), including partial snapshot and discard patterns.
+Four host tests check fixture boundaries,
 route parameters, read evidence and failure-page hygiene.
 
 An independent external rescue path remains required before first write tests.
