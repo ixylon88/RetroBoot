@@ -73,7 +73,8 @@ rb_u16 rb_journal_decode(rb_journal_record *r, const rb_u8 *data,
     if (!same(data, magic, 8) || word(data + 8) != 1 || word(data + 10) != 512
             || dword(data + 12) != RB_JOURNAL_BYTES || !sequence || phase > RB_TX_COMMITTED
             || (phase == RB_TX_EMPTY ? sequence != 1 : sequence < 2)
-            || !zeros(data + 76, 432) || zeros(data + 48, 16)) { return RB_JOURNAL_FORMAT; }
+            || !zeros(data + RB_JOURNAL_HEADER_FIELDS, 508 - RB_JOURNAL_HEADER_FIELDS)
+            || zeros(data + 48, 16)) { return RB_JOURNAL_FORMAT; }
     if (rb_crc32(data, 508) != dword(data + 508)
             || rb_crc32(data + 512, 512) != dword(data + 64)
             || rb_crc32(data + 1024, 512) != dword(data + 68)) { return RB_JOURNAL_CRC; }

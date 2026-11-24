@@ -160,5 +160,9 @@
   "JR_MBR": "Partitionstabelle der Systemfestplatte, MBR an LBA 0",
   "JR_DELTA": "Position   Aktuelles Byte -> Geplantes Byte",
   "JR_APPLY": "J Partitionswechsel anwenden und abschließen   Esc Abbrechen",
-  "JR_MBR_DONE": "Partitionstabelle geschrieben und geprüft."
+  "JR_MBR_DONE": "Partitionstabelle geschrieben und geprüft.",
+  "JR_INCOMPLETE": "Die Vorbereitung für Wechsel 2 ist unvollständig. Der MBR ist unverändert.",
+  "JR_PREPARE_HEADER": "Vorbereitung im Journal",
+  "JR_PREPARE_APPLY": "J Vorbereitung ergänzen und Wechsel abschließen   Esc Abbrechen",
+  "JR_PREPARE_DONE": "Vorbereitung im Journal gespeichert und geprüft."
 }

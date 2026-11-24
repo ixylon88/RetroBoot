@@ -23,9 +23,9 @@ from test_mbr_target import MODEL
 PROGRAM = 'journal-recovery'
 FLOPPY = PROGRAM + '.img'
 KIT = 'RetroBoot-Partitionswechsel-Reparatur.zip'
-PRIMARY = ('RB80-System.vdi', '46460909-d413-4b6c-a346-000011111111', 'VB46460909-11111111')
-SECONDARY = ('RB80-Sicherung.vdi', '46461010-d413-4b6c-a346-000022222222', 'VB46461010-22222222')
-IDS = tuple(b'RB80-TEST-PAIR-' + bytes([i]) for i in (1, 2, 3))
+PRIMARY = ('RB81-System.vdi', '46461111-d413-4b6c-a346-000011111111', 'VB46461111-11111111')
+SECONDARY = ('RB81-Sicherung.vdi', '46461212-d413-4b6c-a346-000022222222', 'VB46461212-22222222')
+IDS = tuple(b'RB81-TEST-PAIR-' + bytes([i]) for i in (1, 2, 3))
 MBR_CHANGES = ((446, 0, 0x80), (450, 0x1B, 0x0B))
 WRITE_FLUSH = ('0x30', '0xe7')
 PASS, BLOCK = 'RB JOURNAL RECOVERY PASS', 'RB JOURNAL RECOVERY BLOCKED'
@@ -60,6 +60,11 @@ def torn_snapshot(prepared):
     return torn
 
 
+def interrupted_prepare(seed, prepared, split=70):
+    """The new snapshot reached disk before the prepare header was published."""
+    return prepared[:split] + seed[split:512] + prepared[512:]
+
+
 def record_extents(lbas, record):
     return {lba * 512: record[i * 512:(i + 1) * 512] for i, lba in enumerate(lbas)}
 
@@ -67,7 +72,7 @@ def record_extents(lbas, record):
 def run_boot(exe, bios, work, lang, start, system, carrier, name, outcome, lba, *, key=None,
              slot='B', fmt='raw', serial=PRIMARY[2], writes=(), stored=0, swap=None, before_key=None,
              snapshot_lba=None, snapshot_checked=False, mbr_changes=(), mbr_checked=False,
-             partial_mbr=False, cut_on_source_error=False):
+             partial_mbr=False, prepare_lba=None, prepare_checked=False, cut_on_source_error=False):
     ui = load_catalog(lang)
     src = ROOT / 'build' / ('rescue' if lang == 'en' else 'rescue-' + lang)
     manifest = checked_build(src, PROGRAM)
@@ -75,7 +80,14 @@ def run_boot(exe, bios, work, lang, start, system, carrier, name, outcome, lba, 
     actions = []
     if key:
         scope = 'JR_PREPARED' if mbr_changes else 'JR_SCOPE'
-        lines += [ui['D_SERIAL'] + ' ' + PRIMARY[2], ui['STORE_REV'] + '2', ui['JR_PARTIAL' if partial_mbr else scope]]
+        if prepare_lba is not None:
+            scope = 'JR_INCOMPLETE'
+        elif partial_mbr:
+            scope = 'JR_PARTIAL'
+        lines += [ui['D_SERIAL'] + ' ' + PRIMARY[2], ui['STORE_REV'] + '2', ui[scope]]
+        if prepare_lba is not None:
+            peer = 'A' if slot == 'B' else 'B'
+            lines.append(ui['JR_PREPARE_HEADER'] + f' RBTXN.{peer}, LBA 0x{prepare_lba:08X}')
         if mbr_changes:
             lines += [ui['JR_MBR'], ui['JR_DELTA']]
             lines.extend(f'0x{offset:04X}     {old:02X} -> {new:02X}' for offset, old, new in mbr_changes)
@@ -83,15 +95,19 @@ def run_boot(exe, bios, work, lang, start, system, carrier, name, outcome, lba, 
         if snapshot_lba is not None:
             lines.append(ui['JR_SNAPSHOT'] + f' RBTXN.{slot}, LBA 0x{snapshot_lba:08X}')
             prompt = ui['JR_APPLY' if mbr_changes else 'JR_CONFIRM_BOTH']
+        if prepare_lba is not None:
+            prompt = ui['JR_PREPARE_APPLY']
         lines += [ui['JR_HEADER'] + f' RBTXN.{slot}, LBA 0x{lba:08X}', prompt]
         actions.append((prompt, key, swap, True))
+    if prepare_checked:
+        lines.append(ui['JR_PREPARE_DONE'])
     if mbr_checked:
         lines.append(ui['JR_MBR_DONE'])
     if snapshot_checked:
         lines.append(ui['JR_SNAPSHOT_DONE'])
     if not cut_on_source_error:
         lines += [ui[outcome], PASS if outcome in ('JR_DONE', 'JR_INTACT', 'RESTORE_CANCEL') else BLOCK]
-    targets = ([0] if mbr_changes else []) + ([] if snapshot_lba is None else [snapshot_lba]) + [lba]
+    targets = [sector for sector in (prepare_lba, 0 if mbr_changes else None, snapshot_lba, lba) if sector is not None]
     fixture = dict(binary=(src / (PROGRAM + '.bin')).read_bytes(), memory=manifest['memory'][PROGRAM])
     return boot_fixture(exe, bios, fixture, work, start, system, name, lines, actions, [], [], readonly_start=True,
                         ata_identity=(MODEL, serial), disk_format=fmt, recovery_disk=carrier, recovery_format=fmt,
@@ -100,8 +116,8 @@ def run_boot(exe, bios, work, lang, start, system, carrier, name, outcome, lba, 
                         before_key=before_key, timeout=90, cut_on_source_error=cut_on_source_error)
 
 
-def qualify_kit(exe, bios, work, bundle, pending, fixed, dest_lbas):
-    header_lba, _, snapshot_lba = dest_lbas
+def qualify_kit(exe, bios, work, bundle, pending, fixed, lbas):
+    header_lba, _, snapshot_lba = lbas[1]
     cases = []
     for lang, _, folder in LANGS:
         dest = work / lang
@@ -111,11 +127,12 @@ def qualify_kit(exe, bios, work, bundle, pending, fixed, dest_lbas):
         external = sha256(floppy), sha256(carrier)
         args = exe, bios, work, lang, floppy, system, carrier
         ui = load_catalog(lang)
-        plan = dict(fmt='vdi', snapshot_lba=snapshot_lba, partial_mbr=True, mbr_changes=MBR_CHANGES[1:])
+        plan = dict(fmt='vdi', prepare_lba=lbas[0][0], snapshot_lba=snapshot_lba, mbr_changes=MBR_CHANGES)
         cases.append(run_boot(*args, lang + '-cancel', 'RESTORE_CANCEL', header_lba, key='esc', **plan))
         compare_image(pending, system)
         cases.append(run_boot(*args, lang + '-finish', 'JR_DONE', header_lba, key=ui['A_YES'].lower(),
-                              snapshot_checked=True, mbr_checked=True, writes=WRITE_FLUSH * 3, stored=1536, **plan))
+                              prepare_checked=True, snapshot_checked=True, mbr_checked=True,
+                              writes=WRITE_FLUSH * 4, stored=2048, **plan))
         compare_image(fixed, system)
         cases.append(run_boot(*args, lang + '-restart', 'JR_INTACT', header_lba, fmt='vdi'))
         compare_image(fixed, system)
@@ -472,6 +489,105 @@ def prepared_mbr_cases(exe, bios, work, start, stale, system, carrier, fixed, lb
     return cases
 
 
+def prepare_header_cases(exe, bios, work, start, stale, system, carrier, fixed, lbas, records):
+    seed, prepared, done = records
+    old, new = prepared[512:1024], prepared[1024:]
+    torn = interrupted_prepare(seed, prepared)
+    cases = []
+    external = sha256(start), sha256(carrier)
+    final_hash = sha256(fixed)
+    if sha256(system) != final_hash:
+        raise ValueError('Unexpected starting disk for prepare-header recovery')
+
+    def arrange(live=old, first=torn, second=seed):
+        write_at(system, 0, live)
+        for mapping, record in zip(lbas, (first, second)):
+            for offset, sector in record_extents(mapping, record).items():
+                write_at(system, offset, sector)
+        return sha256(system)
+
+    def run(name, outcome, expected, *, target=system, slot=1, **options):
+        cases.append(run_boot(exe, bios, work, 'en', start, target, carrier, name, outcome, lbas[slot][0],
+                              slot='AB'[slot], **options))
+        if sha256(system) != expected:
+            raise ValueError(f'{name}: unexpected system disk contents')
+
+    def plan(slot):
+        return dict(key='y', prepare_lba=lbas[1 - slot][0], mbr_changes=MBR_CHANGES, snapshot_lba=lbas[slot][2])
+
+    finish = dict(prepare_checked=True, mbr_checked=True, snapshot_checked=True, writes=WRITE_FLUSH * 4, stored=2048)
+    for split in (0, 17, 37, 510):
+        arrange(first=interrupted_prepare(seed, prepared, split))
+        run(f'prepare-header-prefix-{split}', 'JR_DONE', final_hash, **plan(1), **finish)
+    reversed_hash = arrange(new, done, prepared)
+    arrange(old, seed, torn)
+    run('prepare-header-opposite-slot', 'JR_DONE', reversed_hash, slot=0, **plan(0), **finish)
+
+    for name, live, first, second in (
+            ('no-switch-evidence', old, seed, seed),
+            ('prepare-with-partial-live-mbr', torn_snapshot(prepared), torn, seed),
+            ('prepare-with-new-live-mbr', new, torn, seed),
+            ('prepare-without-baseline', old, torn, torn),
+            ('prepare-with-damaged-old-snapshot', old, torn[:512] + new + new, seed),
+            ('prepare-with-unfinished-new-snapshot', old, torn[:1024] + torn_snapshot(prepared), seed),
+            ('prepare-with-reversed-header-tear', old, seed[:37] + prepared[37:], seed),
+            ('prepare-with-foreign-header-byte', old, torn[:300] + b'\xff' + torn[301:], seed)):
+        run(name, 'JR_BAD', arrange(live, first, second))
+
+    # Even a self-consistent baseline and matching live disk cannot authorize
+    # a change to boot code when constructing a synthetic prepared pair.
+    bad_old = bytes([old[0] ^ 1]) + old[1:]
+    bad_seed = seal(seed[:512] + bad_old * 2)
+    bad_prepare = seal(prepared[:512] + bad_old + new)
+    run('prepare-protected-mbr-delta', 'JR_BAD',
+        arrange(bad_old, interrupted_prepare(bad_seed, bad_prepare), bad_seed))
+
+    def change_header(data):
+        def change(q, _prompt):
+            q.call('stop')
+            write_at(system, lbas[0][0] * 512, data[:512])
+            q.call('cont')
+        return change
+
+    valid = arrange(first=prepared)
+    earlier = interrupted_prepare(seed, prepared, 17)
+    earlier_hash = arrange(first=earlier)
+    pending = arrange()
+    run('prepare-witness-replaced', 'RESTORE_CHANGED', pending, swap=stale, **plan(1))
+    run('prepare-prefix-changed-at-prompt', 'RESTORE_CHANGED', earlier_hash, before_key=change_header(earlier), **plan(1))
+    arrange()
+    run('prepare-completed-at-prompt', 'RESTORE_CHANGED', valid, before_key=change_header(prepared), **plan(1))
+
+    def inject(name, rules):
+        conf = work / (name + '.ini')
+        conf.write_text(rules)
+        return f'blkdebug:{conf}:{system}'
+
+    fail_write = '[inject-error]\nevent = "write_aio"\niotype = "write"\nerrno = "5"\nonce = "on"\n'
+    after_flush = '[set-state]\nevent = "flush_to_disk"\nnew_state = "2"\n'
+    fail_read = '[inject-error]\nevent = "read_aio"\niotype = "read"\nstate = "2"\nerrno = "5"\n'
+    arrange()
+    run('prepare-write-error', 'RESTORE_IO', pending, target=inject('prepare-write', fail_write),
+        writes=('0x30',), **plan(1))
+    for name, rules in (
+            ('prepare-flush', '[inject-error]\nevent = "flush_to_disk"\niotype = "flush"\nerrno = "5"\nonce = "on"\n'),
+            ('prepare-readback', after_flush + fail_read + f'sector = "{lbas[0][0]}"\n'),
+            ('prepare-allocation-recheck', after_flush + fail_read + f'sector = "{ROOT_LBA}"\n')):
+        arrange()
+        run(name + '-error', 'RESTORE_IO', valid, target=inject(name, rules), writes=WRITE_FLUSH, stored=512, **plan(1))
+
+    # Kill the VM on LBA 0 after the preceding prepare header has reached disk.
+    arrange()
+    run('cut-after-durable-prepare', None, valid, target=inject('cut-after-prepare', fail_write + 'sector = "0"\n'),
+        cut_on_source_error=True, prepare_checked=True, writes=(*WRITE_FLUSH, '0x30'), stored=512, **plan(1))
+    run('cold-resume-after-prepare', 'JR_DONE', final_hash, key='y', mbr_changes=MBR_CHANGES,
+        snapshot_lba=lbas[1][2], mbr_checked=True, snapshot_checked=True, writes=WRITE_FLUSH * 3, stored=1536)
+    run('cold-after-prepare-repair', 'JR_INTACT', final_hash)
+    if external != (sha256(start), sha256(carrier)):
+        raise ValueError('Prepare-header recovery changed external media')
+    return cases
+
+
 def main():
     exe = Path(shutil.which('qemu-system-i386')).resolve()
     bios = exe.parent.parent / 'share/seabios/bios-256k.bin'
@@ -491,26 +607,30 @@ def main():
         system, carrier, fixed = work / 'system.raw', work / 'recovery.raw', work / 'complete.raw'
         witness, stale_witness, setup = capture_and_publish(exe, bios, src, work, system, carrier, size, extents,
                                                            new, primary=PRIMARY[2], secondary=SECONDARY[2], ids=IDS)
-        write_at(system, 0, torn_snapshot(prepared))
+        write_at(system, 0, prepared[512:1024])
+        write_at(system, lbas[0][0] * 512, interrupted_prepare(seed, prepared)[:512])
         write_fixture(fixed, size, {**extents, 0: new, **record_extents(lbas[1], done)})
         bundle = repair_kit(work, system, carrier, size, witness, program=PROGRAM, kit=KIT, guide='JournalRecovery.txt',
                             ids=IDS, primary=PRIMARY, secondary=SECONDARY)
-        manual = qualify_kit(exe, bios, work, bundle, system, fixed, lbas[1])
+        manual = qualify_kit(exe, bios, work, bundle, system, fixed, lbas)
         floppy = work / 'en/English' / FLOPPY
         stale = work / 'stale.img'
         stale.write_bytes(floppy.read_bytes()[:WITNESS_START] + stale_witness)
         # Exercise the previous one-sector path on the same enrolled hardware.
+        write_at(system, lbas[0][0] * 512, prepared[:512])
         write_at(system, 0, new)
         write_at(system, lbas[1][2] * 512, new)
         faults = fault_cases(exe, bios, work, floppy, stale, system, carrier, fixed, lbas, (seed, prepared, done))
         snapshots = snapshot_cases(exe, bios, work, floppy, system, carrier, fixed, lbas, (seed, prepared, done))
         prepared_cases = prepared_mbr_cases(exe, bios, work, floppy, stale, system, carrier, fixed,
                                             lbas, (seed, prepared, done))
+        headers = prepare_header_cases(exe, bios, work, floppy, stale, system, carrier, fixed,
+                                       lbas, (seed, prepared, done))
         results = dict(setup=setup, kit=manual, failures=faults, snapshots=snapshots, prepared=prepared_cases,
-                       kit_sha256=sha256(bundle))
+                       prepare_headers=headers, kit_sha256=sha256(bundle))
         (out / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
         bundle.replace(out / KIT)
-    total = sum(map(len, (setup, manual, faults, snapshots, prepared_cases)))
+    total = sum(map(len, (setup, manual, faults, snapshots, prepared_cases, headers)))
     print(f'{total} boots passed: {out / KIT}')
 
 

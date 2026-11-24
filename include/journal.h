@@ -4,6 +4,7 @@
 #include "config.h"
 
 #define RB_JOURNAL_BYTES 1536U
+#define RB_JOURNAL_HEADER_FIELDS 76U /* Remaining bytes before the CRC must be zero. */
 #define RB_JOURNAL_NONE 0xFFFFU
 
 enum { RB_TX_EMPTY, RB_TX_PREPARED, RB_TX_COMMITTED };
