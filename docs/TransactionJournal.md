@@ -10,10 +10,11 @@ The released images contain two preallocated three-sector journal slots and
 an empty EDD baseline. The eight-file allocation auditor supplies a checked,
 fragmentation-aware sector map. The reader binds all identity records, reads
 the complete journal pair and checks the current MBR again. The independent
-rescue diskette can apply the approved first switch when the complete prepare,
-its baseline and the old live MBR agree. When the intended MBR is already
-active, it can complete the journal snapshot and header. The bilingual test
-kit exercises the three writes and a cold restart. [Journal recovery](JournalRecovery.txt).
+rescue diskette can apply the approved first switch when the prepare and
+baseline are intact and the live MBR matches the old snapshot or an exact
+new prefix followed by its old suffix. When the intended MBR is already
+active, it can complete the journal snapshot and header. The bilingual kit
+starts with the active flag set and the primary type still hidden. [Journal recovery](JournalRecovery.txt).
 
 ## Three-sector record, version 1
 
@@ -119,6 +120,11 @@ write ordering. `PREPARED_OLD` does not prove that a write was never attempted;
 pair can still produce `DIVERGED`. No observation supplies an automatic
 rollback, roll-forward, repair, countdown, write lease or OS-start decision.
 
+A partially written live MBR still reads as `DIVERGED` in F8. External
+recovery separately checks the physical sector against both snapshots, the
+intact journal pair and the independently approved new MBR before offering
+the exact remaining byte changes.
+
 Record status codes are `0` valid, `1` missing, `2` format, `3` CRC,
 `4` identity, `5` geometry, `6` snapshot/layout and `7` forbidden delta.
 Pair status adds `8` unavailable, `9` degraded and `10` conflict. Status zero
@@ -145,6 +151,7 @@ they retain the same core implementations and existing file/stack budgets.
 The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
 42 native reader assertions, 495 UI states per language, manual check and
 remaining limitations. F10 now recognizes all eight files. External rescue
-covers the first prepared pair with an intact old MBR and the completion
-snapshot and header with the new MBR active. Incomplete preparations, a live
-MBR that matches neither snapshot, and the normal switch remain open.
+covers the first prepared pair with an old or demonstrably prefix-matching
+live MBR, and the completion snapshot and header with the intended MBR active.
+Incomplete preparations and other damaged MBRs remain outside that repair.
+The normal switch is tracked separately.

@@ -156,6 +156,7 @@
   "JR_CONFIRM_BOTH": "J MBR-Kopie und Abschluss speichern   Esc Abbrechen",
   "JR_SNAPSHOT_DONE": "MBR-Kopie im Journal gespeichert und geprüft.",
   "JR_PREPARED": "Wechsel 2 ist vorbereitet. Die Partitionstabelle hat den alten Stand.",
+  "JR_PARTIAL": "Wechsel 2 ist vorbereitet. Die Partitionstabelle ist teilweise geändert.",
   "JR_MBR": "Partitionstabelle der Systemfestplatte, MBR an LBA 0",
   "JR_DELTA": "Position   Aktuelles Byte -> Geplantes Byte",
   "JR_APPLY": "J Partitionswechsel anwenden und abschließen   Esc Abbrechen",
