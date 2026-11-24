@@ -7,6 +7,8 @@
 #include "mbr_ata.h"
 
 enum { STORE_LAYOUT = 7, STORE_COMMIT = 8, STORE_DATA = 16 };
+/* rb_store_verify checks a canonical publication with zero padding and a derived CRC. */
+enum { STORE_COMMIT_FIELDS = 76 };
 enum { RB_STORE_INVALID, RB_STORE_EMPTY, RB_STORE_OCCUPIED };
 
 typedef struct {

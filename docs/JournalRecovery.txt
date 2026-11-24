@@ -1,52 +1,71 @@
-RetroBoot – Teilweise geänderte Partitionstabelle vervollständigen
+RetroBoot – Unterbrochene Vorbereitung eines Partitionswechsels
 
 Deutsch
 
-Wechsel 2 steht vollständig im Journal. Auf der Testplatte ist die erste
-primäre Partition bereits aktiv, aber noch verborgen. Die Rettungsdiskette
-zeigt die eine verbleibende Änderung und schließt den Wechsel nach Bestätigung ab.
+Die Systemfestplatte enthält noch die alte Partitionstabelle. Im Journal sind
+beide MBR-Kopien vollständig, der Vorbereitungseintrag ist teilweise geschrieben.
+Die Rettungsdiskette prüft die Vorbereitung vor dem Umschalten der Partition.
 
-1. ZIP entpacken. Platten an die ausgeschaltete BIOS-Test-VM anschließen.
-   Primäres Gerät 0    (primärer Master)    RB80-System.vdi
-   Sekundäres Gerät 0  (sekundärer Master)  RB80-Sicherung.vdi
+1. ZIP entpacken. Beide Platten an die ausgeschaltete BIOS-Test-VM anschließen.
+   Primäres Gerät 0    (primärer Master)    RB81-System.vdi
+   Sekundäres Gerät 0  (sekundärer Master)  RB81-Sicherung.vdi
    Deutsch/journal-recovery.img in A einlegen und von A starten.
-2. Die Anzeige meldet „Wechsel 2 ist vorbereitet. Die Partitionstabelle ist
-   teilweise geändert.“ und nennt genau eine Änderung am MBR an LBA 0.
+2. Es erscheint „Die Vorbereitung für Wechsel 2 ist unvollständig. Der MBR ist
+   unverändert.“ Darunter stehen der Vorbereitungseintrag in RBTXN.A an
+   0x00001B91 und die zwei geplanten Änderungen an der ersten primären Partition.
+   0x01BE     00 -> 80    Partition aktivieren
    0x01C2     1B -> 0B    FAT32-Partition sichtbar machen
-   Dazu kommen die MBR-Kopie in RBTXN.B an 0x00001C5D und der Abschluss
-   an 0x00001C59. Esc bricht vor dem ersten Schreiben ab.
-3. J bestätigt den Wechsel. Danach erscheinen diese Meldungen.
+   RBTXN.B enthält die MBR-Kopie an 0x00001C5D und den Abschluss an 0x00001C59.
+3. J bestätigt den angezeigten Ablauf. Esc bricht vor dem ersten Schreiben ab.
+   Nach J erscheinen diese Zeilen in dieser Reihenfolge.
+   Vorbereitung im Journal gespeichert und geprüft.
    Partitionstabelle geschrieben und geprüft.
    MBR-Kopie im Journal gespeichert und geprüft.
    Partitionswechsel abgeschlossen. Journal und aktueller MBR geprüft.
    RB JOURNAL RECOVERY PASS
-4. Beide Platten und die Diskette angeschlossen lassen und erneut von A starten.
-   Es erscheint „Der Partitionswechsel ist bereits abgeschlossen.“
+4. Mit denselben Platten erneut von A starten.
+   „Der Partitionswechsel ist bereits abgeschlossen.“
+   RB JOURNAL RECOVERY PASS
 
 English
 
-Switch 2 has a complete prepared journal record. On the supplied system disk
-the first primary partition is already active but still hidden. The rescue
-diskette displays the one remaining change before confirmation.
+The system disk still holds the old partition table. Both MBR snapshots are
+complete in the journal, but the prepare header was only partly written.
+The rescue diskette verifies the preparation before switching the partition.
 
-1. Extract the ZIP and attach the disks to the powered-off BIOS test VM.
-   Primary Device 0    (primary master)     RB80-System.vdi
-   Secondary Device 0  (secondary master)   RB80-Sicherung.vdi
+1. Extract the ZIP and attach both disks to the powered-off BIOS test VM.
+   Primary Device 0    (primary master)     RB81-System.vdi
+   Secondary Device 0  (secondary master)   RB81-Sicherung.vdi
    Insert English/journal-recovery.img in A and boot from A.
-2. The screen reports “Switch 2 is prepared. The partition table has been
-   partly updated.” and lists exactly one change to the MBR at LBA 0.
+2. The screen reports “Preparation for switch 2 is incomplete. The MBR is
+   unchanged.” It lists the preparation header in RBTXN.A at 0x00001B91
+   and both proposed changes to the first primary partition.
+   0x01BE     00 -> 80    Activate the partition
    0x01C2     1B -> 0B    Make the FAT32 partition visible
-   RBTXN.B holds the MBR snapshot at 0x00001C5D and the completion header
-   at 0x00001C59. Esc cancels before the first write.
-3. Y confirms the switch. The following lines appear.
+   RBTXN.B holds the MBR copy at 0x00001C5D and completion at 0x00001C59.
+3. Y confirms the displayed writes. Esc cancels before the first write.
+   After Y the following lines appear in order.
+   Preparation saved to the journal and verified.
    Partition table written and verified.
    MBR copy saved to the journal and verified.
    Switch completed. Journal and current MBR verified.
    RB JOURNAL RECOVERY PASS
-4. Leave the disks and diskette attached and boot from A again.
-   The screen reports “The partition switch is already complete.”
+4. Leave the disks attached and boot from A again.
+   “The partition switch is already complete.”
+   RB JOURNAL RECOVERY PASS
 
 Recovery scope
+
+When the first prepare header is missing or partly written over its seed,
+the other slot must hold a valid sequence-1 baseline matching all 512 live
+MBR bytes. The prepare slot must contain the same old snapshot and the entire
+independently approved new snapshot. The header on disk must match an exact
+prefix of the derived sequence-2 prepare followed by its seed suffix. The
+normal journal decoder must accept the proposed pair. Before confirmation the
+diskette shows the prepare sector, the MBR differences and both completion
+sectors. It reads back the physical prepare and validates both slots again
+before issuing the first LBA 0 write. A restart after the prepare write can
+resume the ordinary prepared switch.
 
 An LBA 0 repair requires a fully valid sequence-1 baseline and sequence-2
 prepare, a valid live layout, and independent approval of the entire intended
@@ -68,6 +87,6 @@ Every changed sector is flushed and read back through BIOS and ATA. After a
 confirmed MBR change the diskette reopens the backup and checks the current MBR
 and both journal slots again before publishing any completion data. A restart
 offers only the remaining sectors. A completed pair requires zero writes.
-Incomplete preparations, changes to protected bytes, invalid layouts and
-other mixed MBRs block the repair. The normal boot-menu switch is a separate
-work package.
+An incomplete new snapshot in the prepare slot, a changed protected byte,
+an invalid layout or an unexplained mixture in the live MBR blocks the repair.
+The normal boot-menu switch is a separate work package.

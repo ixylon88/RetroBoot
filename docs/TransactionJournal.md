@@ -13,8 +13,11 @@ the complete journal pair and checks the current MBR again. The independent
 rescue diskette can apply the approved first switch when the prepare and
 baseline are intact and the live MBR matches the old snapshot or an exact
 new prefix followed by its old suffix. When the intended MBR is already
-active, it can complete the journal snapshot and header. The bilingual kit
-starts with the active flag set and the primary type still hidden. [Journal recovery](JournalRecovery.txt).
+active, it can complete the journal snapshot and header. When both snapshots
+are intact and the live MBR is still old, the diskette can also reconstruct a
+missing or partly written first prepare header over its seed. It checks the
+resulting physical journal pair before changing the partition table. The
+bilingual kit demonstrates this last case. [Journal recovery](JournalRecovery.txt).
 
 ## Three-sector record, version 1
 
@@ -151,7 +154,8 @@ they retain the same core implementations and existing file/stack budgets.
 The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
 42 native reader assertions, 495 UI states per language, manual check and
 remaining limitations. F10 now recognizes all eight files. External rescue
-covers the first prepared pair with an old or demonstrably prefix-matching
-live MBR, and the completion snapshot and header with the intended MBR active.
-Incomplete preparations and other damaged MBRs remain outside that repair.
-The normal switch is tracked separately.
+covers the first prepare header with complete snapshots and an old live MBR,
+the validated prepared pair with an old or prefix-matching live MBR, and the
+completion snapshot and header with the approved MBR active. A missing or
+unfinished intended snapshot in the prepare slot cannot authorize this repair.
+The normal boot-menu switch is tracked separately.
