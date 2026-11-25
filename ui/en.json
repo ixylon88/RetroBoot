@@ -8,6 +8,7 @@
   "DOS_GEOMETRY": "The DOS partition does not fit the disk geometry reported by this BIOS.",
   "DOS_TIMER": "Enter starts the selection. Any key cancels automatic boot.",
   "DOS_BLOCKED": "DOS boot stopped",
+  "DOS_RECOVERY_REQUIRED": "DOS boot blocked. Recovery required. Press F6 for installation status.",
   "DOS_BASELINE": "Disk identity or recovery journal differs from the prepared disk.",
   "TIMER_HELP": "F9  Set DOS boot delay",
   "TIMER_TITLE": "DOS boot delay",

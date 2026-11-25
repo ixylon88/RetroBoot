@@ -242,17 +242,25 @@ def main():
                        help='Change the countdown on a copy of an already prepared RetroBoot DOS disk')
     group.add_argument('--recover-countdown', action='store_true',
                        help='Restore a damaged countdown copy from its valid peer on a new disk')
+    group.add_argument('--require-recovery', action='store_true',
+                       help='Block boot of a prepared DOS installation on a new disk copy')
     args = parser.parse_args()
     kit = Path(sys.argv[0])
     try:
-        if args.set_countdown is None and not args.recover_countdown:
+        if args.set_countdown is None and not (args.recover_countdown or args.require_recovery):
             output = args.output or Path('RetroBoot-DOS.vdi')
             make_disk(args.source, output.absolute(), kit, args.countdown)
         else:
             from prepared_countdown import change_countdown, recover_countdown
             with zipfile.ZipFile(kit) as bundle:
                 language = bundle.read('language.txt').decode('ascii')
-            if args.recover_countdown:
+            if args.require_recovery:
+                from prepared_install_state import require_recovery
+                output = args.output or Path('RetroBoot-DOS-Blocked.vdi')
+                if not write_disk_copy(args.source, output.absolute(), lambda disk: require_recovery(disk, language)):
+                    return
+                print('Startsperre gespeichert und geprüft.' if language == 'de' else 'Boot block saved and verified.')
+            elif args.recover_countdown:
                 output = args.output or Path('RetroBoot-DOS-Recovered.vdi')
                 if not write_disk_copy(args.source, output.absolute(), lambda disk: recover_countdown(disk, language)):
                     return

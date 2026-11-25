@@ -11,6 +11,10 @@ if /i "%~n0"=="RetroBoot-Countdown-Recovery" (
     set "operation=--recover-countdown"
     set "resultfile=RetroBoot-DOS-Recovered.vdi"
 )
+if /i "%~n0"=="RetroBoot-Recovery-Required" (
+    set "operation=--require-recovery"
+    set "resultfile=RetroBoot-DOS-Blocked.vdi"
+)
 where py >nul 2>nul
 if errorlevel 1 goto python
 py -3 "%~dp0RetroBoot-DOS.pyz" "%~f1" --output "%~dp0%resultfile%" %operation%

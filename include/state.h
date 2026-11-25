@@ -45,6 +45,9 @@ void rb_state_select(rb_state_result *result, const rb_u8 *a, const rb_u8 *b,
                      rb_u16 readable_mask, const rb_partition_scan *scan, const rb_partition *admin);
 void rb_state_load(rb_state_result *result, rb_sector_reader read, void *opaque,
                    rb_u32 low, rb_u32 high, rb_u32 disk_id, rb_u32 admin_lba);
+/* Selection for display and timer eligibility. Boot still needs the live VBR check. */
+void rb_state_check_records(rb_state_proof *result, const rb_config_result *config,
+                            const rb_state_result *state, rb_u16 index);
 void rb_state_check(rb_state_proof *result, const rb_config_result *config,
                     const rb_state_result *state, rb_u16 index, rb_sector_reader read,
                     void *opaque, rb_u32 low, rb_u32 high);

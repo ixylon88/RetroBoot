@@ -1,4 +1,4 @@
-# Read-only installation-state cross-check
+# Installation-state records and F6 diagnosis
 
 F6 reads `RBCFG.A/B` and `RBSTATE.A/B` independently, then compares a selected
 profile with the current target's validated volume boot record (VBR). This
@@ -6,10 +6,9 @@ implements the read-only foundation of specification v0.2 sections 10 and 12.
 It does not run an OS, establish safe visibility, inspect OS files, execute a
 transaction, or replace the future recovery-backed installer.
 
-The four files are created only while generating owned test images. Runtime
-access uses BIOS reads. A successful F6 result never authorizes a jump or a
-write. F4 on this page and Enter are inert; automatic start remains disabled.
-The main-menu F4 test still accepts only its exact compiled T07 target.
+F6 reads the four files on demand. A separate operation in the prepared-DOS
+kit can put an installation into recovery on a new disk copy. F6 displays the
+result at the next boot. [Saving a DOS boot block](#saving-a-dos-boot-block)
 
 ## Manual check
 
@@ -115,9 +114,53 @@ Unused slots are entirely zero. Used slots have the following fields:
 | `ready` | 6 | Eligible for the remaining consistency checks |
 | `recovery_required` | 7 | Blocks all profiles |
 
-The state machine is represented, not executed. In a real future installer,
-`ready` requires the controlled original-OS boot and explicit confirmation
-specified in v0.2. The synthetic T07 fixture is not evidence of that workflow.
+The prepared-DOS kit implements the transition from `ready` to
+`recovery_required`. Granting `ready` at the end of an installation requires
+the controlled original-OS boot and explicit confirmation specified in v0.2.
+
+## Saving a DOS boot block
+
+On a powered-off prepared DOS disk, the external kit can mark the single
+existing installation as `recovery_required` on a new disk copy. The source
+remains available. The review shows the profile, primary slot, stable
+installation ID, both record names, destination LBA, generation and phase.
+German kits accept **J** and English kits accept **Y**. The command accepts a raw input and a new VDI output.
+
+```text
+python3 RetroBoot-DOS.pyz input.img --require-recovery --output blocked.vdi
+```
+
+The tool checks the live DOS volume, partition layout, ownership of all eight
+management files, both FATs, both configuration records and the idle journal.
+Each healthy state record must agree with the installation ID in the independent
+configuration. A `ready` record must match the live DOS VBR. Equal generations
+must be byte-identical. Adjacent generations may describe the transition into
+recovery. Conflicting or disjoint histories stop the operation.
+
+Confirmation triggers a fresh read of the same disk context, including the
+allocation metadata and the full record pairs. The tool updates the inactive
+`RBSTATE` sector. The new generation carries phase 7 and a zero VBR claim.
+Only the generation (offsets 16–19), phase and claim (83–87), and CRC
+(508–511) can change. The tool flushes the sector, reloads both copies,
+validates selection and compares the expected records and disk context before
+publishing the new image. Two healthy copies already selecting the block
+produce no output. Advancing a `ready` generation at `0xFFFFFFFF` is refused.
+
+A single CRC failure can be handled by the same command with fresh confirmation
+when the immutable bytes match and every independent check succeeds. A
+surviving `ready` record supplies the identity and previous generation for
+completing the block. A surviving `recovery_required` record can restore its
+peer at the same generation, including at `0xFFFFFFFF`. Two bad records or a
+disagreement in identity require separate diagnosis. The command only publishes
+an installation that remains blocked.
+
+On a disk prepared with the updated BIOS menu, the menu checks the independent
+installation records before offering DOS or arming its timer. A recovery block
+leaves the diagnostics available. For the supplied fixture F6 shows generation
+`0x00000002`, copy B, and check/detail `0x0007 / 0x0007`. A damaged copy
+also suppresses boot. Enter and an already running timer repeat the full
+layout and VBR checks at handoff. Earlier prepared disks retain the menu
+version used to create them. [VirtualBox test procedure](PreparedDOS.md#testing-the-installation-boot-block)
 
 ## Read and comparison boundary
 

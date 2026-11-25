@@ -42,6 +42,8 @@ jobs:
             build/hdd-de/RetroBoot-Countdown-Recovery-DE.zip
             build/hdd/RetroBoot-Countdown-Menu-EN.zip
             build/hdd-de/RetroBoot-Countdown-Menue-DE.zip
+            build/hdd/RetroBoot-Boot-Hold-EN.zip
+            build/hdd-de/RetroBoot-Startsperre-DE.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

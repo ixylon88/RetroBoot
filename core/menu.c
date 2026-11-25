@@ -212,6 +212,9 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             }
             text(9, 8, dos_choice.selected.entry.name, color);
             text(19, 4, RB_UI_TIMER_HELP, NORMAL);
+        } else if (dos_choice.records.status) {
+            text(6, 4, dos_choice.records.status == RB_PROOF_PENDING && dos_choice.records.detail == RB_INSTALL_RECOVERY
+                ? RB_UI_DOS_RECOVERY_REQUIRED : proof_messages[dos_choice.records.status], 0x1E);
         } else
 #endif
         { text(6, 4, RB_UI_NO_PROFILES, NORMAL); }
@@ -571,7 +574,7 @@ void __cdecl rb_menu_run(void)
     rb_u32 now;
     rb_loader_copy(&snapshot);
 #ifdef RB_PREPARED_DOS
-    rb_dos_open(&dos_choice, &config, &snapshot);
+    rb_dos_open(&dos_choice, &config, &installation, &snapshot);
     if (dos_choice.selected.valid) {
         rb_menu_init(&state, 4, 15, 3, (dos_choice.countdown * 182U + 9U) / 10U, rb_ticks());
     } else
