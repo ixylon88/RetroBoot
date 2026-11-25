@@ -127,7 +127,6 @@ maximum and fragmented journal-sector maps. The pure journal model has
 Four host tests check fixture boundaries,
 route parameters, read evidence and failure-page hygiene.
 
-An independent external rescue path remains required before first write tests.
-Persistent prepare/MBR/completion writes, interruption recovery and original-OS
-start authorization remain separate increments. No existing disk is upgraded
-by this diagnostic code.
+F8 diagnoses the journal. The independent rescue floppy and the normal
+HDD menu have separate entry points for confirmed changes.
+[HDD switch and external recovery](TransactionJournal.md#confirmed-hdd-switch)

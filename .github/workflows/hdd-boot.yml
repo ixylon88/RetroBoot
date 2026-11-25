@@ -11,7 +11,7 @@ permissions:
 jobs:
   hdd-boot:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -29,6 +29,10 @@ jobs:
         run: make hdd-test
       - name: Reproduce German images and verify localized VGA screens
         run: make hdd-ui-test RB_LANGUAGE=de
+      - name: Boot independent rescue media after interrupted HDD menu switches
+        run: |
+          python3 tools/build_rescue.py --language en
+          python3 tools/test_profile_switch_recovery.py
       - name: Upload the prepared DOS disk kit
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -50,6 +54,8 @@ jobs:
             build/hdd-de/RetroBoot-DOS-Freigabe-DE.zip
             build/hdd/RetroBoot-Profile-Selection-EN.zip
             build/hdd-de/RetroBoot-Profilauswahl-DE.zip
+            build/hdd/RetroBoot-Partition-Switch-EN.zip
+            build/hdd-de/RetroBoot-Umschaltung-DE.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

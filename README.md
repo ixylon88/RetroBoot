@@ -6,8 +6,8 @@ Development currently targets the `historical` branch.
 
 The prepared DOS disk boots MS-DOS 6.22 and supports a persistent F9 boot delay.
 [Prepared disk and VirtualBox check](docs/PreparedDOS.md#saving-the-delay-from-the-hdd-menu)
-The [multi-profile VirtualBox check](docs/PreparedDOS.md#selecting-a-profile-from-the-hdd-menu)
-boots the currently isolated FAT16 profile and previews changes for a hidden target.
+The multi-profile HDD menu previews FAT16 partition changes, journals a confirmed
+switch and boots the selected profile. [Single-disk VirtualBox check](docs/PreparedDOS.md#switching-profiles-on-one-disk)
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
@@ -15,8 +15,8 @@ C/assembly test floppy remains available. F5 now validates stored start-profile
 records against the actual disk layout. F6 compares independent installation
 records with the current target VBR. F7 previews current and intended primary
 partition types and active flags. F10 audits allocation of the eight current
-management files, both FAT copies and unowned allocated clusters. Menu-driven partition switching and
-installation remain on the roadmap. An independent test VBR now
+management files, both FAT copies and unowned allocated clusters. Installation
+from original media remains on the roadmap. An independent test VBR now
 checks the real-mode transition in an explicitly selected test image.
 
 ## Documentation

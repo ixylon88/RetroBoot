@@ -234,8 +234,8 @@ When the selected primary already has the requested visibility and active
 flag, the BIOS geometry is checked and RetroBoot transfers control to that
 VBR. When a change is needed, Enter shows the current and proposed type and
 active flag of each primary slot. Esc returns to the selection. This path
-only reads the disk. Applying the preview requires the next stage of the
-[journaled switch](https://github.com/ixylon88/RetroBoot/issues/49).
+only reads the disk. Opening the switch review from a main-menu selection
+requires **S** on an EDD boot disk. F7 remains a diagnostic view.
 
 ### VirtualBox check with two test boot sectors
 
@@ -257,6 +257,33 @@ the active profile. Each successful boot displays `RB HANDOFF PASS` and
 the matching slot marker. The German archive is `RetroBoot-Profilauswahl-DE.zip`
 and the English archive is `RetroBoot-Profile-Selection-EN.zip`, both in
 the `retroboot-dos` workflow artifact.
+
+## Switching profiles on one disk
+
+The German test archive is `RetroBoot-Umschaltung-DE.zip`. The English archive
+is `RetroBoot-Partition-Switch-EN.zip`. Each contains one VDI with two
+project-owned boot sectors that identify the partition they started from.
+The archive provides a fresh P1-active disk for repeating the test.
+
+1. Extract the VDI and attach it as the only hard disk at IDE port 0, device 0,
+   in a powered-off BIOS VM. Boot from the hard disk.
+2. Select **DOS-Test P2** and press **Enter**. The preview shows P1 becoming
+   hidden and inactive and P2 becoming visible and active. The changed-slot
+   mask is `0x03`. **S** opens the switch review with journal sequence
+   `0x00000002` and the disk ID. **Esc** cancels. **Enter** confirms.
+3. The target displays `RB HANDOFF PASS` and `Test VBR P2 OK.`. Cold-boot the
+   same VDI. Selecting **DOS-Test P2** and pressing **Enter** now starts P2
+   directly. The menu initially highlights P1 because P1 is the configured default.
+4. Cold-boot the same disk again. Select **DOS-Test P1**, press **Enter**,
+   **S**, then **Enter**. This time the sequence is `0x00000003`, and the
+   target displays `Test VBR P1 OK.`.
+
+The firmware reopens the reviewed disk, checks ownership of both journal slots,
+and verifies the installation, VBR and geometry before writing. The first
+switch on this disk writes five sectors. The return switch writes seven.
+The difference comes from previously stored snapshots that already match
+the requested bytes. Neither path writes an EBR or a system volume.
+[Journal ordering and recovery](TransactionJournal.md#confirmed-hdd-switch)
 
 ## Preparation and boot checks
 
@@ -284,5 +311,5 @@ bytes, and reject changed sectors, stale selections, a withdrawn default or inco
 boot manager. On 19 November 2026 the maintainer confirmed the handoff,
 normal DOS operation and version 6.22 in VirtualBox.
 [Manual test report](https://github.com/ixylon88/RetroBoot/pull/65#issuecomment-7001210054)
-Installation of DOS from its original media and switching between systems are
-later roadmap items.
+Installation from original media and validation of a switch between two original
+operating systems remain later roadmap items.

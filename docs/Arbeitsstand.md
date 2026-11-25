@@ -42,11 +42,18 @@ copy A, check/detail `0x0000 / 0x0000` and VBR CRC `0x9968CBE5`. The test
 VBR reported `RB HANDOFF PASS`.
 [VirtualBox report for PR #88](https://github.com/ixylon88/RetroBoot/pull/88#issuecomment-7168633996)
 
-The [multi-profile HDD check](PreparedDOS.md#selecting-a-profile-from-the-hdd-menu)
-opens the next stage of [journaled partition switching](https://github.com/ixylon88/RetroBoot/issues/49).
-The menu can boot the profile whose isolation already matches, including a
-cold boot after a committed switch. Selecting a hidden target displays the
-exact proposed changes. Applying them from the menu is the next write path.
+With the owned records package complete, work has moved to the normal HDD
+switch in [roadmap issue #49](https://github.com/ixylon88/RetroBoot/issues/49).
+The maintainer confirmed the preceding multi-profile VirtualBox check. The
+screens document a matching P1 view (mask `0x00`), the proposed P2 view
+(mask `0x03`) and a successful P1 test VBR handoff.
+[VirtualBox report for PR #89](https://github.com/ixylon88/RetroBoot/pull/89#issuecomment-7169942489)
+
+The [single-VDI check](PreparedDOS.md#switching-profiles-on-one-disk) now
+covers the persistent switch in both directions. The main menu offers a
+separate confirmation before publishing a prepared journal, changing the MBR
+and publishing completion. The next manual check uses the same disk across
+cold boots.
 
 ## Original DOS boot and recovery milestones
 

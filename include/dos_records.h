@@ -15,6 +15,13 @@ typedef struct {
     rb_u16 source;
 } rb_dos_record_pair;
 
+/* Single-installation editors and a multi-profile switch cannot be open together. */
+typedef union {
+    rb_dos_record_pair single[2];
+    struct { rb_u8 headers[2][512], previous[512], sector[512]; } transaction;
+} rb_dos_workspace;
+extern rb_dos_workspace rb_dos_buffers;
+
 typedef struct {
     rb_u16 status, saved, seconds, target;
     rb_u32 lba;

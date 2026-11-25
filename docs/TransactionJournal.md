@@ -1,6 +1,6 @@
 # Transaction journal: record and observation model
 
-The journal model is the next prerequisite for a recoverable primary-partition
+The journal model validates the records used in a recoverable primary-partition
 visibility switch. It decodes complete old/new MBR snapshots, checks the two
 journal slots as a pair, and compares the selected transaction with a supplied
 current MBR. It performs no disk access and grants no write or OS-start authority.
@@ -23,7 +23,7 @@ recognizing the intact baseline on restart. [Journal recovery](JournalRecovery.t
 
 ## Three-sector record, version 1
 
-Each future preallocated slot holds exactly 1,536 bytes. The first sector is a
+Each preallocated slot holds exactly 1,536 bytes. The first sector is a
 header; the next two contain all 512 bytes of the original and intended MBR.
 A completion record occupies the other slot, as required by specification v0.2.
 It repeats the same snapshots and sequence with phase `committed`.
@@ -164,4 +164,49 @@ completion snapshot and header with the approved MBR active. When only part of
 the new snapshot reached the prepare slot under its intact seed header, the
 rescue diskette can restore that single journal sector from the baseline.
 The old live MBR and both complete baseline records are verified afterward.
-The normal boot-menu switch is tracked separately.
+The normal boot menu also exercises this order on a two-profile FAT16 disk.
+
+
+## Confirmed HDD switch
+
+On a prepared multi-profile EDD disk, **S** opens a review from the selected
+hidden profile's preview. The review identifies the disk, the target, each
+current and intended primary type/active flag, and the next sequence. **Esc**
+cancels. **Enter** authorizes this particular change. The firmware requires
+exclusive access to the disk for the operation.
+
+A fresh allocation audit supplies the six physical journal addresses. The
+firmware retains both original headers, the preceding MBR snapshot, the
+reviewed before/after sectors and fingerprints of the allocation and identity
+records. Confirmation checks all of them again. A healthy baseline or a
+completed previous transaction must match the cold-boot MBR. Changed records,
+a different VBR, mismatched geometry or an exhausted sequence stop the switch.
+
+| Phase | Required physical observation |
+| --- | --- |
+| Prepare | Publish the old snapshot, the new snapshot and then the prepare header in the inactive slot. Read back each changed sector. Both slots must select `PREPARED_OLD`. |
+| Switch | Recheck the target and live MBR, write sector zero, read it back byte for byte, and observe `PREPARED_NEW`. |
+| Complete | Publish the same snapshots and a committed header at the same sequence in the other slot. The validated pair must select `COMMITTED_NEW`. |
+| Start | Reread the target through the READY and visibility checks. Pass that exact VBR and its current primary entry to the real-mode handoff. |
+
+The allocation and the expected contents of all six journal sectors and the
+live MBR are rechecked after each changed sector. Snapshot sectors that
+already match are skipped. The write to sector zero has a dedicated entry
+point. The management-record writer only addresses sectors beyond the
+management VBR. A write or readback error stops the operation before handoff.
+Firmware readback observes the BIOS storage path. Power-loss durability also
+depends on the device and its caches.
+
+The EN/DE HDD tests compare the full VDI against independently encoded disks
+after P1 → P2 and P2 → P1. The first transition changes four bytes in sector
+zero. Errors at each of five or seven writes, failed readbacks and distinct
+partial sectors are exercised. A cold boot blocks ambiguous states. A fully
+committed disk can boot its selected target on a later cold start even after
+the original session reported a failed readback.
+
+For the first switch, a separately enrolled rescue floppy and external
+backup complete the actual interrupted HDD transaction and verify the
+repaired disk through a cold P2 boot. A full powered-off pre-switch copy is
+also restored and booted at each injected write boundary in both directions.
+The sector-level rescue floppy currently recognizes the first transaction.
+[Single-VDI manual check](PreparedDOS.md#switching-profiles-on-one-disk)
