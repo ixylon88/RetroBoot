@@ -3,6 +3,7 @@
 #include "state.h"
 #ifdef RB_PREPARED_DOS
 #include "dos_records.h"
+#include "dos_switch.h"
 #include "fingerprint.h"
 #include "stage2.h"
 #endif
@@ -16,6 +17,7 @@ static struct {
     rb_sector_reader read;
     void *opaque;
 #ifdef RB_PREPARED_DOS
+    rb_u32 *ownership;
     rb_dos_record_pair *pair;
     rb_handoff_buffer *trial;
 #endif
@@ -36,6 +38,8 @@ static rb_u16 __cdecl capture(rb_u32 lba, rb_u8 *sector, void *opaque)
     (void)opaque;
     code = work.read(lba, sector, work.opaque);
 #ifdef RB_PREPARED_DOS
+    /* The switch compares sector zero separately before and after its own write. */
+    if (!code && lba && work.ownership) { rb_fingerprint_sector(work.ownership, lba, sector); }
     if (!code && work.pair) { rb_fingerprint_sector(work.pair->allocation, lba, sector); }
 #endif
     if (!code && !lba) { for (i = 0; i < 512; ++i) { work.mbr[i] = sector[i]; } }
@@ -88,6 +92,9 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
     for (i = 0; i < 4; ++i) {
         lba = work.audit.files[i + 2].first_lba;
         if (work.read(lba, work.records[i % 2], work.opaque)) { fail(r, RB_JLOAD_IO, i + 3, lba); return; }
+#ifdef RB_PREPARED_DOS
+        if (work.ownership) { rb_fingerprint_sector(work.ownership, lba, work.records[i % 2]); }
+#endif
         if (i == 1) {
             rb_config_select(&work.config, work.records[0], work.records[1], 3, &work.audit.scan, admin);
             if (work.config.status || work.config.copies[0] || work.config.copies[1]) {
@@ -160,6 +167,22 @@ void rb_journal_load(rb_journal_diagnosis *r, rb_sector_reader read, void *opaqu
 static rb_u32 dword(const rb_u8 *p)
 {
     return (rb_u32)p[0] | ((rb_u32)p[1] << 8) | ((rb_u32)p[2] << 16) | ((rb_u32)p[3] << 24);
+}
+
+rb_u16 rb_switch_read(rb_switch_disk *disk, const rb_loader_snapshot *snapshot)
+{
+    if (rb_boot.drive != 0x80 || rb_boot.io_mode != 1) { return 0; }
+    clear(&work, sizeof(work));
+    disk->ownership[0] = disk->ownership[1] = 0;
+    work.read = rb_disk_read; work.ownership = disk->ownership;
+    disk->admin_lba = dword(snapshot->mbr + 436);
+    load(&disk->diagnosis, rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+         dword(snapshot->mbr + 440), disk->admin_lba, 1, 0, 0);
+    work.ownership = 0;
+    if (disk->diagnosis.status) { return 0; }
+    disk->lba = work.audit.journal_lba; disk->slots = work.records; disk->mbr = work.mbr;
+    disk->config = &work.config; disk->state = &work.state;
+    return 1;
 }
 
 static rb_u16 prepared_layout(const rb_profile *entry)

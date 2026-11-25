@@ -76,10 +76,12 @@ MBR copies and all masks; the page displays the reason without a stale plan.
 | `0002` | Record/current-target check failed; the next two values are F6 check/detail |
 | `0003` | Final management-volume hidden state or pointer changed |
 
-A match is neither proof of OS compatibility nor authorization to execute or
-write. Actual type changes require the future ownership, recovery/journal,
-write/readback and original-OS validation stages. The fixed test identities
-and ready declarations belong solely to owned synthetic fixtures.
+F7 only diagnoses the current primary view. The confirmed HDD switch reopens
+the selected installation and checks ownership, journal state and each write.
+[HDD switch](TransactionJournal.md#confirmed-hdd-switch)
+
+The fixed test identities and ready declarations belong solely to owned
+synthetic fixtures.
 
 ## Verification
 

@@ -46,7 +46,7 @@ def write_at(path, offset, data):
 
 
 def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, approved, *,
-                        primary=PRIMARY, secondary=SECONDARY, ids=IDS):
+                        primary=PRIMARY, secondary=SECONDARY, ids=IDS, backup_file=expected_file):
     """Use the guest's capture, approval and publication paths before injecting damage."""
     count = size // 512
     start = work / START
@@ -70,7 +70,7 @@ def capture_and_publish(exe, bios, src, work, source, carrier, size, extents, ap
     if carrier.read_bytes() != expected:
         raise ValueError('Approval differs from the expected carrier')
     witness = start.read_bytes()[WITNESS_START:]
-    data = expected_file(original, approved)
+    data = backup_file(original, approved)
     sectors = len(data) // 512
     record = commit(data, ids)
     published = bytearray(expected)

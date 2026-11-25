@@ -350,6 +350,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c"),
                          ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
                          ("dos-records", "core/dos_records.c"), ("fingerprint", "core/fingerprint.c"),
+                         ("dos-switch", "core/dos_switch.c"),
                          ("dos-boot", "core/dos_boot.c"), ("profile-boot", "core/profile_boot.c"), ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
                          ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
@@ -363,6 +364,9 @@ def build_stage2(destination, nasm, wcc, wlink):
     for name in ("abi", "arith", "end"):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", "-DRB_HDD_FIXTURE=1", f"runtime/{name}.asm",
             "-o", destination / (name + ".obj"))
+    # The prepared HDD firmware spans many clusters on its own. Keep the
+    # artificial four-KiB tail on the loader fixtures that exercise it.
+    run(nasm, "-Werror", "-f", "obj", "-I", "./", "runtime/end.asm", "-o", destination / "end-dos.obj")
     payloads, memory, artifacts = {}, {}, {}
     variants = {"normal": [], "test": ["-DRB_TEST=1"],
                 "bss-fault": ["-DRB_TEST=1", "-DRB_SKIP_BSS_CLEAR=1"],
@@ -420,7 +424,7 @@ def build_stage2(destination, nasm, wcc, wlink):
         if handoff or variant in ("profile-model", "dos"):
             linked_objects.append(destination / "profile-boot.obj")
         if variant == "dos":
-            linked_objects.extend([destination / "dos-boot.obj", destination / "dos-records.obj",
+            linked_objects.extend([destination / "dos-boot.obj", destination / "dos-records.obj", destination / "dos-switch.obj",
                                    destination / "fingerprint.obj", destination / "dos.obj", destination / "handoff-0.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")
@@ -433,7 +437,7 @@ def build_stage2(destination, nasm, wcc, wlink):
         if handoff:
             linked_objects.extend([destination / "handoff-test.obj", destination / "profile-test-run.obj",
                 destination / f"handoff-{FAULTS.get(variant.removeprefix('handoff-'), 0)}.obj"])
-        linked_objects.append(destination / "end.obj")
+        linked_objects.append(destination / ("end-dos.obj" if variant == "dos" else "end.obj"))
         objects = ",".join(str(path) for path in linked_objects)
         run(wlink, "@core/stage2.wlink", "name", binary, "option", "map=" + str(mapfile), "file", objects)
         linked = binary.read_bytes()
@@ -465,7 +469,7 @@ def build_stage2(destination, nasm, wcc, wlink):
             raise ValueError("C payload exceeds the Stage 2 memory budget")
         payloads[variant] = seal_stage2(linked)
         binary.write_bytes(payloads[variant])
-        memory[variant] = {"header": header, "fixture_padding_bytes": 4096,
+        memory[variant] = {"header": header, "fixture_padding_bytes": 0 if variant == "dos" else 4096,
                            "segments": segments, "symbols": symbols}
         artifacts[binary.name] = {"bytes": len(linked), "sha256": sha256(binary)}
     bad_data = bytearray(payloads["test"])

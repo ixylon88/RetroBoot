@@ -11,7 +11,11 @@
 #include "journal_io.h"
 #ifdef RB_PREPARED_DOS
 #include "dos_records.h"
-enum { DOS_TIMER_EDIT = 13, DOS_TIMER_RESULT, DOS_TRIAL_REVIEW, DOS_TRIAL_RESULT };
+#include "dos_switch.h"
+enum { DOS_TIMER_EDIT = 13, DOS_TIMER_RESULT, DOS_TRIAL_REVIEW, DOS_TRIAL_RESULT,
+       DOS_SWITCH_REVIEW, DOS_SWITCH_RESULT };
+static rb_switch_review switch_review;
+static rb_u16 switch_candidate;
 static rb_trial_review trial_review;
 static rb_countdown_edit timer;
 static const char * const timer_results[] = {
@@ -199,6 +203,14 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     cell(23, 1, 0xC0); cell(23, 78, 0xD9);
     text(2, 4, "RetroBoot", TITLE);
 #ifdef RB_PREPARED_DOS
+    if (view == DOS_SWITCH_RESULT) {
+        text(5, 4, RB_UI_SWITCH_TITLE, TITLE);
+        text(8, 4, dos_status == RB_SWITCH_FULL ? RB_UI_SWITCH_FULL
+            : dos_status == RB_SWITCH_IO ? RB_UI_SWITCH_IO : RB_UI_SWITCH_CHANGED, 0x1E);
+        text(10, 4, RB_UI_SWITCH_RECOVERY, NORMAL);
+        text(22, 4, RB_UI_TIMER_BACK, NORMAL);
+        return;
+    }
     if (view == DOS_TRIAL_REVIEW || view == DOS_TRIAL_RESULT) {
         text(5, 4, RB_UI_TRIAL_TITLE, TITLE);
         if (view == DOS_TRIAL_REVIEW) {
@@ -243,7 +255,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         }
         return;
     }
-    if (view != 0 || (dos_choice.count != 1 && !dos_choice.trial))
+    if (view != DOS_SWITCH_REVIEW && (view != 0 || (!dos_choice.count && !dos_choice.trial)))
 #endif
     { text(2, 65, RB_UI_READ_ONLY, 0x1E); }
     if (view == 0) {
@@ -418,9 +430,21 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             text(17, 4, RB_UI_LBA_HEX, NORMAL); hex(17, 23, proof->error_lba, 8);
         }
         text(19, 4, RB_UI_STATE_HELP, NORMAL);
-    } else if (view == 8) {
-        text(5, 4, RB_UI_VIS_TITLE, TITLE);
-        text(6, 4, RB_UI_VIS_SCOPE, NORMAL);
+    } else if (view == 8
+#ifdef RB_PREPARED_DOS
+            || view == DOS_SWITCH_REVIEW
+#endif
+            ) {
+#ifdef RB_PREPARED_DOS
+        if (view == DOS_SWITCH_REVIEW) {
+            text(5, 4, RB_UI_SWITCH_TITLE, TITLE);
+            text(6, 4, RB_UI_SWITCH_EFFECT, NORMAL);
+        } else
+#endif
+        {
+            text(5, 4, RB_UI_VIS_TITLE, TITLE);
+            text(6, 4, RB_UI_VIS_SCOPE, NORMAL);
+        }
         text(8, 4, visibility_messages[visibility->status], visibility->status ? 0x1E : 0x1A);
 
         text(9, 4, RB_UI_VIS_CODES, NORMAL);
@@ -461,6 +485,15 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
             text(13, 4, RB_UI_LBA_HEX, NORMAL); hex(13, 23, visibility->error_lba, 8);
         }
 
+#ifdef RB_PREPARED_DOS
+        if (view == DOS_SWITCH_REVIEW) {
+            text(19, 4, RB_UI_JOURNAL_SEQUENCE, NORMAL); hex(19, 30, switch_review.sequence, 8);
+            text(20, 4, RB_UI_DISK_ID, NORMAL); hex(20, 30, config->config.disk_id, 8);
+            text(22, 4, RB_UI_SWITCH_CONFIRM, TITLE);
+            return;
+        }
+        if (switch_candidate) { text(20, 4, RB_UI_SWITCH_HELP, TITLE); }
+#endif
         text(19, 4, RB_UI_VIS_HELP, NORMAL);
 #ifdef RB_HANDOFF_TEST
         text(20, 4, RB_UI_PROFILE_TEST_HELP, 0x1E);
@@ -607,6 +640,7 @@ void __cdecl rb_menu_run(void)
     rb_state_proof proof;
     union {
         rb_visibility_result visibility;
+        rb_admin_audit audit;
 #ifdef RB_PREPARED_DOS
         rb_handoff_buffer trial_boot;
 #endif
@@ -615,10 +649,12 @@ void __cdecl rb_menu_run(void)
     rb_u16 key, action, rescan, verify_state, view = 0, serial = 0, page = 0;
     rb_u16 probe, volume_index = RB_MENU_NONE;
     rb_u16 config_index = 0;
-    rb_admin_audit audit;
     rb_journal_diagnosis journal;
 #ifdef RB_HANDOFF_TEST
     rb_u16 handoff_status = 0, handoff_detail = 0, profile_status = 0;
+#endif
+#ifdef RB_PREPARED_DOS
+    rb_u16 switch_key;
 #endif
     rb_u32 now;
     rb_loader_copy(&snapshot);
@@ -629,7 +665,7 @@ void __cdecl rb_menu_run(void)
     rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
 #endif
     rb_video_init();
-    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &page_data.visibility, &audit, &journal
+    draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &page_data.visibility, &page_data.audit, &journal
 #ifdef RB_HANDOFF_TEST
          , handoff_status, handoff_detail, profile_status
 #endif
@@ -648,11 +684,14 @@ void __cdecl rb_menu_run(void)
         rescan = 0; probe = 0; verify_state = 0;
         state.remaining_ticks = 0;
 #ifdef RB_PREPARED_DOS
+        switch_key = (key & 0xFFU) == 's' || (key & 0xFFU) == 'S';
+        if (view != 8 || (!switch_key && (key & 0xFFU) != 13)) { switch_candidate = 0; }
         if (action != RB_MENU_NONE && action >= 3) {
             dos_status = rb_dos_start(&dos_choice, action - 3, key == RB_KEY_NONE, &config_index,
                                       &config, &installation,
                                       &page_data.visibility, &journal, &snapshot);
             if (dos_status == RB_PROFILE_CHANGE && dos_choice.count > 1) {
+                switch_candidate = rb_boot.drive == 0x80 && rb_boot.io_mode == 1;
                 view = 8;
             } else {
                 debug_text("RB DOS REJECT "); debug_hex(dos_status); debug_text("\r\n");
@@ -663,10 +702,22 @@ void __cdecl rb_menu_run(void)
         if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
         if ((key & 0xFFU) == 27U) {
 #ifdef RB_PREPARED_DOS
-            trial_review.armed = 0;
+            trial_review.armed = switch_review.armed = 0;
 #endif
             view = 0;
 #ifdef RB_PREPARED_DOS
+        } else if (view == DOS_SWITCH_REVIEW) {
+            if ((key & 0xFFU) != 13) { continue; }
+            dos_status = rb_switch_apply(&switch_review, &dos_choice, state.selected - 3, &snapshot, &page_data.visibility);
+            debug_text("RB SWITCH STOP "); debug_hex(dos_status); debug_text("\r\n");
+            view = DOS_SWITCH_RESULT;
+        } else if (view == DOS_SWITCH_RESULT) {
+            continue;
+        } else if (view == 8 && switch_candidate && switch_key) {
+            switch_candidate = 0;
+            dos_status = rb_switch_open(&switch_review, &dos_choice, state.selected - 3, &snapshot, &page_data.visibility);
+            debug_text("RB SWITCH REVIEW "); debug_hex(dos_status); debug_text("\r\n");
+            view = dos_status ? DOS_SWITCH_RESULT : DOS_SWITCH_REVIEW;
         } else if (view == DOS_TRIAL_REVIEW) {
             if ((key & 0xFFU) == 13U) {
                 dos_status = rb_trial_start(&trial_review, &page_data.trial_boot, &dos_choice, &snapshot);
@@ -763,13 +814,13 @@ void __cdecl rb_menu_run(void)
         } else if ((key >> 8) == 0x44U) {
             view = 10;
             debug_text("RB AUDIT BEGIN\r\n");
-            rb_audit_admin(&audit, rb_disk_read, (void *)0,
+            rb_audit_admin(&page_data.audit, rb_disk_read, (void *)0,
                 rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
                 read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
-            debug_text("RB AUDIT status="); debug_hex(audit.status);
-            debug_text(" detail="); debug_hex(audit.detail);
-            debug_text(" file="); debug_hex(audit.error_file);
-            debug_text(" cluster="); debug_hex(audit.error_cluster); debug_text("\r\n");
+            debug_text("RB AUDIT status="); debug_hex(page_data.audit.status);
+            debug_text(" detail="); debug_hex(page_data.audit.detail);
+            debug_text(" file="); debug_hex(page_data.audit.error_file);
+            debug_text(" cluster="); debug_hex(page_data.audit.error_cluster); debug_text("\r\n");
         } else if ((key >> 8) == 0x42U) {
             state.selected = 2; view = 3;
         } else if ((view == 3 || view == 11) && (key & 0xFFU) == 13U && action == RB_MENU_NONE) {
@@ -849,7 +900,7 @@ void __cdecl rb_menu_run(void)
             debug_text(" index="); debug_hex(config_index);
             debug_text(" changed="); debug_hex(page_data.visibility.changed); debug_text("\r\n");
         }
-        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &page_data.visibility, &audit, &journal
+        draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &page_data.visibility, &page_data.audit, &journal
 #ifdef RB_HANDOFF_TEST
              , handoff_status, handoff_detail, profile_status
 #endif
