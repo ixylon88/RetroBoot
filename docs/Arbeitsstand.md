@@ -1,12 +1,22 @@
 # Project state and resumption
 
-Updated 22 November 2026.
+Updated 25 November 2026.
 
-## Original DOS boot and current recovery work
+## Current milestone
+
+Seven of the 17 [roadmap packages](https://github.com/ixylon88/RetroBoot/issues/40)
+are complete. The [first external recovery campaign](https://github.com/ixylon88/RetroBoot/issues/46)
+covers the erased Stage 1 prefix and every interruption used in the first
+journaled partition-switch test. The [last VirtualBox check](https://github.com/ixylon88/RetroBoot/pull/82#issuecomment-7158003271)
+confirmed the restored idle journal after a cold boot. Work on #48 starts
+with the [persistent countdown on the prepared DOS disk](PreparedDOS.md#changing-the-countdown-on-a-prepared-disk).
+Menu-driven switching between operating systems follows in #49.
+
+## Original DOS boot and recovery milestones
 
 The maintainer confirmed the 45-sector RAM verification and both rejected
 changes in [merged PR #72](https://github.com/ixylon88/RetroBoot/pull/72#issuecomment-7053746430).
-This completed #44. Five of the 17 numbered roadmap packages are complete.
+This completed #44.
 The [manual test of merged PR #73](https://github.com/ixylon88/RetroBoot/pull/73#issuecomment-7065510774)
 confirmed that the separate IDE disk preserved a 45-sector metadata backup
 through power-off. The cold check read it with the source disk disconnected.

@@ -39,15 +39,22 @@ def read_sector(stream, lba):
     return data
 
 
-def dos_volume(stream, size):
+def dos_volume(stream, size, *, prepared=False):
     mbr = read_sector(stream, 0)
     if size % SECTOR or mbr[510:] != b'\x55\xaa':
         raise ValueError('A complete raw MBR hard disk is required')
     slots = [mbr[446+i*16:462+i*16] for i in range(4)]
     used = [i for i, entry in enumerate(slots) if any(entry)]
-    if len(used) != 1 or (slots[used[0]][0], slots[used[0]][4]) != (0x80, 6):
-        raise ValueError('Expected one active primary FAT16 (type 06h) and three empty MBR slots')
-    slot = used[0]
+    active = [i for i in used if (slots[i][0], slots[i][4]) == (0x80, 6)]
+    if len(active) != 1:
+        raise ValueError('Expected one active DOS FAT16 primary (type 06h)')
+    slot = active[0]
+    if prepared:
+        extended = 3 if slot != 3 else 2
+        if set(used) != {slot, extended} or (slots[extended][0], slots[extended][4]) != (0, 5):
+            raise ValueError('Expected a RetroBoot-prepared DOS disk with one management volume')
+    elif len(used) != 1:
+        raise ValueError('Expected one DOS primary and three empty MBR slots')
     start, length = struct.unpack_from('<II', slots[slot], 8)
     if not start or not 0 < length < 0x400000 or start + length > size // SECTOR:
         raise ValueError('DOS system partition is outside its supported extent')
@@ -164,7 +171,13 @@ def set_vdi_geometry(path, sectors, heads, spt):
                 or dword(header, 468) != SECTOR or heads > 255):
             raise ValueError('Unsupported VirtualBox output header or DOS BIOS geometry')
         vdi.seek(456)
-        vdi.write(struct.pack('<III', min(1024, sectors // (heads * spt)), heads, spt))
+        geometry = struct.pack('<III', min(1024, sectors // (heads * spt)), heads, spt)
+        vdi.write(geometry)
+        vdi.flush()
+        os.fsync(vdi.fileno())
+        vdi.seek(456)
+        if vdi.read(len(geometry)) != geometry:
+            raise ValueError('VirtualBox geometry readback failed')
 
 
 def vboxmanage():
@@ -179,7 +192,7 @@ def vboxmanage():
     return executable
 
 
-def make_disk(source, output, kit, countdown):
+def write_disk_copy(source, output, edit):
     if source.suffix.lower() not in ('.img', '.raw', '.vdi', '.vhd', '.vmdk') or not stat.S_ISREG(source.stat().st_mode):
         raise ValueError('A local DOS disk image file is required')
     if output.suffix.lower() not in ('.img', '.raw', '.vdi'):
@@ -197,7 +210,7 @@ def make_disk(source, output, kit, countdown):
         else:
             shutil.copyfile(source, raw)
         with raw.open('r+b') as disk:
-            geometry = prepare_copy(disk, kit, countdown)
+            geometry = edit(disk)
         finished = raw
         if convert_output:
             finished = Path(tmp) / 'copy.vdi'
@@ -211,14 +224,35 @@ def make_disk(source, output, kit, countdown):
             os.link(finished, output)
 
 
+def make_disk(source, output, kit, countdown):
+    write_disk_copy(source, output, lambda disk: prepare_copy(disk, kit, countdown))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('source', type=Path, help='Powered-off local MS-DOS system disk')
-    parser.add_argument('--output', type=Path, default=Path('RetroBoot-DOS.vdi'))
-    parser.add_argument('--countdown', type=int, choices=range(61), metavar='0..60', default=10)
+    parser.add_argument('source', type=Path, help='Powered-off local disk image')
+    parser.add_argument('--output', type=Path, help='New VDI or raw output image')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--countdown', type=int, choices=range(61), metavar='0..60', default=10,
+                       help='Initial countdown for a newly prepared DOS disk')
+    group.add_argument('--set-countdown', nargs='?', const='ask', metavar='0..60',
+                       help='Change the countdown on a copy of an already prepared RetroBoot DOS disk')
     args = parser.parse_args()
+    kit = Path(sys.argv[0])
     try:
-        make_disk(args.source, args.output.absolute(), Path(sys.argv[0]), args.countdown)
+        if args.set_countdown is None:
+            output = args.output or Path('RetroBoot-DOS.vdi')
+            make_disk(args.source, output.absolute(), kit, args.countdown)
+        else:
+            from prepared_countdown import change_countdown
+            seconds = None if args.set_countdown == 'ask' else int(args.set_countdown)
+            if seconds is not None and not 0 <= seconds <= 60:
+                raise ValueError('Countdown must be between 0 and 60 seconds')
+            output = args.output or Path('RetroBoot-DOS-Countdown.vdi')
+            with zipfile.ZipFile(kit) as bundle:
+                language = bundle.read('language.txt').decode('ascii')
+            write_disk_copy(args.source, output.absolute(),
+                            lambda disk: change_countdown(disk, seconds, language))
     except (OSError, ValueError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         parser.exit(1, f'RetroBoot: {error}\n')
-    print(args.output.resolve())
+    print(output.resolve())

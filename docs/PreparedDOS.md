@@ -28,6 +28,44 @@ The command also accepts raw disk images and supports `--output` and
 never overwritten. The DOS input holds the original system files. The public
 kit contains RetroBoot and the preparation tool.
 
+## Changing the countdown on a prepared disk
+
+The existing RetroBoot DOS hard disk supplies the installation and its identities.
+With the VM powered off, dragging the currently attached prepared disk onto
+`RetroBoot-Countdown.cmd` displays its saved delay. Entering a number from
+0 to 60 confirms the new delay on a **new disk copy**, written beside the
+launcher as `RetroBoot-DOS-Countdown.vdi`. An empty response cancels.
+The command-line equivalent for disabling the timer is:
+
+```text
+python3 RetroBoot-DOS.pyz RetroBoot-DOS.vdi --set-countdown 0 --output RetroBoot-DOS-Countdown.vdi
+```
+
+For the VirtualBox check, the new disk goes on the primary IDE master
+(port 0, device 0) in place of the previous disk. With a zero delay the German
+menu shows `Automatischer Start: aus`. It waits past the previous timeout and
+Enter starts MS-DOS 6.22. Another cold boot still waits. Reattaching the
+previous disk returns to the original delay. To create another VDI in the
+same directory, the command line accepts a fresh output name.
+
+The editor reads the live MBR, EBR and DOS boot sector on the private copy.
+It checks the hidden volume's complete file allocation, both FATs, both
+ready-state records, the two idle journals and the disk, media, profile and
+installation identities. Both version-2 configuration copies must validate.
+Equal generations must agree byte for byte. Successive generations may
+differ in the timer, generation and CRC. Any other disagreement requires
+separate diagnosis.
+
+A change advances the generation in the inactive configuration sector.
+Identical peers select A, so the first update writes B. The next update
+writes A. An unchanged delay consumes no generation, and a change at
+`0xFFFFFFFF` is rejected. The tool rechecks the disk after confirmation,
+flushes the new sector, and reads both copies back through the selector
+before publishing the output name. Interruption or failed verification
+leaves the input disk available for boot or retry. Firmware reads the
+usual configuration records at cold boot. Installation-state updates and
+editing from inside the BIOS menu are tracked in #48.
+
 ## Preparation and boot checks
 
 The host copies the source disk, retains the full DOS partition at its original
