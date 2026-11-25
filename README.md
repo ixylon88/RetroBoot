@@ -6,6 +6,8 @@ Development currently targets the `historical` branch.
 
 The prepared DOS disk boots MS-DOS 6.22 and supports a persistent F9 boot delay.
 [Prepared disk and VirtualBox check](docs/PreparedDOS.md#saving-the-delay-from-the-hdd-menu)
+The [multi-profile VirtualBox check](docs/PreparedDOS.md#selecting-a-profile-from-the-hdd-menu)
+boots the currently isolated FAT16 profile and previews changes for a hidden target.
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate

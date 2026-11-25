@@ -4,12 +4,11 @@ Updated 25 November 2026.
 
 ## Current milestone
 
-Seven of the 17 [roadmap packages](https://github.com/ixylon88/RetroBoot/issues/40)
-are complete. The [first external recovery campaign](https://github.com/ixylon88/RetroBoot/issues/46)
+The [roadmap](https://github.com/ixylon88/RetroBoot/issues/40) tracks 17 packages.
+The [first external recovery campaign](https://github.com/ixylon88/RetroBoot/issues/46)
 covers the erased Stage 1 prefix and every interruption used in the first
 journaled partition-switch test. The [last VirtualBox check](https://github.com/ixylon88/RetroBoot/pull/82#issuecomment-7158003271)
-confirmed the restored idle journal after a cold boot. Work on #48 starts
-with the [persistent countdown on the prepared DOS disk](PreparedDOS.md#changing-the-countdown-on-a-prepared-disk).
+confirmed the restored idle journal after a cold boot. The first record update in #48 was the [persistent countdown on the prepared DOS disk](PreparedDOS.md#changing-the-countdown-on-a-prepared-disk).
 The [VirtualBox check of PR #83](https://github.com/ixylon88/RetroBoot/pull/83#issuecomment-7161937368)
 confirmed that a cold boot retained the zero delay and Enter started MS-DOS 6.22.
 The [external countdown recovery](PreparedDOS.md#recovering-an-interrupted-countdown-update)
@@ -38,8 +37,16 @@ restoring normal boot and the saved countdown. The released fixture tests
 the VBR transfer. Original-OS acceptance requires a trial of that installation.
 [Approval procedure](PreparedDOS.md#approving-an-observed-verification-boot)
 
-Installer handoff and menu-driven switching between operating systems remain
-separate milestones. The latter is tracked in #49.
+In VirtualBox, F6 on the approved disk showed generation `0x00000004` from
+copy A, check/detail `0x0000 / 0x0000` and VBR CRC `0x9968CBE5`. The test
+VBR reported `RB HANDOFF PASS`.
+[VirtualBox report for PR #88](https://github.com/ixylon88/RetroBoot/pull/88#issuecomment-7168633996)
+
+The [multi-profile HDD check](PreparedDOS.md#selecting-a-profile-from-the-hdd-menu)
+opens the next stage of [journaled partition switching](https://github.com/ixylon88/RetroBoot/issues/49).
+The menu can boot the profile whose isolation already matches, including a
+cold boot after a committed switch. Selecting a hidden target displays the
+exact proposed changes. Applying them from the menu is the next write path.
 
 ## Original DOS boot and recovery milestones
 

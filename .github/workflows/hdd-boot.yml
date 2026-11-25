@@ -48,6 +48,8 @@ jobs:
             build/hdd-de/RetroBoot-Pruefstart-DE.zip
             build/hdd/RetroBoot-DOS-Approval-EN.zip
             build/hdd-de/RetroBoot-DOS-Freigabe-DE.zip
+            build/hdd/RetroBoot-Profile-Selection-EN.zip
+            build/hdd-de/RetroBoot-Profilauswahl-DE.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

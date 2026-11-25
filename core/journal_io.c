@@ -9,7 +9,7 @@
 
 static struct {
     rb_admin_audit audit;
-    rb_u8 records[2][RB_JOURNAL_BYTES], mbr[512], sector[512];
+    rb_u8 records[2][RB_JOURNAL_BYTES], mbr[512];
     rb_config_result config;
     rb_state_result state;
     rb_journal_context context;
@@ -58,6 +58,14 @@ static void fail(rb_journal_diagnosis *r, rb_u16 status, rb_u16 detail, rb_u32 l
     r->status = status; r->detail = detail; r->error_lba = lba;
     r->journal.status = RB_JOURNAL_UNAVAILABLE; r->journal.source = RB_JOURNAL_NONE;
     r->journal.copies[0] = r->journal.copies[1] = RB_JOURNAL_MISSING;
+}
+
+/* Only this final independent reread needs a second MBR buffer. */
+static rb_u16 check_mbr(void)
+{
+    rb_u8 sector[512];
+    if (work.read(0, sector, work.opaque)) { return RB_JLOAD_IO; }
+    return same(work.mbr, sector, 512) ? RB_JLOAD_OK : RB_JLOAD_CHANGED;
 }
 
 static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
@@ -134,8 +142,8 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
         }
         if (i == 3) { mask |= 1U << copy; }
     }
-    if (work.read(0, work.sector, work.opaque)) { fail(r, RB_JLOAD_IO, 0, 0); return; }
-    if (!same(work.mbr, work.sector, 512)) { fail(r, RB_JLOAD_CHANGED, 0, 0); return; }
+    i = check_mbr();
+    if (i) { fail(r, i, 0, 0); return; }
     rb_journal_inspect(&r->journal, work.records[0], work.records[1], mask, &work.context, work.mbr);
 }
 

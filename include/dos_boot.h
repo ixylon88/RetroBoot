@@ -5,9 +5,12 @@
 #include "journal_io.h"
 #include "profile_boot.h"
 
+/* Three primary OS slots can coexist with the extended management container. */
+#define RB_DOS_PROFILES 3U
 typedef struct {
-    rb_profile_selection selected, trial;
-    rb_u16 countdown;
+    /* The single-profile recovery review uses profiles[0] while count is zero. */
+    rb_profile_selection profiles[RB_DOS_PROFILES];
+    rb_u16 count, default_index, countdown, trial;
     rb_state_proof records;
 } rb_dos_choice;
 
@@ -19,7 +22,7 @@ rb_u16 rb_dos_geometry_matches(const rb_profile *entry, const rb_u8 *sector);
 
 void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
                  rb_state_result *state, const rb_loader_snapshot *snapshot);
-rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 automatic,
+rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 selection, rb_u16 automatic, rb_u16 *index,
                     rb_config_result *config, rb_state_result *state, rb_visibility_result *visibility,
                     rb_journal_diagnosis *journal, const rb_loader_snapshot *snapshot);
 
