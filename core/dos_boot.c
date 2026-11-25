@@ -22,7 +22,7 @@ void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
 {
     const rb_profile *p = &config->config.entries[0];
     load_config(config, snapshot);
-    choice->selected.valid = 0;
+    choice->selected.valid = 0; choice->trial.valid = 0;
     choice->countdown = 0;
     choice->records.status = RB_PROOF_MATCH;
     if (config->status || config->copies[0] || config->copies[1] || config->config.count != 1
@@ -30,11 +30,27 @@ void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
     rb_state_load(state, rb_disk_read, (void *)0, rb_boot.reachable_sectors_low,
                   rb_boot.reachable_sectors_high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436));
     rb_state_check_records(&choice->records, config, state, 0);
-    if (choice->records.status) { return; }
+    if (choice->records.status) {
+        if (choice->records.status == RB_PROOF_PENDING && choice->records.detail == RB_INSTALL_RECOVERY
+                && state->state.count == 1 && config->config.default_id == p->id) {
+            rb_profile_remember(&choice->trial, config, 0);
+        }
+        return;
+    }
     rb_profile_remember(&choice->selected, config, 0);
     if (choice->selected.valid && config->config.default_id == p->id) {
         choice->countdown = config->config.countdown;
     }
+}
+
+rb_u16 rb_dos_geometry_matches(const rb_profile *entry, const rb_u8 *sector)
+{
+    rb_u16 geometry[3];
+    rb_u32 reach;
+    rb_dos_geometry(geometry);
+    reach = (rb_u32)geometry[0] * geometry[1] * geometry[2];
+    return geometry[1] == word(sector + 26) && geometry[2] == word(sector + 24)
+        && entry->start < reach && entry->sectors <= reach - entry->start;
 }
 
 rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 automatic,
@@ -42,8 +58,7 @@ rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 automatic,
                     rb_journal_diagnosis *journal, const rb_loader_snapshot *snapshot)
 {
     rb_handoff_buffer prepared;
-    rb_u16 index, status, geometry[3];
-    rb_u32 reach;
+    rb_u16 index, status;
     rb_u32 disk_id = dword(snapshot->mbr + 440), admin = dword(snapshot->mbr + 436);
     rb_u32 low = rb_boot.reachable_sectors_low, high = rb_boot.reachable_sectors_high;
 
@@ -67,12 +82,7 @@ rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 automatic,
         return RB_DOS_JOURNAL;
     }
     /* DOS 6.x continues with CHS even when RetroBoot loaded through EDD. */
-    rb_dos_geometry(geometry);
-    reach = (rb_u32)geometry[0] * geometry[1] * geometry[2];
-    if (geometry[1] != word(prepared.sector + 26)
-            || geometry[2] != word(prepared.sector + 24)
-            || choice->selected.entry.start >= reach
-            || choice->selected.entry.sectors > reach - choice->selected.entry.start) {
+    if (!rb_dos_geometry_matches(&choice->selected.entry, prepared.sector)) {
         return RB_DOS_GEOMETRY;
     }
     rb_video_console();

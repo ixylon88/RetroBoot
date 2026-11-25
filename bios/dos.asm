@@ -2,7 +2,7 @@ bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
-global _rb_dos_geometry, _rb_video_console, _rb_dos_write_config
+global _rb_dos_geometry, _rb_video_console, _rb_dos_write_record
 
 ; Return cylinders, heads and sectors/track as reported for BIOS disk 80h.
 _rb_dos_geometry:
@@ -62,7 +62,7 @@ _rb_video_console:
 
 ; One reviewed management file sector on the boot disk. Never retry a write
 ; with uncertain completion. The C caller reopens the disk for readback.
-_rb_dos_write_config:
+_rb_dos_write_record:
     push bp
     mov bp, sp
     pushf

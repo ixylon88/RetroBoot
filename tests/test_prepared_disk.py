@@ -373,6 +373,46 @@ class PreparedDiskTests(unittest.TestCase):
             after, _, active, damaged = prepared_install_state.inspect_state(disk)
             self.assertEqual((after.state, active, damaged), ((last, last), 0, False))
 
+    def test_torn_verification_boot_can_only_reinstate_the_hold(self):
+        with tempfile.TemporaryDirectory() as tmp, self.prepared_image(Path(tmp)).open('r+b') as disk:
+            before, _, _, _ = prepared_install_state.inspect_state(disk)
+            lbas = [before.files[name][0] for name in prepared_records.STATE]
+            def record(generation, phase):
+                raw = bytearray(before.state[0])
+                struct.pack_into('<I', raw, 16, generation)
+                raw[83] = phase
+                if phase != 6:
+                    raw[84:88] = bytes(4)
+                return config_records.seal(raw)
+
+            ready, held, pending, reheld = record(254, 6), record(255, 7), record(256, 5), record(257, 7)
+            cuts = {pending[:cut] + ready[cut:] for cut in range(SECTOR + 1)}
+            for target in (0, 1):
+                for partial in cuts:
+                    with self.subTest(target=target, crc=partial[-4:]), patch('builtins.input', return_value='y'):
+                        for index, contents in ((1 - target, held), (target, partial)):
+                            disk.seek(lbas[index] * SECTOR)
+                            disk.write(contents)
+                        result = prepared_install_state.require_recovery(disk, 'en')
+                        after, _, active, damaged = prepared_install_state.inspect_state(disk)
+                        self.assertFalse(damaged)
+                        if partial == ready:
+                            self.assertIsNone(result)
+                            self.assertEqual((after.state[target], after.state[active]), (ready, held))
+                        elif partial == pending:
+                            self.assertEqual((after.state[target], after.state[active]), (pending, reheld))
+                        else:
+                            self.assertEqual(after.state, (held, held))
+            # A verified, surviving pending record can return to recovery even
+            # if its adjacent hold was subsequently damaged.
+            for index, contents in enumerate((pending, held[:508] + bytes(4))):
+                disk.seek(lbas[index] * SECTOR)
+                disk.write(contents)
+            with patch('builtins.input', return_value='y'):
+                prepared_install_state.require_recovery(disk, 'en')
+            after, _, active, damaged = prepared_install_state.inspect_state(disk)
+            self.assertEqual((after.state, active, damaged), ((pending, reheld), 1, False))
+
     def test_installation_write_rejects_wrong_binding_history_and_generation_limit(self):
         with tempfile.TemporaryDirectory() as tmp, self.prepared_image(Path(tmp)).open('r+b') as disk:
             before, _, _, _ = prepared_install_state.inspect_state(disk)
@@ -386,7 +426,12 @@ class PreparedDiskTests(unittest.TestCase):
             recovery = edit(83, b'\x07' + bytes(4))
             damaged = edit(508, bytes(4), seal=False)
             max_ready = edit(16, b'\xff' * 4)
+            pending = edit(83, b'\x05' + bytes(4))
             cases = {
+                'direct ready to pending': (ready, edit(16, struct.pack('<I', 2), pending)),
+                'pending to ready': (pending, edit(16, struct.pack('<I', 2))),
+                'full pending': (edit(16, struct.pack('<I', 0xfffffffe), recovery),
+                                 edit(16, struct.pack('<I', 0xffffffff), pending)),
                 'conflict': (ready, recovery),
                 'gap': (ready, edit(16, struct.pack('<I', 3))),
                 'reverse': (recovery, edit(16, struct.pack('<I', 2))),

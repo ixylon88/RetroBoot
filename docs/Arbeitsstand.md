@@ -21,11 +21,15 @@ new countdown in the inactive configuration sector. The maintainer confirmed
 automatic handoff at three seconds and a waiting menu at zero across cold
 boots. [VirtualBox report for PR #85](https://github.com/ixylon88/RetroBoot/pull/85#issuecomment-7165316562)
 
-The first installation-state write in #48 puts a prepared DOS system into
-`recovery_required` on a new disk copy. A cold boot suppresses the DOS entry
-and F6 shows the selected installation phase. Installer handoff and verification before
-returning an installation to `ready` remain open.
-[Installation-state update](InstallationState.md#saving-a-dos-boot-block)
+The maintainer confirmed the DOS recovery hold across a VirtualBox cold boot.
+The menu waited, and F6 identified generation 2 from copy B in phase 7.
+[VirtualBox report for PR #86](https://github.com/ixylon88/RetroBoot/pull/86#issuecomment-7166495633)
+
+The prepared-DOS HDD menu now offers one explicitly confirmed verification
+boot when the preceding READY record still matches the live VBR. It records
+phase 5 before handing over. A cold boot then waits for verification.
+Installer handoff and the later decision to grant `ready` remain open in #48.
+[Verification boot and test disk](PreparedDOS.md#one-dos-verification-boot)
 Menu-driven switching between operating systems follows in #49.
 
 ## Original DOS boot and recovery milestones

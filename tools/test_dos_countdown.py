@@ -89,7 +89,7 @@ class Menu:
 
 
 @contextmanager
-def boot(qemu, bios, work, disk, case, writes=(), fault=''):
+def boot(qemu, bios, work, disk, case, writes=(), fault='', *, heads=16):
     log, trace = work / (case + '.log'), work / (case + '.trace')
     location = disk
     if fault:
@@ -102,7 +102,7 @@ def boot(qemu, bios, work, disk, case, writes=(), fault=''):
            '-serial', 'none', '-monitor', 'none', '-boot', 'c', '-qmp', 'stdio', '-no-reboot',
            '-debugcon', 'file:' + str(log), '-global', 'isa-debugcon.iobase=0xe9',
            '-drive', f'if=none,id=d0,media=disk,format={fmt},file={location},werror=report,rerror=report',
-           '-device', 'ide-hd,drive=d0,bus=ide.0,unit=0,lcyls=255,lheads=16,lsecs=63',
+           '-device', f'ide-hd,drive=d0,bus=ide.0,unit=0,lcyls=255,lheads={heads},lsecs=63',
            '-trace', f'events={work / "events.txt"},file={trace}']
     with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as process:
         try:

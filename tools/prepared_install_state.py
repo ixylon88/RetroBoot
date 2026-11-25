@@ -14,10 +14,11 @@ except ImportError:
 
 READY = state_records.PHASES.index('ready') + 1
 RECOVERY = state_records.PHASES.index('recovery_required') + 1
+VERIFY = state_records.PHASES.index('verification_required') + 1
 
 
 def state_record(records, entry, generation, phase):
-    if phase not in (READY, RECOVERY):
+    if phase not in (READY, RECOVERY, VERIFY):
         raise ValueError('Unsupported installation phase for this operation')
     crc = zlib.crc32(records.vbr) if phase == READY else 0
     return state_records.encode(**records.binding, generation=generation,
@@ -44,8 +45,10 @@ def inspect_state(disk):
     if len(valid) == 1:
         return records, entry, valid[0], True
     active = select_generation(records.state, 'installation')
-    if records.state[1 - active][83] == RECOVERY and records.state[active][83] == READY:
-        raise ValueError('Unexpected transition out of recovery')
+    transition = records.state[1 - active][83], records.state[active][83]
+    if transition not in ((READY, READY), (READY, RECOVERY), (RECOVERY, RECOVERY),
+                          (RECOVERY, VERIFY), (VERIFY, RECOVERY)):
+        raise ValueError('Unexpected installation-state transition')
     return records, entry, active, False
 
 
@@ -59,7 +62,7 @@ def require_recovery(disk, language):
         print('Die Startsperre ist bereits gespeichert.' if german else 'Boot is already blocked.')
         return None
     # A surviving recovery record can restore its peer even at the counter limit.
-    if current[83] == READY:
+    if current[83] != RECOVERY:
         if generation == 0xffffffff:
             raise ValueError('Installation generation exhausted')
         next_record = state_record(records, entry, generation + 1, RECOVERY)

@@ -349,7 +349,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("record-io", "core/record_io.c"), ("state", "core/state.c"), ("state-check", "core/state_check.c"),
                          ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c"),
                          ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
-                         ("dos-countdown", "core/dos_countdown.c"), ("fingerprint", "core/fingerprint.c"),
+                         ("dos-records", "core/dos_records.c"), ("fingerprint", "core/fingerprint.c"),
                          ("dos-boot", "core/dos_boot.c"), ("profile-boot", "core/profile_boot.c"), ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
                          ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
@@ -420,7 +420,7 @@ def build_stage2(destination, nasm, wcc, wlink):
         if handoff or variant in ("profile-model", "dos"):
             linked_objects.append(destination / "profile-boot.obj")
         if variant == "dos":
-            linked_objects.extend([destination / "dos-boot.obj", destination / "dos-countdown.obj",
+            linked_objects.extend([destination / "dos-boot.obj", destination / "dos-records.obj",
                                    destination / "fingerprint.obj", destination / "dos.obj", destination / "handoff-0.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")

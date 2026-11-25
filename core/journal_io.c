@@ -2,7 +2,7 @@
 #include "admin_audit.h"
 #include "state.h"
 #ifdef RB_PREPARED_DOS
-#include "dos_countdown.h"
+#include "dos_records.h"
 #include "fingerprint.h"
 #include "stage2.h"
 #endif
@@ -16,7 +16,8 @@ static struct {
     rb_sector_reader read;
     void *opaque;
 #ifdef RB_PREPARED_DOS
-    rb_countdown_pair *countdown;
+    rb_dos_record_pair *pair;
+    rb_handoff_buffer *trial;
 #endif
 } work;
 
@@ -35,11 +36,22 @@ static rb_u16 __cdecl capture(rb_u32 lba, rb_u8 *sector, void *opaque)
     (void)opaque;
     code = work.read(lba, sector, work.opaque);
 #ifdef RB_PREPARED_DOS
-    if (!code && work.countdown) { rb_fingerprint_sector(work.countdown->allocation, lba, sector); }
+    if (!code && work.pair) { rb_fingerprint_sector(work.pair->allocation, lba, sector); }
 #endif
     if (!code && !lba) { for (i = 0; i < 512; ++i) { work.mbr[i] = sector[i]; } }
     return code;
 }
+#ifdef RB_PREPARED_DOS
+static void capture_pair(rb_u16 file, rb_u16 source)
+{
+    rb_u16 i, j;
+    work.pair->source = source;
+    for (i = 0; i < 2; ++i) {
+        work.pair->lba[i] = work.audit.files[file + i].first_lba;
+        for (j = 0; j < 512; ++j) { work.pair->copies[i][j] = work.records[i][j]; }
+    }
+}
+#endif
 static void fail(rb_journal_diagnosis *r, rb_u16 status, rb_u16 detail, rb_u32 lba)
 {
     clear(r, sizeof(*r));
@@ -80,14 +92,14 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
                 fail(r, RB_JLOAD_IDENTITY, 1, 0); return;
             }
 #ifdef RB_PREPARED_DOS
-            if (work.countdown) {
-                rb_u16 j;
-                work.countdown->source = work.config.source;
-                for (copy = 0; copy < 2; ++copy) {
-                    work.countdown->lba[copy] = work.audit.files[copy + 2].first_lba;
-                    for (j = 0; j < 512; ++j) { work.countdown->copies[copy][j] = work.records[copy][j]; }
+            if (work.trial) {
+                if (!rb_dos_config_pair_valid(work.records[0], work.records[1], work.config.source)) {
+                    fail(r, RB_JLOAD_CONFIG, RB_CONFIG_CONFLICT, lba); return;
                 }
-            }
+                for (copy = 0; copy < 2; ++copy) {
+                    rb_fingerprint_sector(work.pair->allocation, work.audit.files[2 + copy].first_lba, work.records[copy]);
+                }
+            } else if (work.pair) { capture_pair(2, work.config.source); }
 #endif
             for (copy = 0; copy < 16; ++copy) { work.context.media_id[copy] = work.config.config.media_id[copy]; }
         } else if (i == 3) {
@@ -98,9 +110,10 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
                     work.state.status == RB_CONFIG_CONFLICT ? 0 : work.audit.files[work.state.copies[0] ? 4 : 5].first_lba); return;
             }
 #ifdef RB_PREPARED_DOS
-            if (work.countdown) {
+            if (work.trial) { capture_pair(4, work.state.source); }
+            else if (work.pair) {
                 if (!same(work.records[0], work.records[1], 512)) { fail(r, RB_JLOAD_STATE, 0, lba); return; }
-                rb_fingerprint_sector(work.countdown->allocation, lba, work.records[1]);
+                rb_fingerprint_sector(work.pair->allocation, lba, work.records[1]);
             }
 #endif
             if (!same(work.context.media_id, work.records[0] + 48, 16)
@@ -155,8 +168,34 @@ static rb_u16 prepared_layout(const rb_profile *entry)
     return 1;
 }
 
-rb_u16 rb_countdown_observe(rb_countdown_pair *pair, const rb_dos_choice *choice,
-                            const rb_loader_snapshot *snapshot)
+static rb_u16 __cdecl trial_vbr(rb_u32 lba, rb_u8 *sector, void *opaque)
+{
+    rb_u16 i, result = capture(lba, sector, opaque);
+    if (!result) { for (i = 0; i < 512; ++i) { work.trial->sector[i] = sector[i]; } }
+    return result;
+}
+
+static rb_u16 stage_trial(const rb_profile *p, rb_u32 low, rb_u32 high)
+{
+    const rb_installation *entry = &work.state.state.entries[0];
+    rb_volume_probe volume;
+    rb_u16 i, offset = 446 + (p->slot - 1) * 16;
+    /* The caller checked the complete single-DOS layout and both record
+       families. All non-READY phases retain a zero VBR claim on disk. */
+    if (entry->install_low != p->install_low || entry->install_high != p->install_high
+            || entry->slot != p->slot || entry->type != p->type || entry->kind != p->kind
+            || entry->start != p->start || entry->sectors != p->sectors) { return RB_TRIAL_HISTORY; }
+    if (rb_probe_volume(&volume, &work.audit.scan.entries[p->slot - 1], trial_vbr, 0, low, high)) {
+        return RB_TRIAL_VBR;
+    }
+    if (!rb_dos_geometry_matches(p, work.trial->sector)) { return RB_TRIAL_GEOMETRY; }
+    for (i = 0; i < 16; ++i) { work.trial->entry[i] = work.mbr[offset + i]; }
+    work.trial->status = work.trial->detail = 0;
+    return RB_TIMER_OK;
+}
+
+rb_u16 rb_dos_observe(rb_dos_record_pair *pair, const rb_profile_selection *selection,
+                      const rb_loader_snapshot *snapshot, rb_handoff_buffer *trial)
 {
     rb_journal_diagnosis journal;
     rb_state_proof proof;
@@ -165,15 +204,18 @@ rb_u16 rb_countdown_observe(rb_countdown_pair *pair, const rb_dos_choice *choice
     clear(pair, sizeof(*pair));
     if (rb_boot.drive != 0x80 || rb_boot.io_mode != 1) { return status; }
     clear(&work, sizeof(work));
-    work.read = rb_disk_read; work.countdown = pair;
+    work.read = rb_disk_read; work.pair = pair; work.trial = trial;
     load(&journal, low, high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436), 1, 0, 0);
     if (!journal.status && !journal.journal.status && journal.journal.observation == RB_TX_BASELINE
             && same(snapshot->mbr, work.mbr, 512) && work.config.config.count == 1
-            && work.state.state.count == 1 && rb_profile_reselect(&choice->selected, &work.config, &index)
-            && work.config.config.default_id == choice->selected.entry.id && choice->selected.entry.kind == 1
-            && prepared_layout(&choice->selected.entry)) {
-        rb_state_check(&proof, &work.config, &work.state, index, capture, (void *)0, low, high);
-        if (!proof.status && same(snapshot->mbr, work.mbr, 512)) { status = RB_TIMER_OK; }
+            && work.state.state.count == 1 && rb_profile_reselect(selection, &work.config, &index)
+            && work.config.config.default_id == selection->entry.id && selection->entry.kind == 1
+            && prepared_layout(&selection->entry)) {
+        if (trial) { status = stage_trial(&selection->entry, low, high); }
+        else {
+            rb_state_check(&proof, &work.config, &work.state, index, capture, (void *)0, low, high);
+            if (!proof.status && same(snapshot->mbr, work.mbr, 512)) { status = RB_TIMER_OK; }
+        }
     }
     clear(&work, sizeof(work));
     if (status) { clear(pair, sizeof(*pair)); }
