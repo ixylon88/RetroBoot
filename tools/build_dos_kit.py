@@ -10,17 +10,22 @@ except ImportError:
     from ui_text import LANGUAGES, output_name
 
 
-def build(language):
-    build_dir = ROOT / 'build' / output_name('hdd', language)
-    parts = {key: (build_dir / (key + '.bin')).read_bytes() for key in ('mbr', 'vbr', 'bootstrap')}
-    parts['stage2'] = (build_dir / 'stage2-dos.bin').read_bytes()
+def management_template(parts, language):
     _, extents = fixture(parts, 'retroboot-hdd', language)
     base = int.from_bytes(extents[0][436:440], 'little') * SECTOR
     volume = bytearray(max(at + len(data) for at, data in extents.items()) - base)
     for at, data in extents.items():
         if at >= base:
             volume[at-base:at-base+len(data)] = data
-    modules = ('prepare_dos_disk', 'config_records', 'state_records', 'journal_records')
+    return volume
+
+
+def build(language):
+    build_dir = ROOT / 'build' / output_name('hdd', language)
+    parts = {key: (build_dir / (key + '.bin')).read_bytes() for key in ('mbr', 'vbr', 'bootstrap')}
+    parts['stage2'] = (build_dir / 'stage2-dos.bin').read_bytes()
+    volume = management_template(parts, language)
+    modules = ('prepare_dos_disk', 'prepared_countdown', 'config_records', 'state_records', 'journal_records')
     files = {name+'.py': (ROOT/'tools'/(name+'.py')).read_bytes() for name in modules}
     files.update({'__main__.py': b'from prepare_dos_disk import main\nmain()\n',
                   'mbr.bin': parts['mbr'], 'admin.bin': volume, 'language.txt': language.encode('ascii')})
@@ -32,7 +37,8 @@ def build(language):
     archive = build_dir / 'RetroBoot-DOS.zip'
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr(zipfile.ZipInfo(kit.name), kit.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
-        bundle.writestr(zipfile.ZipInfo('RetroBoot-DOS.cmd'), launcher, compress_type=zipfile.ZIP_DEFLATED)
+        for name in ('RetroBoot-DOS.cmd', 'RetroBoot-Countdown.cmd'):
+            bundle.writestr(zipfile.ZipInfo(name), launcher, compress_type=zipfile.ZIP_DEFLATED)
     return kit
 
 

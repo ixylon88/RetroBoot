@@ -17,7 +17,7 @@ try:
     from .setup_toolchain import sha256
     from .test_hdd import check_trace
     from .test_menu import Qmp, screen_rows, wait_marker
-    from .ui_text import LANGUAGES, output_name
+    from .ui_text import LANGUAGES, load_catalog, output_name
 except ImportError:
     from build_hdd import ROOT
     from build_dos_kit import build
@@ -27,7 +27,7 @@ except ImportError:
     from setup_toolchain import sha256
     from test_hdd import check_trace
     from test_menu import Qmp, screen_rows, wait_marker
-    from ui_text import LANGUAGES, output_name
+    from ui_text import LANGUAGES, load_catalog, output_name
 
 
 def original_fixture(path, directory):
@@ -90,9 +90,16 @@ def run(language, qemu, bios):
             while chunk := a.read(1024*1024):
                 if chunk != b.read(len(chunk)):
                     raise ValueError('Original disk contents after sector zero changed')
-        for case in ('enter', 'timeout', 'cancel', 'changed-vbr', 'changed-mbr', 'wrong-geometry',
-                     'stale-profile', 'changed-default'):
-            image = prepared
+        disabled, enabled = work/'disabled.img', work/'enabled.img'
+        prepared_hash = sha256(prepared)
+        subprocess.run([sys.executable, str(kit), str(prepared), '--output', str(disabled),
+                        '--set-countdown'], input='0\n', text=True, check=True)
+        subprocess.run([sys.executable, str(kit), str(disabled), '--output', str(enabled),
+                        '--set-countdown', '1'], check=True)
+        catalog = load_catalog(language)
+        for case in ('enter', 'timeout', 'countdown-off', 'countdown-on', 'cancel',
+                     'changed-vbr', 'changed-mbr', 'wrong-geometry', 'stale-profile', 'changed-default'):
+            image = {'countdown-off': disabled, 'countdown-on': enabled}.get(case, prepared)
             if case in ('changed-vbr','changed-mbr','stale-profile','changed-default'):
                 image = work/(case+'.img')
                 shutil.copyfile(prepared,image)
@@ -124,18 +131,24 @@ def run(language, qemu, bios):
                         qmp.call('pmemsave', {'val':addr,'size':size,'filename':str(dump)})
                         return dump.read_bytes()
                     wait_marker(p, log, 'RB MENU READY')
-                    if not any('MS-DOS 6.22' in row for row in screen_rows(memory(0xb8000,4000))):
+                    rows = screen_rows(memory(0xb8000,4000))
+                    if not any('MS-DOS 6.22' in row for row in rows):
                         raise ValueError('DOS entry missing from the VGA menu')
+                    if case in ('countdown-off', 'countdown-on'):
+                        message = catalog['AUTO_OFF' if case == 'countdown-off' else 'DOS_TIMER']
+                        if not any(message in row for row in rows):
+                            raise ValueError('Updated countdown missing from the cold-boot VGA menu')
                     if case in ('stale-profile', 'changed-default'):
                         qmp.call('stop')
                         change_menu_record(image, case)
                         qmp.call('cont')
                     if case == 'cancel':
                         key('esc')
+                    if case in ('cancel', 'countdown-off'):
                         time.sleep(2.5)
                         if 'RB HANDOFF' in log.read_text():
-                            raise ValueError('Esc failed to cancel the default boot')
-                    if case not in ('timeout', 'changed-default'):
+                            raise ValueError('Disabled countdown started the selection')
+                    if case not in ('timeout', 'changed-default', 'countdown-on'):
                         key('ret')
                     errors = {'changed-vbr':'0002', 'changed-mbr':'0006', 'wrong-geometry':'0007',
                               'stale-profile':'0001', 'changed-default':'0001'}
@@ -154,8 +167,8 @@ def run(language, qemu, bios):
                         p.kill()
             check_trace(trace.read_text())
             print(f'{language} prepared DOS menu: {case} passed', flush=True)
-        if sha256(source) != original_hash:
-            raise ValueError('The original source disk changed')
+        if sha256(source) != original_hash or sha256(prepared) != prepared_hash:
+            raise ValueError('A source disk changed')
 
 
 if __name__ == '__main__':

@@ -1,10 +1,18 @@
+import hashlib
 import io
+import os
 from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
+import zipfile
 
-from tools.prepare_dos_disk import SECTOR, dos_volume, make_disk, set_vdi_geometry
+from test_hdd_tools import samples
+from tools import config_records, prepared_countdown
+from tools.build_dos_kit import management_template
+
+from tools.prepare_dos_disk import SECTOR, dos_volume, make_disk, read_sector, set_vdi_geometry, write_disk_copy
 
 
 class PreparedDiskTests(unittest.TestCase):
@@ -67,3 +75,125 @@ class PreparedDiskTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 set_vdi_geometry(path, sectors+1, heads, spt)
             self.assertEqual(path.read_bytes(), header)
+
+    def prepared_image(self, directory):
+        source, kit, image = (directory / name for name in ('dos.img', 'data.zip', 'prepared.img'))
+        source.write_bytes(self.source())
+        parts = samples()
+        with zipfile.ZipFile(kit, 'w') as archive:
+            archive.writestr('mbr.bin', parts['mbr'])
+            archive.writestr('admin.bin', management_template(parts, 'de'))
+            archive.writestr('language.txt', 'de')
+        make_disk(source, image, kit, 10)
+        return image
+
+    def test_countdown_alternates_one_sector_and_same_value_is_a_noop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = self.prepared_image(Path(tmp))
+            for seconds, active, generation in ((0, 1, 2), (60, 0, 3), (60, 0, 3)):
+                output = Path(tmp) / f'copy-{seconds}-{image.stem}.img'
+                write_disk_copy(image, output, lambda disk: prepared_countdown.change_countdown(disk, seconds, 'en'))
+                with image.open('rb') as a, output.open('rb') as b:
+                    before, after = prepared_countdown.inspect(a), prepared_countdown.inspect(b)
+                    self.assertEqual(after.active, active)
+                    new = after.copies[active]
+                    self.assertEqual(struct.unpack_from('<I', new, 16)[0], generation)
+                    self.assertEqual(struct.unpack_from('<H', new, 38)[0], seconds)
+                    self.assertEqual(after.copies[1-active], before.copies[1-active])
+                    expected = bytearray(before.copies[before.active])
+                    struct.pack_into('<I', expected, 16, generation)
+                    struct.pack_into('<H', expected, 38, seconds)
+                    self.assertEqual(new, config_records.seal(expected))
+                    # Compare every byte outside the one published sector, including DOS.
+                    pos = after.lbas[active] * SECTOR
+                    a.seek(0)
+                    b.seek(0)
+                    while a.tell() < pos:
+                        length = min(1024 * 1024, pos - a.tell())
+                        self.assertEqual(a.read(length), b.read(length))
+                    a.seek(SECTOR, 1)
+                    b.seek(SECTOR, 1)
+                    self.assertEqual(hashlib.file_digest(a, 'sha256').digest(),
+                                     hashlib.file_digest(b, 'sha256').digest())
+                    if after.active == before.active:
+                        self.assertEqual(after, before)
+                image = output
+
+    def test_damaged_or_ambiguous_records_and_allocations_block_countdown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = self.prepared_image(Path(tmp))
+            with image.open('r+b') as disk:
+                before = prepared_countdown.inspect(disk)
+                a, b = (lba * SECTOR for lba in before.lbas)
+                admin = struct.unpack_from('<I', read_sector(disk, 0), 436)[0]
+                vbr = read_sector(disk, admin)
+                spf = struct.unpack_from('<H', vbr, 22)[0]
+                files = prepared_countdown.management_files(disk, admin, struct.unpack_from('<I', vbr, 32)[0])
+                first = bytearray(before.copies[0])
+                def reseal(offset, fmt, value):
+                    cfg = first.copy()
+                    struct.pack_into(fmt, cfg, offset, value)
+                    return config_records.seal(cfg)
+                fat = (admin + 1) * SECTOR
+                root = (admin + 1 + 2 * spf) * SECTOR
+                max_gen = reseal(16, '<I', 0xffffffff)
+                cases = {
+                    'crc': [(b + 508, bytes([first[508] ^ 1]))],
+                    'torn countdown': [(b, reseal(16, '<I', 2)[:24])],
+                    'equal generation conflict': [(b, reseal(38, '<H', 11))],
+                    'stale peer': [(b, reseal(16, '<I', 4))],
+                    'generation exhausted': [(a, max_gen), (b, max_gen)],
+                    'other installation': [(b, reseal(108, '<Q', 0))],
+                    'legacy version': [(b, reseal(8, '<H', 1))],
+                    'pending state': [(files[n][0] * SECTOR + 83, b'\x02') for n in prepared_countdown.STATE],
+                    'journal': [(files[prepared_countdown.JOURNAL[1]][0] * SECTOR, b'?')],
+                    'fat mirror': [(fat + 2, b'\x00')],
+                    'orphan in both fats': [(fat + copy * spf * SECTOR + 8000, b'\xff\xff') for copy in (0,1)],
+                    'overlapping files': [(root + 22*32 + 26, struct.pack('<H', config_records.CLUSTERS[0]))],
+                    'foreign disk': [(440, b'\x00\x00\x00\x00')],
+                }
+                for name, changes in cases.items():
+                    with self.subTest(name=name):
+                        saved = []
+                        for pos, data in changes:
+                            disk.seek(pos)
+                            saved.append((pos, disk.read(len(data))))
+                            disk.seek(pos)
+                            disk.write(data)
+                        with self.assertRaises(ValueError):
+                            prepared_countdown.change_countdown(disk, 1, 'de')
+                        for pos, data in saved:
+                            disk.seek(pos)
+                            disk.write(data)
+                        self.assertEqual(prepared_countdown.inspect(disk), before)
+
+    def test_cancel_and_torn_readback_publish_nothing_and_allow_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            original = self.prepared_image(Path(tmp))
+            output = Path(tmp) / 'updated.img'
+            with original.open('rb') as disk:
+                before = prepared_countdown.inspect(disk)
+                disk.seek(0)
+                original_hash = hashlib.file_digest(disk, 'sha256').digest()
+
+            def change(disk):
+                return prepared_countdown.change_countdown(disk, 0, 'de')
+
+            def damage_write(fd):
+                os.lseek(fd, before.lbas[1] * SECTOR + 16, os.SEEK_SET)
+                os.write(fd, before.copies[1][16:20])
+
+            with patch('builtins.input', return_value=''), self.assertRaisesRegex(ValueError, 'Abgebrochen'):
+                write_disk_copy(original, output, lambda disk: prepared_countdown.change_countdown(disk, None, 'de'))
+            self.assertFalse(output.exists())
+            with patch('tools.prepared_countdown.os.fsync', side_effect=damage_write), self.assertRaises(ValueError):
+                write_disk_copy(original, output, change)
+            self.assertFalse(output.exists())
+            with patch('tools.prepared_countdown.os.fsync', side_effect=OSError('flush')), self.assertRaises(OSError):
+                write_disk_copy(original, output, change)
+            self.assertFalse(output.exists())
+            write_disk_copy(original, output, change)
+            with original.open('rb') as disk:
+                self.assertEqual(hashlib.file_digest(disk, 'sha256').digest(), original_hash)
+            with self.assertRaises(FileExistsError):
+                write_disk_copy(original, output, change)
