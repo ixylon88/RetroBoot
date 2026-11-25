@@ -16,8 +16,10 @@ new prefix followed by its old suffix. When the intended MBR is already
 active, it can complete the journal snapshot and header. When both snapshots
 are intact and the live MBR is still old, the diskette can also reconstruct a
 missing or partly written first prepare header over its seed. It checks the
-resulting physical journal pair before changing the partition table. The
-bilingual kit demonstrates this last case. [Journal recovery](JournalRecovery.txt).
+resulting physical journal pair before changing the partition table. An
+earlier interruption can leave only part of the intended MBR in the journal.
+The bilingual kit demonstrates discarding that copy on confirmation and
+recognizing the intact baseline on restart. [Journal recovery](JournalRecovery.txt).
 
 ## Three-sector record, version 1
 
@@ -136,10 +138,12 @@ means successful parsing/pair selection; the separate observation still matters.
 ## Native evidence and next integration
 
 `make hdd-test` includes the journal model through both BIOS read routes.
-The native model prints `T=007E` and `RB JOURNAL MODEL PASS`: 126 assertions
+The native model prints `T=0090` and `RB JOURNAL MODEL PASS`. Its 144 assertions
 cover literal host-to-C16 vectors, reserved fields, identities, geometry,
 protected MBR bytes, all observations, both slot orders, sequence exhaustion,
 stale-result cleanup and all six partial three-sector replacement combinations.
+They also check all 16 combinations of four visibility changes in a journal
+snapshot after a torn copy or interrupted discard, plus two unrelated bytes.
 The pure model has no sector-reader or writer callback and retains no input
 pointers or static scratch. Four host tests check literal offsets/CRCs, the
 native vector, coverage of every record byte, fixture transitions and rejected
@@ -156,6 +160,8 @@ The [diagnosis guide](JournalDiagnosis.md) specifies the bounded reader,
 remaining limitations. F10 now recognizes all eight files. External rescue
 covers the first prepare header with complete snapshots and an old live MBR,
 the validated prepared pair with an old or prefix-matching live MBR, and the
-completion snapshot and header with the approved MBR active. A missing or
-unfinished intended snapshot in the prepare slot cannot authorize this repair.
+completion snapshot and header with the approved MBR active. When only part of
+the new snapshot reached the prepare slot under its intact seed header, the
+rescue diskette can restore that single journal sector from the baseline.
+The old live MBR and both complete baseline records are verified afterward.
 The normal boot-menu switch is tracked separately.

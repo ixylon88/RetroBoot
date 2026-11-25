@@ -40,6 +40,8 @@ typedef struct {
  * or authenticated by this API. Neither result is write or boot authority. */
 rb_u16 rb_journal_decode(rb_journal_record *result, const rb_u8 *record,
                          rb_u16 length, const rb_journal_context *context);
+/* Byte-pattern observation only. All three buffers contain one full sector. */
+rb_u16 rb_journal_unfinished_snapshot(const rb_u8 *actual, const rb_u8 *next, const rb_u8 *old);
 /* Each readable slot must supply exactly RB_JOURNAL_BYTES; the current MBR is
  * exactly 512 bytes. No disk access, static scratch or retained input pointers.
  * One damaged/missing copy blocks selection; it never hides a newer attempt. */

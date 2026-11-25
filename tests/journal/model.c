@@ -74,6 +74,7 @@ rb_u16 __cdecl rb_journal_selftest(void)
     rb_u32 hash;
     const rb_u16 corruption[] = {0, 8, 10, 12, 16, 20, 36, 38, 48, 64, 72, 76, 507, 508, 511, 512, 1023, 1024, 1535};
     const rb_u16 protected_bytes[] = {0, 100, 431, 444, 445, 447, 451, 463, 467, 495, 499};
+    const rb_u16 visibility[] = {446, 450, 462, 466};
     setup(); CHECK(DECODE() == 0);
     CHECK(decoded.sequence == 2 && decoded.phase == RB_TX_PREPARED && decoded.changed == 3);
     CHECK(decoded.before_crc == 0xDF25514CUL && decoded.after_crc == 0x1E786A6DUL);
@@ -184,5 +185,20 @@ rb_u16 __cdecl rb_journal_selftest(void)
     rb_journal_inspect(&result, (const rb_u8 *)0, (const rb_u8 *)0, 0, &context, (const rb_u8 *)0);
     CHECK(result.status == RB_JOURNAL_UNAVAILABLE && result.copies[0] == RB_JOURNAL_MISSING && result.copies[1] == RB_JOURNAL_MISSING);
     rb_journal_inspect(&result, a, b, 4, &context, current); CHECK(result.status == RB_JOURNAL_UNAVAILABLE);
+    /* With four changed bytes, an interrupted discard may leave just the
+       middle of a new prefix. The last change must still be old. */
+    setup();
+    for (mask = 0; mask < 16; ++mask) {
+        copy(current, a + 512, 512);
+        for (i = 0; i < 4; ++i) {
+            if (mask & (1U << i)) { current[visibility[i]] = a[1024 + visibility[i]]; }
+        }
+        CHECK(rb_journal_unfinished_snapshot(current, a + 1024, a + 512) ==
+            (mask == 1 || mask == 2 || mask == 3 || mask == 4 || mask == 6 || mask == 7));
+    }
+    copy(current, a + 512, 512); current[450] = a[1024 + 450]; current[100] ^= 1;
+    CHECK(!rb_journal_unfinished_snapshot(current, a + 1024, a + 512));
+    current[100] ^= 1; current[450] = 0xFF;
+    CHECK(!rb_journal_unfinished_snapshot(current, a + 1024, a + 512));
     report(n); return 0;
 }
