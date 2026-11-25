@@ -66,6 +66,37 @@ leaves the input disk available for boot or retry. Firmware reads the
 usual configuration records at cold boot. Installation-state updates and
 editing from inside the BIOS menu are tracked in #48.
 
+## Recovering an interrupted countdown update
+
+The external DOS kit can restore the saved delay when one configuration copy
+has a bad checksum and its profile and disk identity still match the valid
+peer. On a powered-off prepared disk, `RetroBoot-Countdown-Recovery.cmd`
+shows the valid file, its generation and delay, and the sector to replace in
+the new image. The German kit accepts `J` and the English kit accepts `Y`.
+An empty response cancels. The command-line equivalent is
+`python3 RetroBoot-DOS.pyz input.vdi --recover-countdown --output recovered.vdi`.
+
+Recovery copies the verified sector into the damaged slot and retains its
+generation, including at `0xFFFFFFFF`. It checks allocation, installation
+identity and the idle journal again after confirmation, flushes the write,
+and reads both sectors back before publishing the disk. Two healthy copies
+need no repair. Two bad checksums, a disagreement outside the countdown
+fields or conflicting valid copies stop the operation. The input disk stays
+available for retry.
+
+### VirtualBox test
+
+1. Extract `RetroBoot-Countdown-Recovery-DE.zip` or its English counterpart
+   from the `retroboot-dos` CI artifact. The included
+   `RetroBoot-Countdown-Test.img` contains the project-owned test boot sector.
+   Copy A holds a zero delay. Copy B contains an interrupted change to one second.
+2. Drag that IMG onto `RetroBoot-Countdown-Recovery.cmd`. Confirm the displayed
+   repair of `RBCFG.B` from `RBCFG.A`. The output is `RetroBoot-DOS-Recovered.vdi`.
+3. Attach the output as the primary IDE master (port 0, device 0) of a
+   powered-off BIOS VM. Boot from the hard disk. The menu waits with automatic
+   boot off. Enter reaches `RB HANDOFF PASS`. Power off and start again to
+   repeat the check.
+
 ## Preparation and boot checks
 
 The host copies the source disk, retains the full DOS partition at its original

@@ -145,6 +145,9 @@ class PreparedDiskTests(unittest.TestCase):
                     'generation exhausted': [(a, max_gen), (b, max_gen)],
                     'other installation': [(b, reseal(108, '<Q', 0))],
                     'legacy version': [(b, reseal(8, '<H', 1))],
+                    'two bad checksums': [(a + 508, bytes([first[508] ^ 1])), (b + 509, bytes([first[509] ^ 1]))],
+                    'torn identity': [(b + 48, bytes([first[48] ^ 1]))],
+                    'out-of-range sealed timer': [(b, reseal(38, '<H', 61))],
                     'pending state': [(files[n][0] * SECTOR + 83, b'\x02') for n in prepared_countdown.STATE],
                     'journal': [(files[prepared_countdown.JOURNAL[1]][0] * SECTOR, b'?')],
                     'fat mirror': [(fat + 2, b'\x00')],
@@ -162,6 +165,9 @@ class PreparedDiskTests(unittest.TestCase):
                             disk.write(data)
                         with self.assertRaises(ValueError):
                             prepared_countdown.change_countdown(disk, 1, 'de')
+                        if name not in ('crc', 'torn countdown', 'generation exhausted'):
+                            with patch('builtins.input', side_effect=AssertionError('unexpected prompt')), self.assertRaises(ValueError):
+                                prepared_countdown.recover_countdown(disk, 'de')
                         for pos, data in saved:
                             disk.seek(pos)
                             disk.write(data)
@@ -197,3 +203,95 @@ class PreparedDiskTests(unittest.TestCase):
                 self.assertEqual(hashlib.file_digest(disk, 'sha256').digest(), original_hash)
             with self.assertRaises(FileExistsError):
                 write_disk_copy(original, output, change)
+
+    def test_countdown_recovery_keeps_survivor_for_both_slot_orders_and_every_torn_prefix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.prepared_image(Path(tmp)).open('r+b') as disk:
+                original = prepared_countdown.inspect(disk)
+                def sector(generation, seconds):
+                    record = bytearray(original.copies[0])
+                    struct.pack_into('<I', record, 16, generation)
+                    struct.pack_into('<H', record, 38, seconds)
+                    return config_records.seal(record)
+
+                old, survivor, intended = sector(254, 10), sector(255, 0), sector(256, 60)
+                torn = {intended[:cut] + old[cut:] for cut in range(SECTOR + 1)} - {old, intended}
+                self.assertGreater(len(torn), 2)
+                for target in (0, 1):
+                    disk.seek(original.lbas[1 - target] * SECTOR)
+                    disk.write(survivor)
+                    for partial in torn:
+                        with self.subTest(target=target, partial_crc=partial[-4:]):
+                            disk.seek(original.lbas[target] * SECTOR)
+                            disk.write(partial)
+                            with patch('builtins.input', return_value='J'):
+                                prepared_countdown.recover_countdown(disk, 'de')
+                            after = prepared_countdown.inspect(disk)
+                            self.assertEqual(after.copies, (survivor, survivor))
+                            self.assertEqual(after.active, 0)
+
+                # Restoring redundancy at the generation ceiling needs no increment.
+                last = sector(0xffffffff, 10)
+                disk.seek(original.lbas[0] * SECTOR)
+                disk.write(last)
+                disk.seek(original.lbas[1] * SECTOR)
+                disk.write(last[:508] + bytes(4))
+                with patch('builtins.input', return_value='y'):
+                    prepared_countdown.recover_countdown(disk, 'en')
+                self.assertEqual(prepared_countdown.inspect(disk).copies, (last, last))
+
+    def test_countdown_recovery_rechecks_consent_readback_and_publication(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            image = self.prepared_image(Path(tmp))
+            output = Path(tmp) / 'recovered.img'
+            def recover(disk):
+                return prepared_countdown.recover_countdown(disk, 'en')
+
+            with image.open('r+b') as disk:
+                prepared_countdown.change_countdown(disk, 0, 'en')
+                before = prepared_countdown.inspect(disk)
+                with patch('builtins.input', side_effect=AssertionError('healthy peers need no repair')):
+                    self.assertFalse(write_disk_copy(image, output, recover))
+                self.assertFalse(output.exists())
+                bad_lba = before.lbas[0]
+                disk.seek(bad_lba * SECTOR + 16)
+                disk.write(struct.pack('<I', 3))
+            with image.open('rb') as disk:
+                broken_hash = hashlib.file_digest(disk, 'sha256').digest()
+
+            for reply in ('', 'n', 'j'):
+                with patch('builtins.input', return_value=reply), self.assertRaisesRegex(ValueError, 'Cancelled'):
+                    write_disk_copy(image, output, recover)
+                self.assertFalse(output.exists())
+            with patch('builtins.input', side_effect=EOFError), self.assertRaisesRegex(ValueError, 'Cancelled'):
+                write_disk_copy(image, output, recover)
+            self.assertFalse(output.exists())
+
+            def changed_while_waiting(disk):
+                def consent(_prompt):
+                    disk.seek(bad_lba * SECTOR + 16)
+                    disk.write(struct.pack('<I', 4))
+                    return 'y'
+                with patch('builtins.input', side_effect=consent):
+                    return recover(disk)
+            with self.assertRaisesRegex(ValueError, 'changed before the update'):
+                write_disk_copy(image, output, changed_while_waiting)
+            self.assertFalse(output.exists())
+
+            def failed_readback(fd):
+                os.lseek(fd, before.lbas[1] * SECTOR, os.SEEK_SET)
+                os.write(fd, before.copies[0])
+            with patch('builtins.input', return_value='Y'):
+                with patch('tools.prepared_countdown.os.fsync', side_effect=OSError('flush')), self.assertRaises(OSError):
+                    write_disk_copy(image, output, recover)
+                self.assertFalse(output.exists())
+                with patch('tools.prepared_countdown.os.fsync', side_effect=failed_readback), self.assertRaisesRegex(ValueError, 'readback'):
+                    write_disk_copy(image, output, recover)
+                self.assertFalse(output.exists())
+                self.assertTrue(write_disk_copy(image, output, recover))
+            with image.open('rb') as disk:
+                self.assertEqual(hashlib.file_digest(disk, 'sha256').digest(), broken_hash)
+            with output.open('r+b') as disk:
+                self.assertEqual(prepared_countdown.inspect(disk).copies, (before.copies[1], before.copies[1]))
+                prepared_countdown.change_countdown(disk, 1, 'en')
+                self.assertEqual(prepared_countdown.inspect(disk).active, 1)

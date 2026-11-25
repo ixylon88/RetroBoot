@@ -37,7 +37,7 @@ def build(language):
     archive = build_dir / 'RetroBoot-DOS.zip'
     with zipfile.ZipFile(archive, 'w') as bundle:
         bundle.writestr(zipfile.ZipInfo(kit.name), kit.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
-        for name in ('RetroBoot-DOS.cmd', 'RetroBoot-Countdown.cmd'):
+        for name in ('RetroBoot-DOS.cmd', 'RetroBoot-Countdown.cmd', 'RetroBoot-Countdown-Recovery.cmd'):
             bundle.writestr(zipfile.ZipInfo(name), launcher, compress_type=zipfile.ZIP_DEFLATED)
     return kit
 

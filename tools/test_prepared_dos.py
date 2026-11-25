@@ -7,13 +7,17 @@ import subprocess
 import sys
 import tempfile
 import time
+from unittest.mock import patch
+import uuid
+import zipfile
 
 try:
     from .build_hdd import ROOT
     from .build_dos_kit import build
     from . import config_records
     from .handoff_fixtures import LBA, SECTORS, entry_bytes
-    from .prepare_dos_disk import SECTOR, partition, read_sector
+    from .prepare_dos_disk import SECTOR, make_disk, partition, read_sector
+    from .prepared_countdown import change_countdown, inspect
     from .setup_toolchain import sha256
     from .test_hdd import check_trace
     from .test_menu import Qmp, screen_rows, wait_marker
@@ -23,7 +27,8 @@ except ImportError:
     from build_dos_kit import build
     import config_records
     from handoff_fixtures import LBA, SECTORS, entry_bytes
-    from prepare_dos_disk import SECTOR, partition, read_sector
+    from prepare_dos_disk import SECTOR, make_disk, partition, read_sector
+    from prepared_countdown import change_countdown, inspect
     from setup_toolchain import sha256
     from test_hdd import check_trace
     from test_menu import Qmp, screen_rows, wait_marker
@@ -72,6 +77,49 @@ def change_menu_record(path, case):
             disk.write(config_records.seal(cfg))
 
 
+def recovery_fixture(work, source, kit, language):
+    image = work / 'RetroBoot-Countdown-Test.img'
+    # Fixed identity only for the distributed, project-owned boot-sector fixture.
+    with patch.object(uuid, 'uuid4', return_value=uuid.UUID(bytes=config_records.FIXTURE_MEDIA_ID)):
+        make_disk(source, image, kit, 0)
+    healthy_hash = sha256(image)
+    with image.open('r+b') as disk:
+        before = inspect(disk)
+        change_countdown(disk, 1, language)
+        # Power loss after the new generation and delay, before the new CRC.
+        disk.seek(before.lbas[1] * SECTOR + 40)
+        disk.write(before.copies[1][40:])
+    damaged_hash = sha256(image)
+    if damaged_hash == healthy_hash:
+        raise ValueError('Ineffective interrupted countdown fixture')
+
+    bundle = work / f'RetroBoot-Countdown-Recovery-{language.upper()}.zip'
+    with zipfile.ZipFile(kit.with_suffix('.zip')) as release, zipfile.ZipFile(bundle, 'x') as archive:
+        for name in ('RetroBoot-DOS.pyz', 'RetroBoot-Countdown-Recovery.cmd'):
+            archive.writestr(zipfile.ZipInfo(name), release.read(name), compress_type=zipfile.ZIP_DEFLATED)
+        info = zipfile.ZipInfo(image.name)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        with archive.open(info, 'w') as output, image.open('rb') as raw:
+            shutil.copyfileobj(raw, output)
+    manual = work / 'manual'
+    with zipfile.ZipFile(bundle) as archive:
+        archive.extractall(manual)
+    damaged = manual / image.name
+    repaired = work / 'recovered.img'
+    cmd = [sys.executable, str(manual / kit.name), str(damaged), '--recover-countdown', '--output', str(repaired)]
+    cancelled = subprocess.run(cmd, input='\n', text=True, capture_output=True)
+    if cancelled.returncode == 0 or repaired.exists():
+        raise ValueError('Cancellation published a recovery output')
+    consent = 'j' if language == 'de' else 'y'
+    result = subprocess.run(cmd, input=consent + '\n', text=True, capture_output=True, check=True)
+    for field in ('RBCFG.A', 'RBCFG.B', f'0x{before.lbas[1]:08X}', '0 s'):
+        if field not in result.stdout:
+            raise ValueError('Incomplete countdown recovery review: ' + field)
+    if sha256(damaged) != damaged_hash or sha256(repaired) != healthy_hash:
+        raise ValueError('Recovery must restore the exact healthy disk and preserve the packaged input')
+    return bundle, damaged, repaired
+
+
 def run(language, qemu, bios):
     kit = build(language)
     directory = ROOT / 'build' / output_name('hdd',language)
@@ -96,10 +144,15 @@ def run(language, qemu, bios):
                         '--set-countdown'], input='0\n', text=True, check=True)
         subprocess.run([sys.executable, str(kit), str(disabled), '--output', str(enabled),
                         '--set-countdown', '1'], check=True)
+        bundle, damaged, repaired = recovery_fixture(work, source, kit, language)
         catalog = load_catalog(language)
+        images = {'countdown-off': disabled, 'countdown-on': enabled, 'recovery-blocked': damaged,
+                  'recovery-restored': repaired, 'recovery-cold': repaired}
+        timer_off = ('countdown-off', 'recovery-restored', 'recovery-cold')
         for case in ('enter', 'timeout', 'countdown-off', 'countdown-on', 'cancel',
-                     'changed-vbr', 'changed-mbr', 'wrong-geometry', 'stale-profile', 'changed-default'):
-            image = {'countdown-off': disabled, 'countdown-on': enabled}.get(case, prepared)
+                     'changed-vbr', 'changed-mbr', 'wrong-geometry', 'stale-profile', 'changed-default',
+                     'recovery-blocked', 'recovery-restored', 'recovery-cold'):
+            image = images.get(case, prepared)
             if case in ('changed-vbr','changed-mbr','stale-profile','changed-default'):
                 image = work/(case+'.img')
                 shutil.copyfile(prepared,image)
@@ -132,10 +185,14 @@ def run(language, qemu, bios):
                         return dump.read_bytes()
                     wait_marker(p, log, 'RB MENU READY')
                     rows = screen_rows(memory(0xb8000,4000))
-                    if not any('MS-DOS 6.22' in row for row in rows):
+                    has_dos = any('MS-DOS 6.22' in row for row in rows)
+                    if case == 'recovery-blocked':
+                        if has_dos or not any(catalog['NO_PROFILES'] in row for row in rows):
+                            raise ValueError('A damaged countdown copy enabled the DOS entry')
+                    elif not has_dos:
                         raise ValueError('DOS entry missing from the VGA menu')
-                    if case in ('countdown-off', 'countdown-on'):
-                        message = catalog['AUTO_OFF' if case == 'countdown-off' else 'DOS_TIMER']
+                    if case in timer_off or case == 'countdown-on':
+                        message = catalog['AUTO_OFF' if case in timer_off else 'DOS_TIMER']
                         if not any(message in row for row in rows):
                             raise ValueError('Updated countdown missing from the cold-boot VGA menu')
                     if case in ('stale-profile', 'changed-default'):
@@ -144,11 +201,14 @@ def run(language, qemu, bios):
                         qmp.call('cont')
                     if case == 'cancel':
                         key('esc')
-                    if case in ('cancel', 'countdown-off'):
+                    if case == 'cancel' or case in timer_off:
                         time.sleep(2.5)
                         if 'RB HANDOFF' in log.read_text():
                             raise ValueError('Disabled countdown started the selection')
-                    if case not in ('timeout', 'changed-default', 'countdown-on'):
+                    if case == 'recovery-blocked':
+                        key('f5')
+                        wait_marker(p, log, 'RB CONFIG status=0000 copies=00000004 source=0000 count=0001')
+                    elif case not in ('timeout', 'changed-default', 'countdown-on'):
                         key('ret')
                     errors = {'changed-vbr':'0002', 'changed-mbr':'0006', 'wrong-geometry':'0007',
                               'stale-profile':'0001', 'changed-default':'0001'}
@@ -156,7 +216,7 @@ def run(language, qemu, bios):
                         wait_marker(p, log, 'RB DOS REJECT '+errors[case])
                         if 'RB HANDOFF' in log.read_text():
                             raise ValueError('Invalid target executed')
-                    else:
+                    elif case != 'recovery-blocked':
                         wait_marker(p, log, 'RB HANDOFF PASS')
                         if memory(0x7c00,512) != vbr or memory(0x800,16) != entry:
                             raise ValueError('Target VBR or entry changed during transfer')
@@ -169,6 +229,7 @@ def run(language, qemu, bios):
             print(f'{language} prepared DOS menu: {case} passed', flush=True)
         if sha256(source) != original_hash or sha256(prepared) != prepared_hash:
             raise ValueError('A source disk changed')
+        shutil.copyfile(bundle, directory / bundle.name)
 
 
 if __name__ == '__main__':

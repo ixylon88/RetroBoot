@@ -211,6 +211,8 @@ def write_disk_copy(source, output, edit):
             shutil.copyfile(source, raw)
         with raw.open('r+b') as disk:
             geometry = edit(disk)
+        if geometry is None:
+            return False
         finished = raw
         if convert_output:
             finished = Path(tmp) / 'copy.vdi'
@@ -222,6 +224,7 @@ def write_disk_copy(source, output, edit):
             os.rename(finished, output)
         else:
             os.link(finished, output)
+    return True
 
 
 def make_disk(source, output, kit, countdown):
@@ -237,22 +240,28 @@ def main():
                        help='Initial countdown for a newly prepared DOS disk')
     group.add_argument('--set-countdown', nargs='?', const='ask', metavar='0..60',
                        help='Change the countdown on a copy of an already prepared RetroBoot DOS disk')
+    group.add_argument('--recover-countdown', action='store_true',
+                       help='Restore a damaged countdown copy from its valid peer on a new disk')
     args = parser.parse_args()
     kit = Path(sys.argv[0])
     try:
-        if args.set_countdown is None:
+        if args.set_countdown is None and not args.recover_countdown:
             output = args.output or Path('RetroBoot-DOS.vdi')
             make_disk(args.source, output.absolute(), kit, args.countdown)
         else:
-            from prepared_countdown import change_countdown
-            seconds = None if args.set_countdown == 'ask' else int(args.set_countdown)
-            if seconds is not None and not 0 <= seconds <= 60:
-                raise ValueError('Countdown must be between 0 and 60 seconds')
-            output = args.output or Path('RetroBoot-DOS-Countdown.vdi')
+            from prepared_countdown import change_countdown, recover_countdown
             with zipfile.ZipFile(kit) as bundle:
                 language = bundle.read('language.txt').decode('ascii')
-            write_disk_copy(args.source, output.absolute(),
-                            lambda disk: change_countdown(disk, seconds, language))
+            if args.recover_countdown:
+                output = args.output or Path('RetroBoot-DOS-Recovered.vdi')
+                if not write_disk_copy(args.source, output.absolute(), lambda disk: recover_countdown(disk, language)):
+                    return
+            else:
+                seconds = None if args.set_countdown == 'ask' else int(args.set_countdown)
+                if seconds is not None and not 0 <= seconds <= 60:
+                    raise ValueError('Countdown must be between 0 and 60 seconds')
+                output = args.output or Path('RetroBoot-DOS-Countdown.vdi')
+                write_disk_copy(args.source, output.absolute(), lambda disk: change_countdown(disk, seconds, language))
     except (OSError, ValueError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError) as error:
         parser.exit(1, f'RetroBoot: {error}\n')
     print(output.resolve())

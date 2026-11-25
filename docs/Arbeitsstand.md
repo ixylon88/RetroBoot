@@ -10,6 +10,10 @@ covers the erased Stage 1 prefix and every interruption used in the first
 journaled partition-switch test. The [last VirtualBox check](https://github.com/ixylon88/RetroBoot/pull/82#issuecomment-7158003271)
 confirmed the restored idle journal after a cold boot. Work on #48 starts
 with the [persistent countdown on the prepared DOS disk](PreparedDOS.md#changing-the-countdown-on-a-prepared-disk).
+The [VirtualBox check of PR #83](https://github.com/ixylon88/RetroBoot/pull/83#issuecomment-7161937368)
+confirmed that a cold boot retained the zero delay and Enter started MS-DOS 6.22.
+The [external countdown recovery](PreparedDOS.md#recovering-an-interrupted-countdown-update)
+restores a damaged configuration sector on a new disk from the verified peer.
 Menu-driven switching between operating systems follows in #49.
 
 ## Original DOS boot and recovery milestones

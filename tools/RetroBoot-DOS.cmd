@@ -7,6 +7,10 @@ if /i "%~n0"=="RetroBoot-Countdown" (
     set "operation=--set-countdown"
     set "resultfile=RetroBoot-DOS-Countdown.vdi"
 )
+if /i "%~n0"=="RetroBoot-Countdown-Recovery" (
+    set "operation=--recover-countdown"
+    set "resultfile=RetroBoot-DOS-Recovered.vdi"
+)
 where py >nul 2>nul
 if errorlevel 1 goto python
 py -3 "%~dp0RetroBoot-DOS.pyz" "%~f1" --output "%~dp0%resultfile%" %operation%
@@ -15,8 +19,6 @@ goto result
 python "%~dp0RetroBoot-DOS.pyz" "%~f1" --output "%~dp0%resultfile%" %operation%
 :result
 if errorlevel 1 goto failed
-echo.
-echo %resultfile% is ready.
 pause
 exit /b 0
 :failed
