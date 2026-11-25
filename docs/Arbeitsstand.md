@@ -14,6 +14,11 @@ The [VirtualBox check of PR #83](https://github.com/ixylon88/RetroBoot/pull/83#i
 confirmed that a cold boot retained the zero delay and Enter started MS-DOS 6.22.
 The [external countdown recovery](PreparedDOS.md#recovering-an-interrupted-countdown-update)
 restores a damaged configuration sector on a new disk from the verified peer.
+The maintainer confirmed the repaired disk kept automatic boot off after a
+cold start and Enter reached the test VBR. [VirtualBox report for PR #84](https://github.com/ixylon88/RetroBoot/pull/84#issuecomment-7163789164)
+The [F9 HDD menu](PreparedDOS.md#saving-the-delay-from-the-hdd-menu) saves a
+new countdown in the inactive configuration sector. Installation-state writes
+remain open in #48.
 Menu-driven switching between operating systems follows in #49.
 
 ## Original DOS boot and recovery milestones

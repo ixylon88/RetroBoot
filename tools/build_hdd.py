@@ -331,9 +331,10 @@ def build_stage2(destination, nasm, wcc, wlink):
     run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
         "-dRB_HANDOFF_TEST=1", "-i=include", "-i=" + str(destination),
         "-fo=" + str(destination / "menu-handoff.obj"), "core/menu.c")
-    run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
-        "-dRB_PREPARED_DOS=1", "-i=include", "-i=" + str(destination),
-        "-fo=" + str(destination / "menu-dos.obj"), "core/menu.c")
+    for name, source in (("menu-dos", "core/menu.c"), ("journal-io-dos", "core/journal_io.c")):
+        run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
+            "-dRB_PREPARED_DOS=1", "-i=include", "-i=" + str(destination),
+            "-fo=" + str(destination / (name + ".obj")), source)
     for fault in (0, *FAULTS.values()):
         run(nasm, "-Werror", "-f", "obj", "-I", "./", f"-DRB_HANDOFF_FAULT={fault}",
             "bios/handoff.asm", "-o", destination / f"handoff-{fault}.obj")
@@ -348,6 +349,7 @@ def build_stage2(destination, nasm, wcc, wlink):
                          ("record-io", "core/record_io.c"), ("state", "core/state.c"), ("state-check", "core/state_check.c"),
                          ("config-selftest", "tests/config/model.c"), ("state-selftest", "tests/state/model.c"),
                          ("visibility", "core/visibility.c"), ("visibility-selftest", "tests/visibility/model.c"),
+                         ("dos-countdown", "core/dos_countdown.c"), ("fingerprint", "core/fingerprint.c"),
                          ("dos-boot", "core/dos_boot.c"), ("profile-boot", "core/profile_boot.c"), ("profile-test", "core/profile_test.c"), ("profile-test-run", "core/profile_test_run.c"),
                          ("profile-selftest", "tests/profile/model.c"),
                          ("admin-audit", "core/admin_audit.c"), ("audit-selftest", "tests/audit/model.c"),
@@ -394,7 +396,8 @@ def build_stage2(destination, nasm, wcc, wlink):
             menu = "menu-handoff.obj" if handoff else "menu.obj"
             if variant == "dos":
                 menu = "menu-dos.obj"
-            linked_objects.extend([destination / menu, destination / "journal.obj", destination / "journal-io.obj"])
+            journal_io = "journal-io-dos.obj" if variant == "dos" else "journal-io.obj"
+            linked_objects.extend([destination / menu, destination / "journal.obj", destination / journal_io])
         if variant == "menu-model":
             linked_objects.append(destination / "menu-selftest.obj")
         if variant == "scan-model":
@@ -417,7 +420,8 @@ def build_stage2(destination, nasm, wcc, wlink):
         if handoff or variant in ("profile-model", "dos"):
             linked_objects.append(destination / "profile-boot.obj")
         if variant == "dos":
-            linked_objects.extend([destination / "dos-boot.obj", destination / "dos.obj", destination / "handoff-0.obj"])
+            linked_objects.extend([destination / "dos-boot.obj", destination / "dos-countdown.obj",
+                                   destination / "fingerprint.obj", destination / "dos.obj", destination / "handoff-0.obj"])
         if handoff or variant == "profile-model":
             linked_objects.append(destination / "profile-test.obj")
         if variant == "profile-model":

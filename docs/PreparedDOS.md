@@ -63,8 +63,48 @@ writes A. An unchanged delay consumes no generation, and a change at
 flushes the new sector, and reads both copies back through the selector
 before publishing the output name. Interruption or failed verification
 leaves the input disk available for boot or retry. Firmware reads the
-usual configuration records at cold boot. Installation-state updates and
-editing from inside the BIOS menu are tracked in #48.
+usual configuration records at cold boot. Installation-state updates remain in #48.
+
+## Saving the delay from the HDD menu
+
+On a disk prepared with the F9-capable kit, **F9** opens the DOS boot delay in
+the main menu. It displays the saved and proposed values, the destination copy
+and its absolute LBA. Left and Right adjust the delay by one second. Home
+selects zero (wait for a key) and End selects 60 seconds. Esc discards the
+edit. Enter confirms it. Opening the editor cancels automatic boot for the
+current session. The stored delay takes effect at the next boot.
+
+The VM must have exclusive use of its disk. Opening the editor and confirming
+a change each read the allocation of the eight management files, both FATs,
+both configuration and installation records, both idle journals and the DOS
+boot sector. The reviewed profile must match its READY installation, the
+single active DOS primary and the hidden management volume. The firmware
+compares the two raw configuration records and their addresses across both
+reads. It also compares fingerprints of the allocation metadata, installation
+record and live partition and volume observations.
+
+A confirmed change issues one BIOS EDD write to the inactive configuration
+sector. The other sector keeps the previous generation. The firmware then
+loads the records and their disk context again. The expected new copy must
+win selection and both sectors must match the expected bytes. A reported BIOS
+error or a failed readback ends the attempt. A power loss can leave a sector
+with a bad checksum. The external recovery procedure below restores the last
+valid delay on a copy of that disk. Readback checks what the BIOS returns.
+Persistence across loss of host power also depends on the storage cache.
+
+### Cold-boot check in VirtualBox
+
+1. Extract `RetroBoot-Countdown-Menue-DE.zip` or `RetroBoot-Countdown-Menu-EN.zip`
+   from the `retroboot-dos` artifact. Attach the included `RetroBoot-F9.vdi`
+   as primary IDE master (port 0, device 0) in a powered-off BIOS test VM.
+   Boot from the hard disk. This fixture starts with automatic boot off and
+   contains the project-owned test boot sector. Older prepared disks retain
+   the menu version used to create them.
+2. Press F9, press Right three times and confirm with Enter. The screen
+   reports a verified delay of three seconds. Power off the VM and start it
+   again. Without input, the test sector displays `RB HANDOFF PASS`.
+3. Power off and start again. Press F9 before the timeout, then Home and Enter.
+   After another cold boot the menu waits until Enter starts the test sector.
 
 ## Recovering an interrupted countdown update
 

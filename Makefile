@@ -45,6 +45,7 @@ hdd-test: hdd-check
 	$(PYTHON) tools/test_visibility.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_prepared_dos.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_dos_countdown.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 
@@ -58,6 +59,7 @@ hdd-ui-test: hdd-check
 	$(PYTHON) tools/test_visibility.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_prepared_dos.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_dos_countdown.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 

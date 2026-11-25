@@ -22,7 +22,7 @@ jobs:
       - name: Install host build and emulator packages
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86
+          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils
       - name: Prepare verified toolchain
         run: make toolchain
       - name: Reproduce HDD images and verify loader, menu, headers, profiles, installation state, visibility, checked profiles, allocation, journal diagnosis and VBR handoff
@@ -40,6 +40,8 @@ jobs:
             build/hdd-de/RetroBoot-DOS.zip
             build/hdd/RetroBoot-Countdown-Recovery-EN.zip
             build/hdd-de/RetroBoot-Countdown-Recovery-DE.zip
+            build/hdd/RetroBoot-Countdown-Menu-EN.zip
+            build/hdd-de/RetroBoot-Countdown-Menue-DE.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

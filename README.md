@@ -4,7 +4,8 @@ A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
 Development currently targets the `historical` branch.
 
-**Current stage: read-only HDD checks and independent rescue-floppy/CD diagnosis.**
+The prepared DOS disk boots MS-DOS 6.22 and supports a persistent F9 boot delay.
+[Prepared disk and VirtualBox check](docs/PreparedDOS.md#saving-the-delay-from-the-hdd-menu)
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
@@ -12,8 +13,8 @@ C/assembly test floppy remains available. F5 now validates stored start-profile
 records against the actual disk layout. F6 compares independent installation
 records with the current target VBR. F7 previews current and intended primary
 partition types and active flags. F10 audits allocation of the eight current
-management files, both FAT copies and unowned allocated clusters. OS authorization, chainloading,
-partition changes and installation are future steps. An independent test VBR now
+management files, both FAT copies and unowned allocated clusters. Menu-driven partition switching and
+installation remain on the roadmap. An independent test VBR now
 checks the real-mode transition in an explicitly selected test image.
 
 ## Documentation

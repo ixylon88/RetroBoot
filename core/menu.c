@@ -10,7 +10,13 @@
 #include "admin_audit.h"
 #include "journal_io.h"
 #ifdef RB_PREPARED_DOS
-#include "dos_boot.h"
+#include "dos_countdown.h"
+enum { DOS_TIMER_EDIT = 13, DOS_TIMER_RESULT };
+static rb_countdown_edit timer;
+static const char * const timer_results[] = {
+    RB_UI_TIMER_OK, RB_UI_TIMER_DISK, RB_UI_TIMER_RECORDS, RB_UI_TIMER_CHANGED,
+    RB_UI_TIMER_FULL, RB_UI_TIMER_WRITE, RB_UI_TIMER_READBACK, RB_UI_TIMER_UNCHANGED
+};
 static rb_dos_choice dos_choice;
 static rb_u16 dos_status;
 #endif
@@ -172,7 +178,29 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     cell(1, 1, 0xDA); cell(1, 78, 0xBF);
     cell(23, 1, 0xC0); cell(23, 78, 0xD9);
     text(2, 4, "RetroBoot", TITLE);
-    text(2, 65, RB_UI_READ_ONLY, 0x1E);
+#ifdef RB_PREPARED_DOS
+    if (view == DOS_TIMER_EDIT || view == DOS_TIMER_RESULT) {
+        text(5, 4, RB_UI_TIMER_TITLE, TITLE);
+        if (view == DOS_TIMER_EDIT) {
+            text(8, 4, RB_UI_TIMER_SAVED, NORMAL); decimal(8, 30, timer.saved);
+            text(10, 4, RB_UI_TIMER_NEW, TITLE); decimal(10, 30, timer.seconds);
+            text(13, 4, RB_UI_TIMER_TARGET, NORMAL);
+            text(13, 30, timer.target ? "RBCFG.B" : "RBCFG.A", NORMAL); hex(13, 40, timer.lba, 8);
+            text(16, 4, RB_UI_TIMER_RANGE, NORMAL);
+            text(20, 4, RB_UI_TIMER_KEYS, NORMAL);
+            text(22, 4, RB_UI_TIMER_CONFIRM, NORMAL);
+        } else {
+            text(8, 4, timer_results[timer.status], TITLE);
+            if (timer.status == RB_TIMER_OK || timer.status == RB_TIMER_UNCHANGED) {
+                text(10, 4, RB_UI_TIMER_SAVED, NORMAL); decimal(10, 30, timer.saved);
+            }
+            text(22, 4, RB_UI_TIMER_BACK, NORMAL);
+        }
+        return;
+    }
+    if (view != 0 || !dos_choice.selected.valid)
+#endif
+    { text(2, 65, RB_UI_READ_ONLY, 0x1E); }
     if (view == 0) {
         text(5, 4, RB_UI_BOOT_MENU, TITLE);
 #ifdef RB_PREPARED_DOS
@@ -183,6 +211,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                 text(9, 5, ">", color);
             }
             text(9, 8, dos_choice.selected.entry.name, color);
+            text(19, 4, RB_UI_TIMER_HELP, NORMAL);
         } else
 #endif
         { text(6, 4, RB_UI_NO_PROFILES, NORMAL); }
@@ -578,6 +607,27 @@ void __cdecl rb_menu_run(void)
         if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
         if ((key & 0xFFU) == 27U) {
             view = 0;
+#ifdef RB_PREPARED_DOS
+        } else if (view == DOS_TIMER_EDIT) {
+            switch (key >> 8) {
+            case 0x4B: if (timer.seconds) { --timer.seconds; } break;
+            case 0x4D: if (timer.seconds < 60) { ++timer.seconds; } break;
+            case 0x47: timer.seconds = 0; break;
+            case 0x4F: timer.seconds = 60; break;
+            }
+            if ((key & 0xFFU) == 13U) {
+                rb_countdown_save(&timer, &dos_choice, &snapshot);
+                if (!timer.status) { dos_choice.countdown = timer.saved; }
+                debug_text("RB TIMER SAVE "); debug_hex(timer.status); debug_text("\r\n");
+                view = DOS_TIMER_RESULT;
+            }
+        } else if (view == DOS_TIMER_RESULT) {
+            continue; /* Esc returns to the menu. Enter never retries the write. */
+        } else if ((key >> 8) == 0x43U && view == 0 && dos_choice.selected.valid) {
+            rb_countdown_open(&timer, &dos_choice, &snapshot);
+            view = timer.status ? DOS_TIMER_RESULT : DOS_TIMER_EDIT;
+            debug_text("RB TIMER OPEN "); debug_hex(timer.status); debug_text("\r\n");
+#endif
         } else if ((key >> 8) == 0x3CU) {
             state.selected = 1; view = 2; rescan = 1;
         } else if ((key >> 8) == 0x3DU) {
