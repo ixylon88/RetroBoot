@@ -154,6 +154,25 @@ static void geometry(const rb_loader_snapshot *snapshot, rb_u16 row)
     }
 }
 
+static void menu_item(rb_u16 row, const char *name, rb_u16 selected)
+{
+    if (selected) {
+        rb_video_fill(row * 80U + 4, 71, 0x7020);
+        text(row, 5, ">", SELECTED);
+    }
+    text(row, 8, name, selected ? SELECTED : NORMAL);
+}
+
+#ifdef RB_PREPARED_DOS
+static void dos_menu_init(rb_menu_state *state, rb_u16 seconds, rb_u32 now)
+{
+    rb_u16 count = 3 + dos_choice.count;
+    rb_menu_init(state, count, (1U << count) - 1,
+                 dos_choice.count ? 3 + dos_choice.default_index : 0,
+                 (seconds * 182U + 9U) / 10U, now);
+}
+#endif
+
 static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapshot *snapshot,
                  const rb_partition_scan *scan, rb_u16 page,
                  const rb_volume_probe *volume, rb_u16 volume_index,
@@ -183,7 +202,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     if (view == DOS_TRIAL_REVIEW || view == DOS_TRIAL_RESULT) {
         text(5, 4, RB_UI_TRIAL_TITLE, TITLE);
         if (view == DOS_TRIAL_REVIEW) {
-            profile = &dos_choice.trial.entry;
+            profile = &dos_choice.profiles[0].entry;
             text(7, 4, profile->name, TITLE); text(7, 32, "P", NORMAL); decimal(7, 33, profile->slot);
             text(9, 4, RB_UI_STATE_INSTALL_ID, NORMAL); hex64(9, 29, profile->install_high, profile->install_low);
             text(10, 4, RB_UI_VOLUME_LBA, NORMAL); hex(10, 29, profile->start, 8);
@@ -224,20 +243,17 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         }
         return;
     }
-    if (view != 0 || (!dos_choice.selected.valid && !dos_choice.trial.valid))
+    if (view != 0 || (dos_choice.count != 1 && !dos_choice.trial))
 #endif
     { text(2, 65, RB_UI_READ_ONLY, 0x1E); }
     if (view == 0) {
         text(5, 4, RB_UI_BOOT_MENU, TITLE);
 #ifdef RB_PREPARED_DOS
-        if (dos_choice.selected.valid) {
-            rb_u16 color = state->selected == 3 ? SELECTED : NORMAL;
-            if (state->selected == 3) {
-                rb_video_fill(9 * 80U + 4, 71, 0x7020);
-                text(9, 5, ">", color);
+        if (dos_choice.count) {
+            for (index = 0; index < dos_choice.count; ++index) {
+                menu_item(9 + 2 * index, dos_choice.profiles[index].entry.name, state->selected == 3 + index);
             }
-            text(9, 8, dos_choice.selected.entry.name, color);
-            text(19, 4, RB_UI_TIMER_HELP, NORMAL);
+            text(19, 4, dos_choice.count == 1 ? RB_UI_TIMER_HELP : RB_UI_PROFILE_MENU_HELP, NORMAL);
         } else if (dos_choice.records.status) {
             const char *message = proof_messages[dos_choice.records.status];
             if (dos_choice.records.status == RB_PROOF_PENDING) {
@@ -245,7 +261,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
                 if (dos_choice.records.detail == RB_INSTALL_VERIFY) { message = RB_UI_TRIAL_PENDING; }
             }
             text(6, 4, message, 0x1E);
-            if (dos_choice.trial.valid) { text(19, 4, RB_UI_TRIAL_HELP, NORMAL); }
+            if (dos_choice.trial) { text(19, 4, RB_UI_TRIAL_HELP, NORMAL); }
         } else
 #endif
         { text(6, 4, RB_UI_NO_PROFILES, NORMAL); }
@@ -257,13 +273,10 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
         for (index = 0; index < 3; ++index) {
             row = 9 + index * 2;
 #ifdef RB_PREPARED_DOS
-            if (dos_choice.selected.valid) { row += 2; }
+            if (dos_choice.count == 1) { row += 2; }
+            if (dos_choice.count > 1) { row = 11 + dos_choice.count + index; }
 #endif
-            if (state->selected == index) {
-                rb_video_fill(row * 80U + 4, 71, 0x7020);
-                text(row, 5, ">", SELECTED);
-            }
-            text(row, 8, labels[index], state->selected == index ? SELECTED : NORMAL);
+            menu_item(row, labels[index], state->selected == index);
         }
         text(17, 4, RB_UI_DRIVE, NORMAL);
         hex(17, 19, rb_boot.drive, 2);
@@ -611,11 +624,10 @@ void __cdecl rb_menu_run(void)
     rb_loader_copy(&snapshot);
 #ifdef RB_PREPARED_DOS
     rb_dos_open(&dos_choice, &config, &installation, &snapshot);
-    if (dos_choice.selected.valid) {
-        rb_menu_init(&state, 4, 15, 3, (dos_choice.countdown * 182U + 9U) / 10U, rb_ticks());
-    } else
+    dos_menu_init(&state, dos_choice.countdown, rb_ticks());
+#else
+    rb_menu_init(&state, 3, 7, 0, 0, rb_ticks());
 #endif
-    { rb_menu_init(&state, 3, 7, 0, 0, rb_ticks()); }
     rb_video_init();
     draw(&state, view, &snapshot, &scan, page, &volume, volume_index, &config, config_index, &installation, &proof, &page_data.visibility, &audit, &journal
 #ifdef RB_HANDOFF_TEST
@@ -636,11 +648,16 @@ void __cdecl rb_menu_run(void)
         rescan = 0; probe = 0; verify_state = 0;
         state.remaining_ticks = 0;
 #ifdef RB_PREPARED_DOS
-        if (action == 3) {
-            dos_status = rb_dos_start(&dos_choice, key == RB_KEY_NONE, &config, &installation,
+        if (action != RB_MENU_NONE && action >= 3) {
+            dos_status = rb_dos_start(&dos_choice, action - 3, key == RB_KEY_NONE, &config_index,
+                                      &config, &installation,
                                       &page_data.visibility, &journal, &snapshot);
-            debug_text("RB DOS REJECT "); debug_hex(dos_status); debug_text("\r\n");
-            view = 12;
+            if (dos_status == RB_PROFILE_CHANGE && dos_choice.count > 1) {
+                view = 8;
+            } else {
+                debug_text("RB DOS REJECT "); debug_hex(dos_status); debug_text("\r\n");
+                view = 12;
+            }
         } else
 #endif
         if (action != RB_MENU_NONE) { view = action + 1; rescan = view == 2; }
@@ -656,13 +673,12 @@ void __cdecl rb_menu_run(void)
                 debug_text("RB TRIAL REJECT "); debug_hex(dos_status); debug_text("\r\n");
                 /* A write may have completed even when its readback failed. */
                 rb_dos_open(&dos_choice, &config, &installation, &snapshot);
-                if (dos_choice.selected.valid) { rb_menu_init(&state, 4, 15, 3, 0, now); }
-                else { rb_menu_init(&state, 3, 7, 0, 0, now); }
+                dos_menu_init(&state, 0, now);
                 view = DOS_TRIAL_RESULT;
             }
         } else if (view == DOS_TRIAL_RESULT) {
             continue;
-        } else if (view == 0 && dos_choice.trial.valid && ((key & 0xFFU) == 'v' || (key & 0xFFU) == 'V')) {
+        } else if (view == 0 && dos_choice.trial && ((key & 0xFFU) == 'v' || (key & 0xFFU) == 'V')) {
             dos_status = rb_trial_open(&trial_review, &page_data.trial_boot, &dos_choice, &snapshot);
             debug_text("RB TRIAL OPEN "); debug_hex(dos_status); debug_text("\r\n");
             view = dos_status ? DOS_TRIAL_RESULT : DOS_TRIAL_REVIEW;
@@ -681,7 +697,7 @@ void __cdecl rb_menu_run(void)
             }
         } else if (view == DOS_TIMER_RESULT) {
             continue; /* Esc returns to the menu. Enter never retries the write. */
-        } else if ((key >> 8) == 0x43U && view == 0 && dos_choice.selected.valid) {
+        } else if ((key >> 8) == 0x43U && view == 0 && dos_choice.count == 1) {
             rb_countdown_open(&timer, &dos_choice, &snapshot);
             view = timer.status ? DOS_TIMER_RESULT : DOS_TIMER_EDIT;
             debug_text("RB TIMER OPEN "); debug_hex(timer.status); debug_text("\r\n");
@@ -708,29 +724,42 @@ void __cdecl rb_menu_run(void)
             debug_text(" index="); debug_hex(config_index); debug_text("\r\n");
             view = 9;
 #endif
-        } else if ((key >> 8) == 0x3FU) {
-            view = 6; config_index = 0;
-            debug_text("RB CONFIG BEGIN\r\n");
-            rb_config_load(&config, rb_disk_read, (void *)0,
-                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
-                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
-            debug_text("RB CONFIG status="); debug_hex(config.status);
-            debug_text(" copies="); debug_hex(config.copies[0]); debug_hex(config.copies[1]);
-            debug_text(" source="); debug_hex(config.source);
-            debug_text(" count="); debug_hex(config.config.count); debug_text("\r\n");
-        } else if ((key >> 8) == 0x40U || (key >> 8) == 0x41U) {
-            view = (key >> 8) == 0x40U ? 7 : 8;
+        } else if ((key >> 8) >= 0x3FU && (key >> 8) <= 0x41U) {
+#ifdef RB_PREPARED_DOS
+            rb_u32 focus = 0;
+            rb_u16 i;
+            if (dos_choice.count > 1) {
+                if (view == 0 && state.selected >= 3) {
+                    focus = dos_choice.profiles[state.selected - 3].entry.id;
+                } else if (view >= 6 && view <= 8 && !config.status && config_index < config.config.count) {
+                    focus = config.config.entries[config_index].id;
+                }
+            }
+#endif
+            view = 6 + ((key >> 8) - 0x3FU);
             config_index = 0; verify_state = view - 6;
-            debug_text(view == 7 ? "RB STATE BEGIN\r\n" : "RB VISIBILITY BEGIN\r\n");
+            debug_text(view == 6 ? "RB CONFIG BEGIN\r\n" : view == 7 ? "RB STATE BEGIN\r\n" : "RB VISIBILITY BEGIN\r\n");
             rb_config_load(&config, rb_disk_read, (void *)0,
                 rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
                 read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
-            rb_state_load(&installation, rb_disk_read, (void *)0,
-                rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
-                read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
-            debug_text(view == 7 ? "RB STATE records=" : "RB VISIBILITY records="); debug_hex(installation.status);
-            debug_text(" copies="); debug_hex(installation.copies[0]); debug_hex(installation.copies[1]);
-            debug_text(" source="); debug_hex(installation.source); debug_text("\r\n");
+#ifdef RB_PREPARED_DOS
+            for (i = 0; focus && !config.status && i < config.config.count; ++i) {
+                if (config.config.entries[i].id == focus) { config_index = i; break; }
+            }
+#endif
+            if (view == 6) {
+                debug_text("RB CONFIG status="); debug_hex(config.status);
+                debug_text(" copies="); debug_hex(config.copies[0]); debug_hex(config.copies[1]);
+                debug_text(" source="); debug_hex(config.source);
+                debug_text(" count="); debug_hex(config.config.count); debug_text("\r\n");
+            } else {
+                rb_state_load(&installation, rb_disk_read, (void *)0,
+                    rb_boot.reachable_sectors_low, rb_boot.reachable_sectors_high,
+                    read32(snapshot.mbr + 440), read32(snapshot.mbr + 436));
+                debug_text(view == 7 ? "RB STATE records=" : "RB VISIBILITY records="); debug_hex(installation.status);
+                debug_text(" copies="); debug_hex(installation.copies[0]); debug_hex(installation.copies[1]);
+                debug_text(" source="); debug_hex(installation.source); debug_text("\r\n");
+            }
         } else if ((key >> 8) == 0x44U) {
             view = 10;
             debug_text("RB AUDIT BEGIN\r\n");

@@ -214,6 +214,50 @@ python3 RetroBoot-DOS.pyz tested.vdi --confirm-verification held-before-trial.im
 
 [Record checks and interruption handling](InstallationState.md#approving-a-completed-prepared-dos-trial)
 
+## Selecting a profile from the HDD menu
+
+A prepared HDD with two or three approved FAT16 DOS profiles on distinct
+primary partitions presents them in configuration order. Each profile must
+match a READY installation record. The configured default is highlighted,
+and the menu waits for a key. F5, F6 and F7 open on the highlighted profile.
+F9 editing, automatic boot and the verification-boot command apply to the
+single-installation disk.
+
+Enter rereads configuration, installation records and both journal slots.
+The selected entry is bound to its displayed identity, target, name and policy
+across record reordering. An idle journal must match the current MBR. After
+a completed transaction, the current MBR must match the committed after-image.
+The final visibility observation must still agree with the cold-boot MBR and
+the accepted journal snapshot. The installation proof checks the live VBR.
+
+When the selected primary already has the requested visibility and active
+flag, the BIOS geometry is checked and RetroBoot transfers control to that
+VBR. When a change is needed, Enter shows the current and proposed type and
+active flag of each primary slot. Esc returns to the selection. This path
+only reads the disk. Applying the preview requires the next stage of the
+[journaled switch](https://github.com/ixylon88/RetroBoot/issues/49).
+
+### VirtualBox check with two test boot sectors
+
+The archive contains two independently bootable VDIs. Both have profiles
+`DOS-Test P1` and `DOS-Test P2` with project-owned test boot sectors. P1 is
+active on the first disk. The second represents a completed switch to P2.
+Attach one VDI at a time as the primary IDE master (port 0, device 0) in a
+powered-off BIOS VM and boot from the hard disk.
+
+| Disk | Selection showing the preview | Selection reaching the test boot sector |
+| --- | --- | --- |
+| `RetroBoot-P1.vdi` | P2, then Enter | P1, then Enter displays `Test VBR P1 OK.` |
+| `RetroBoot-P2.vdi` | P1, then Enter | P2, then Enter displays `Test VBR P2 OK.` |
+
+In either preview the previously active slot changes from type/flag
+`0x06 / 0x80` to `0x16 / 0x00`, and the selected slot changes in the
+opposite direction. The changed-slot mask is `0x03`. Press Esc before selecting
+the active profile. Each successful boot displays `RB HANDOFF PASS` and
+the matching slot marker. The German archive is `RetroBoot-Profilauswahl-DE.zip`
+and the English archive is `RetroBoot-Profile-Selection-EN.zip`, both in
+the `retroboot-dos` workflow artifact.
+
 ## Preparation and boot checks
 
 The host copies the source disk, retains the full DOS partition at its original
@@ -225,7 +269,7 @@ The generated VDI stores the DOS heads and sectors per track as its logical
 BIOS geometry. The [VirtualBox VDI format](https://github.com/VirtualBox/virtualbox/blob/main/src/VBox/Storage/VDICore.h)
 defines this field.
 
-During boot, the menu binds its selection to the displayed profile. Enter and
+On a single-installation disk, the menu binds its selection to the displayed profile. Enter and
 timeout use the same path. That path reloads the configuration and installation
 state, requires a clean journal baseline, verifies partition visibility and
 the original boot-sector CRC, and passes the same sector and its matching

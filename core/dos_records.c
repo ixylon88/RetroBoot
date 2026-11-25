@@ -33,7 +33,7 @@ void rb_countdown_open(rb_countdown_edit *edit, const rb_dos_choice *choice,
                        const rb_loader_snapshot *snapshot)
 {
     const rb_u8 *a = reviewed.copies[0], *b = reviewed.copies[1], *source;
-    edit->status = rb_dos_observe(&reviewed, &choice->selected, snapshot, 0);
+    edit->status = rb_dos_observe(&reviewed, &choice->profiles[0], snapshot, 0);
     if (edit->status) { return; }
     edit->target = 1 - reviewed.source;
     source = reviewed.copies[reviewed.source];
@@ -60,7 +60,7 @@ void rb_countdown_save(rb_countdown_edit *edit, const rb_dos_choice *choice,
     rb_u16 i, target = 1 - reviewed.source;
     rb_u32 generation;
     if (edit->status || edit->seconds > 60) { return; }
-    if (rb_dos_observe(&current, &choice->selected, snapshot, 0) || !equal(&reviewed, &current, sizeof(current))) {
+    if (rb_dos_observe(&current, &choice->profiles[0], snapshot, 0) || !equal(&reviewed, &current, sizeof(current))) {
         edit->status = RB_TIMER_CHANGED;
         return;
     }
@@ -78,7 +78,7 @@ void rb_countdown_save(rb_countdown_edit *edit, const rb_dos_choice *choice,
         edit->status = RB_TIMER_WRITE;
         return;
     }
-    if (rb_dos_observe(&current, &choice->selected, snapshot, 0) || !equal(&reviewed, &current, sizeof(current))) {
+    if (rb_dos_observe(&current, &choice->profiles[0], snapshot, 0) || !equal(&reviewed, &current, sizeof(current))) {
         edit->status = RB_TIMER_READBACK;
         return;
     }
@@ -89,7 +89,7 @@ rb_u16 rb_trial_open(rb_trial_review *review, rb_handoff_buffer *boot, const rb_
                      const rb_loader_snapshot *snapshot)
 {
     const rb_u8 *hold, *prior;
-    rb_u16 result = rb_dos_observe(&reviewed, &choice->trial, snapshot, boot);
+    rb_u16 result = rb_dos_observe(&reviewed, &choice->profiles[0], snapshot, boot);
     review->armed = 0;
     if (result) { return result; }
     review->target = 1 - reviewed.source;
@@ -119,7 +119,7 @@ rb_u16 rb_trial_start(rb_trial_review *review, const rb_handoff_buffer *boot, co
     rb_u8 *next = reviewed.copies[target];
     if (!review->armed) { return RB_TIMER_CHANGED; }
     review->armed = 0;
-    if (rb_dos_observe(&current, &choice->trial, snapshot, &actual)
+    if (rb_dos_observe(&current, &choice->profiles[0], snapshot, &actual)
             || !equal(&reviewed, &current, sizeof(current)) || !equal(boot, &actual, sizeof(actual))) {
         return RB_TIMER_CHANGED;
     }
@@ -129,7 +129,7 @@ rb_u16 rb_trial_start(rb_trial_review *review, const rb_handoff_buffer *boot, co
     put32(next + 16, dword(hold + 16) + 1);
     next[83] = RB_INSTALL_VERIFY;
     if (publish(next, target)) { return RB_TIMER_WRITE; }
-    if (rb_dos_observe(&current, &choice->trial, snapshot, &actual)
+    if (rb_dos_observe(&current, &choice->profiles[0], snapshot, &actual)
             || !equal(&reviewed, &current, sizeof(current)) || !equal(boot, &actual, sizeof(actual))) {
         return RB_TIMER_READBACK;
     }
