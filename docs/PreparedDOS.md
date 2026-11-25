@@ -154,9 +154,32 @@ available for retry.
    `0x0007 / 0x0007`. Power off and boot again to repeat the check.
 
 The external tool runs on a private copy. The supplied IMG retains its original
-two-second delay. Re-enabling a blocked
-installation requires a separate verification workflow.
+two-second delay.
 [Installation-state checks and interrupted writes](InstallationState.md#saving-a-dos-boot-block)
+
+## One DOS verification boot
+
+The released test disk starts with the recovery hold already saved. It contains
+the project-owned test VBR. A real DOS installation needs its own bootable disk
+and its own matching READY record from immediately before the hold.
+
+1. Extract `RetroBoot-Pruefstart-DE.zip` or `RetroBoot-Verification-Boot-EN.zip`
+   from the `retroboot-dos` artifact. Attach `RetroBoot-Verify.vdi` as the only
+   hard disk on the primary IDE master (port 0, device 0) of a powered-off BIOS VM.
+2. Boot from the hard disk. Automatic boot is off. Press **V** to review the
+   installation, boot-sector CRC and destination. The supplied image shows
+   `RBSTATE.A` and generation `0x00000002 -> 0x00000003`. **Esc** cancels.
+   Open the review again with **V** and confirm with **Enter**.
+3. The test VBR displays `RB HANDOFF PASS`. Power off and cold-boot the same
+   VDI. The German menu shows `DOS-Start gesperrt. Prüfung ausstehend.`
+   **F6** shows generation `0x00000003` from A and check/detail
+   `0x0007 / 0x0005`. The menu waits for input with the verification key
+   and normal DOS entry disabled.
+
+The verification attempt is consumed before handoff. A fresh extraction of the
+test disk restores the initial fixture for another run. The result on the
+tested disk remains `verification_required` pending a separate decision.
+[Verification record and interruption behavior](InstallationState.md#consuming-one-verification-boot)
 
 ## Preparation and boot checks
 

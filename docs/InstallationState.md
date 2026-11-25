@@ -114,9 +114,9 @@ Unused slots are entirely zero. Used slots have the following fields:
 | `ready` | 6 | Eligible for the remaining consistency checks |
 | `recovery_required` | 7 | Blocks all profiles |
 
-The prepared-DOS kit implements the transition from `ready` to
-`recovery_required`. Granting `ready` at the end of an installation requires
-the controlled original-OS boot and explicit confirmation specified in v0.2.
+The prepared-DOS kit can place a ready installation on hold. The HDD menu
+can consume that hold for one explicitly requested verification boot. Granting
+`ready` after an original-OS test requires a separate confirmation.
 
 ## Saving a DOS boot block
 
@@ -134,8 +134,9 @@ The tool checks the live DOS volume, partition layout, ownership of all eight
 management files, both FATs, both configuration records and the idle journal.
 Each healthy state record must agree with the installation ID in the independent
 configuration. A `ready` record must match the live DOS VBR. Equal generations
-must be byte-identical. Adjacent generations may describe the transition into
-recovery. Conflicting or disjoint histories stop the operation.
+must be byte-identical. Accepted histories cover the original ready pair,
+the transition into recovery, the single verification boot, and a return from
+verification to recovery. Conflicting or disjoint histories stop the operation.
 
 Confirmation triggers a fresh read of the same disk context, including the
 allocation metadata and the full record pairs. The tool updates the inactive
@@ -144,12 +145,14 @@ Only the generation (offsets 16–19), phase and claim (83–87), and CRC
 (508–511) can change. The tool flushes the sector, reloads both copies,
 validates selection and compares the expected records and disk context before
 publishing the new image. Two healthy copies already selecting the block
-produce no output. Advancing a `ready` generation at `0xFFFFFFFF` is refused.
+produce no output. Advancing a `ready` or `verification_required` record at
+`0xFFFFFFFF` is refused.
 
 A single CRC failure can be handled by the same command with fresh confirmation
 when the immutable bytes match and every independent check succeeds. A
 surviving `ready` record supplies the identity and previous generation for
-completing the block. A surviving `recovery_required` record can restore its
+completing the block. A surviving `verification_required` record advances
+to recovery by the same rule. A surviving `recovery_required` record can restore its
 peer at the same generation, including at `0xFFFFFFFF`. Two bad records or a
 disagreement in identity require separate diagnosis. The command only publishes
 an installation that remains blocked.
@@ -161,6 +164,38 @@ leaves the diagnostics available. For the supplied fixture F6 shows generation
 also suppresses boot. Enter and an already running timer repeat the full
 layout and VBR checks at handoff. Earlier prepared disks retain the menu
 version used to create them. [VirtualBox test procedure](PreparedDOS.md#testing-the-installation-boot-block)
+
+## Consuming one verification boot
+
+On a prepared single-DOS disk, **V** reviews a controlled boot from the
+`recovery_required` phase. Both installation records must validate. The
+previous generation must be `ready`, refer to the same installation and
+contain the CRC of the current 512-byte DOS boot sector. The current record
+must be the immediately following recovery hold. Two recovery records have
+no earlier verified VBR to compare. An exhausted generation also blocks the
+attempt. Normal selection and the countdown stay disabled throughout.
+
+**Enter** repeats the partition scan, management-file ownership audit, profile,
+state-pair, idle-journal, volume and BIOS geometry checks. Any change to the
+reviewed records, allocation metadata, partition entry or VBR ends the
+review. On a match RetroBoot replaces the older READY sector with the next
+generation in `verification_required`, phase 5, with a zero VBR claim. It
+reads back both copies and rechecks the same disk context and staged VBR
+before transferring control. The recovery record stays intact. **Esc** during
+review performs zero writes. A write or readback error ends the attempt.
+
+| State after a power cut | Next boot |
+| --- | --- |
+| Original READY sector fully intact beside the hold | Normal boot stays blocked. A new review and explicit consent are required for another attempt. |
+| Torn installation sector | The menu reports degraded state. The external recovery tool can restore the surviving hold to its peer on a new copy. |
+| Complete phase 5 sector | The menu reports verification pending even if power failed before the jump. No automatic or manual retry is available. |
+
+The released test VBR checks the transfer and displays `RB HANDOFF PASS`.
+A real OS test includes its own startup and a subsequent confirmation before
+a future writer may grant `ready`. The external `--require-recovery` command
+can return a pending disk to the recovery phase on a new copy. Its two records
+then contain no READY VBR claim for another trial.
+[VirtualBox procedure](PreparedDOS.md#one-dos-verification-boot)
 
 ## Read and comparison boundary
 

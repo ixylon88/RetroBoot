@@ -6,7 +6,7 @@
 #include "profile_boot.h"
 
 typedef struct {
-    rb_profile_selection selected;
+    rb_profile_selection selected, trial;
     rb_u16 countdown;
     rb_state_proof records;
 } rb_dos_choice;
@@ -15,6 +15,7 @@ enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY };
 
 void __cdecl rb_dos_geometry(rb_u16 *geometry);
 void __cdecl rb_video_console(void);
+rb_u16 rb_dos_geometry_matches(const rb_profile *entry, const rb_u8 *sector);
 
 void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
                  rb_state_result *state, const rb_loader_snapshot *snapshot);
