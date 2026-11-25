@@ -63,7 +63,7 @@ writes A. An unchanged delay consumes no generation, and a change at
 flushes the new sector, and reads both copies back through the selector
 before publishing the output name. Interruption or failed verification
 leaves the input disk available for boot or retry. Firmware reads the
-usual configuration records at cold boot. Installation-state updates remain in #48.
+usual configuration records at cold boot.
 
 ## Saving the delay from the HDD menu
 
@@ -136,6 +136,27 @@ available for retry.
    powered-off BIOS VM. Boot from the hard disk. The menu waits with automatic
    boot off. Enter reaches `RB HANDOFF PASS`. Power off and start again to
    repeat the check.
+
+## Testing the installation boot block
+
+1. Extract `RetroBoot-Startsperre-DE.zip` or `RetroBoot-Boot-Hold-EN.zip` from
+   the `retroboot-dos` CI artifact. The included `RetroBoot-Status-Test.img`
+   uses the project-owned test VBR and starts with a two-second delay.
+2. On Windows with Python 3 and VirtualBox installed, drag that IMG onto
+   `RetroBoot-Recovery-Required.cmd`. The review displays `RBSTATE.A` at
+   generation 1 in `ready` and `RBSTATE.B` as the destination for generation 2
+   in `recovery_required`. Confirm with **J** in German or **Y** in English.
+   The new disk is `RetroBoot-DOS-Blocked.vdi`. Enter alone cancels.
+3. Attach the new VDI as primary IDE master (port 0, device 0) in a powered-off
+   BIOS test VM and boot from the hard disk. The German menu reads
+   `DOS-Start gesperrt. Wiederherstellung erforderlich.` and waits.
+   F6 shows generation `0x00000002` from copy B and check/detail
+   `0x0007 / 0x0007`. Power off and boot again to repeat the check.
+
+The external tool runs on a private copy. The supplied IMG retains its original
+two-second delay. Re-enabling a blocked
+installation requires a separate verification workflow.
+[Installation-state checks and interrupted writes](InstallationState.md#saving-a-dos-boot-block)
 
 ## Preparation and boot checks
 

@@ -17,14 +17,20 @@ static void load_config(rb_config_result *config, const rb_loader_snapshot *snap
         rb_boot.reachable_sectors_high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436));
 }
 
-void rb_dos_open(rb_dos_choice *choice, rb_config_result *config, const rb_loader_snapshot *snapshot)
+void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
+                 rb_state_result *state, const rb_loader_snapshot *snapshot)
 {
     const rb_profile *p = &config->config.entries[0];
     load_config(config, snapshot);
     choice->selected.valid = 0;
     choice->countdown = 0;
+    choice->records.status = RB_PROOF_MATCH;
     if (config->status || config->copies[0] || config->copies[1] || config->config.count != 1
             || p->kind != 1 || p->type != 6 || p->installed != 2 || !p->approved) { return; }
+    rb_state_load(state, rb_disk_read, (void *)0, rb_boot.reachable_sectors_low,
+                  rb_boot.reachable_sectors_high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436));
+    rb_state_check_records(&choice->records, config, state, 0);
+    if (choice->records.status) { return; }
     rb_profile_remember(&choice->selected, config, 0);
     if (choice->selected.valid && config->config.default_id == p->id) {
         choice->countdown = config->config.countdown;

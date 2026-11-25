@@ -8,6 +8,7 @@
   "DOS_GEOMETRY": "Die DOS-Partition passt nicht zur BIOS-Laufwerksgeometrie dieser VM.",
   "DOS_TIMER": "Eingabe startet die Auswahl. Jede Taste stoppt den automatischen Start.",
   "DOS_BLOCKED": "DOS-Start angehalten",
+  "DOS_RECOVERY_REQUIRED": "DOS-Start gesperrt. Wiederherstellung erforderlich. F6 zeigt den Status.",
   "DOS_BASELINE": "Datenträgerkennung oder Journal weichen von der vorbereiteten Platte ab.",
   "TIMER_HELP": "F9  DOS-Wartezeit einstellen",
   "TIMER_TITLE": "Wartezeit für den DOS-Start",

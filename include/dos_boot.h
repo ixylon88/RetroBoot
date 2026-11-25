@@ -8,6 +8,7 @@
 typedef struct {
     rb_profile_selection selected;
     rb_u16 countdown;
+    rb_state_proof records;
 } rb_dos_choice;
 
 enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY };
@@ -15,7 +16,8 @@ enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY };
 void __cdecl rb_dos_geometry(rb_u16 *geometry);
 void __cdecl rb_video_console(void);
 
-void rb_dos_open(rb_dos_choice *choice, rb_config_result *config, const rb_loader_snapshot *snapshot);
+void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
+                 rb_state_result *state, const rb_loader_snapshot *snapshot);
 rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 automatic,
                     rb_config_result *config, rb_state_result *state, rb_visibility_result *visibility,
                     rb_journal_diagnosis *journal, const rb_loader_snapshot *snapshot);

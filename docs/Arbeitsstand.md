@@ -17,8 +17,15 @@ restores a damaged configuration sector on a new disk from the verified peer.
 The maintainer confirmed the repaired disk kept automatic boot off after a
 cold start and Enter reached the test VBR. [VirtualBox report for PR #84](https://github.com/ixylon88/RetroBoot/pull/84#issuecomment-7163789164)
 The [F9 HDD menu](PreparedDOS.md#saving-the-delay-from-the-hdd-menu) saves a
-new countdown in the inactive configuration sector. Installation-state writes
-remain open in #48.
+new countdown in the inactive configuration sector. The maintainer confirmed
+automatic handoff at three seconds and a waiting menu at zero across cold
+boots. [VirtualBox report for PR #85](https://github.com/ixylon88/RetroBoot/pull/85#issuecomment-7165316562)
+
+The first installation-state write in #48 puts a prepared DOS system into
+`recovery_required` on a new disk copy. A cold boot suppresses the DOS entry
+and F6 shows the selected installation phase. Installer handoff and verification before
+returning an installation to `ready` remain open.
+[Installation-state update](InstallationState.md#saving-a-dos-boot-block)
 Menu-driven switching between operating systems follows in #49.
 
 ## Original DOS boot and recovery milestones

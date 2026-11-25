@@ -272,8 +272,12 @@ def run(language, qemu, bios):
             shutil.copyfile(raw, changed)
             flip(lba, offset)
             with start(case, image=changed) as menu:
-                menu.key('f9', 14)
-                menu.expect(ui['TIMER_DISK'])
+                if case == 'state-mismatch':
+                    menu.key('f9', 0)
+                    menu.expect(ui['STATE_DEGRADED'])
+                else:
+                    menu.key('f9', 14)
+                    menu.expect(ui['TIMER_DISK'])
 
         # Fail the write, then separately fail reading the untouched peer after
         # a successful write. Neither path may retry Enter or report success.
