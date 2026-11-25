@@ -52,8 +52,17 @@ screens document a matching P1 view (mask `0x00`), the proposed P2 view
 The [single-VDI check](PreparedDOS.md#switching-profiles-on-one-disk) now
 covers the persistent switch in both directions. The main menu offers a
 separate confirmation before publishing a prepared journal, changing the MBR
-and publishing completion. The next manual check uses the same disk across
-cold boots.
+and publishing completion. The maintainer confirmed the switch in VirtualBox.
+The screenshot filenames put the startup menu at 19:48:46, the read-only P2
+preview at 19:49:28, the confirmation at 19:49:36 and the P2 test boot
+sector at 19:49:44. The confirmation showed sequence `0x00000004` on disk
+`0x52425431`. The target reported `RB HANDOFF PASS` and `Test VBR P2 OK.`.
+[VirtualBox report for PR #90](https://github.com/ixylon88/RetroBoot/pull/90#issuecomment-7171497394)
+
+The next rescue kit reproduces an interruption during the return to P1 at
+sequence `0x00000003`. It includes the enrolled system disk, secondary
+backup disk and both languages of the independent rescue floppy.
+[VirtualBox procedure](LaterProfileRecovery.txt)
 
 ## Original DOS boot and recovery milestones
 

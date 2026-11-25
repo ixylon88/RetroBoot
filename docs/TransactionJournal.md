@@ -19,7 +19,10 @@ missing or partly written first prepare header over its seed. It checks the
 resulting physical journal pair before changing the partition table. An
 earlier interruption can leave only part of the intended MBR in the journal.
 The bilingual kit demonstrates discarding that copy on confirmation and
-recognizing the intact baseline on restart. [Journal recovery](JournalRecovery.txt).
+recognizing the intact baseline on restart. [First-switch recovery](JournalRecovery.txt)
+
+A separate floppy can restore the previous generation or finish a later
+interrupted switch between prepared FAT16 profiles. [Later switches](#external-recovery-of-later-fat16-profile-switches)
 
 ## Three-sector record, version 1
 
@@ -208,5 +211,46 @@ For the first switch, a separately enrolled rescue floppy and external
 backup complete the actual interrupted HDD transaction and verify the
 repaired disk through a cold P2 boot. A full powered-off pre-switch copy is
 also restored and booted at each injected write boundary in both directions.
-The sector-level rescue floppy currently recognizes the first transaction.
 [Single-VDI manual check](PreparedDOS.md#switching-profiles-on-one-disk)
+
+
+## External recovery of later FAT16 profile switches
+
+`profile-recovery.img` boots independently of the HDD loader. Its published
+secondary backup and floppy witness authorize the entire intended MBR. The
+enrolled primary IDE master and BIOS disk 0x80 must return identical physical
+sector contents. The backup must match the live disk identity, management
+volume, EBRs, boot areas, and raw configuration/state records.
+
+The recovery program recognizes two or three READY FAT16 primary profiles.
+A complete committed predecessor or a complete prepared successor supplies
+the candidate sequence and slot order. The two possible phases of each
+header, both old/new snapshots, and the live MBR are compared against the
+seven physical writes in their publication order. Each candidate previous
+profile uses the protected bytes of the full external MBR. All sectors
+following an interrupted write must still have their expected old contents.
+
+| Observed on the system disk | Offered operation |
+| --- | --- |
+| Previous or final committed pair matches the live MBR | Report completion with zero writes |
+| Only the old snapshot was copied, or the new snapshot is still incomplete | Restore the unpublished journal sectors from the previous generation and keep its active profile |
+| Both new-generation snapshots are complete and the target matches external approval | Publish the remaining sectors in order, including LBA 0 only when required |
+| Foreign disk or witness, protected-byte change, or incompatible sector order | Stop before writing |
+
+A torn LBA 0 write can leave two active flags during a P2-to-P1 return. For
+the structural allocation audit, the program reads the physical MBR and
+substitutes the externally approved view in memory. The write decision
+still requires every byte of the observed physical MBR to match the ordered
+transition, including its exact old suffix. Journal addresses come from
+the checked live management allocation.
+
+The review lists the resulting profile, sequence, all remaining LBAs, and
+the individual differences if LBA 0 is included. Confirmation repeats the
+checks and pins the observed sector. Each write is flushed, read back
+through BIOS and ATA and followed by a fresh independent check. After an
+error, a new boot derives the remaining work from the physical disk.
+
+`make profile-recovery-test` builds both rescue languages and exercises the
+shipped VDIs, both slot orders, all seven interruption points and the final
+32-bit sequence. The ZIP is written to `build/profile-recovery/`.
+[VirtualBox test and expected messages](LaterProfileRecovery.txt)

@@ -33,6 +33,8 @@ jobs:
         run: |
           python3 tools/build_rescue.py --language en
           python3 tools/test_profile_switch_recovery.py
+          python3 tools/build_rescue.py --language de
+          python3 tools/test_later_profile_recovery.py
       - name: Upload the prepared DOS disk kit
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -56,6 +58,7 @@ jobs:
             build/hdd-de/RetroBoot-Profilauswahl-DE.zip
             build/hdd/RetroBoot-Partition-Switch-EN.zip
             build/hdd-de/RetroBoot-Umschaltung-DE.zip
+            build/profile-recovery/RetroBoot-Profilwechsel-Rettung.zip
       - name: Upload compact HDD fixture and evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

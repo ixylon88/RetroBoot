@@ -168,5 +168,14 @@
   "JR_UNFINISHED": "The new MBR copy is incomplete. The live MBR still has its old contents.",
   "JR_DISCARD": "Y restore the journal baseline   Esc cancel",
   "JR_DISCARDED": "Journal baseline restored. Partition table verified.",
-  "JR_BASELINE": "No partition switch is pending. Both journal copies verified."
+  "JR_BASELINE": "No partition switch is pending. Both journal copies verified.",
+  "PR_SEQUENCE": "Journal sequence 0x",
+  "PR_PROFILE": "Resulting boot profile P",
+  "PR_UNDO": "The intended MBR copy is incomplete. Restore the previous journal.",
+  "PR_FINISH": "The complete intended MBR matches the external approval.",
+  "PR_SECTORS": "System disk sectors to write, in order (LBA):",
+  "PR_CONFIRM": "Y Repair the listed sectors   Esc Cancel",
+  "PR_IDLE": "The last profile switch is complete. No repair is needed.",
+  "PR_BAD": "No matching later profile switch can be recovered.",
+  "PR_UNDONE": "Previous journal restored. The original profile remains active."
 }

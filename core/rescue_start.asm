@@ -5,7 +5,10 @@ group DGROUP _TEXT CONST CONST2 _DATA _BSS STACK
 segment _TEXT public align=16 class=CODE use16
 global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_rescue_runtime, _rb_rescue_run, _rb_putc
-%ifdef RB_RESCUE_JOURNAL_RECOVERY
+%ifdef RB_RESCUE_PROFILE_RECOVERY
+extern _rb_profile_recovery_run
+%define RB_RESCUE_HISTORY_ENTRY _rb_profile_recovery_run
+%elifdef RB_RESCUE_JOURNAL_RECOVERY
 extern _rb_journal_recovery_run
 %define RB_RESCUE_HISTORY_ENTRY _rb_journal_recovery_run
 %elifdef RB_RESCUE_MBR_RESTORE
@@ -203,7 +206,10 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_JOURNAL_RECOVERY
+%ifdef RB_RESCUE_PROFILE_RECOVERY
+restart_pass db 'RB PROFILE RECOVERY PASS', 13, 10, 0
+restart_blocked db 'RB PROFILE RECOVERY BLOCKED', 13, 10, 0
+%elifdef RB_RESCUE_JOURNAL_RECOVERY
 restart_pass db 'RB JOURNAL RECOVERY PASS', 13, 10, 0
 restart_blocked db 'RB JOURNAL RECOVERY BLOCKED', 13, 10, 0
 %elifdef RB_RESCUE_MBR_RESTORE
