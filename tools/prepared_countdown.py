@@ -1,5 +1,5 @@
-"""Update one countdown on a private copy of a prepared RetroBoot DOS disk."""
-from dataclasses import dataclass
+"""Update or recover the countdown on a private copy of a prepared DOS disk."""
+from dataclasses import dataclass, replace
 import os
 import struct
 import zlib
@@ -91,9 +91,11 @@ class MenuSetting:
     lbas: tuple
     copies: tuple
     active: int
+    disk_context: tuple
+    needs_repair: bool
 
 
-def inspect(disk):
+def inspect(disk, *, allow_countdown_damage=False):
     size = disk.seek(0, os.SEEK_END)
     mbr, slot, start, length, vbr = dos_volume(disk, size, prepared=True)
     spt, heads = struct.unpack_from('<HH', vbr, 24)
@@ -128,7 +130,19 @@ def inspect(disk):
         raise ValueError('Prepared DOS journal is outside the idle baseline')
 
     copies = tuple(record(name) for name in CONFIG)
-    for cfg in copies:
+    a, b = copies
+    bad_crc = [index for index, cfg in enumerate(copies) if dword(cfg, 508) != zlib.crc32(cfg[:508])]
+    if len(bad_crc) == 2:
+        raise ValueError('Both configuration checksums failed')
+    if bad_crc and not allow_countdown_damage:
+        raise ValueError('A configuration checksum failed')
+    # A countdown update can change only the generation, delay and checksum.
+    # In particular, never use a damaged slot to infer an identity or a profile.
+    if a[:16] != b[:16] or a[20:38] != b[20:38] or a[40:508] != b[40:508]:
+        raise ValueError('Configuration copies differ outside the countdown fields')
+    for index, cfg in enumerate(copies):
+        if index in bad_crc:
+            continue
         # Re-encoding with the live layout and independent installation ID also
         # verifies all reserved bytes, bounds, approval flags and the stored CRC.
         profile = dict(entry, id=dword(cfg, 64), installed=2, approved=1,
@@ -137,13 +151,36 @@ def inspect(disk):
             countdown=word(cfg, 38), generation=dword(cfg, 16), language='de' if cfg[44] else 'en')
         if cfg != expected:
             raise ValueError('Configuration differs from the live prepared DOS installation')
-    a, b = copies
-    ga, gb = dword(a, 16), dword(b, 16)
-    if (a[:16] != b[:16] or a[20:38] != b[20:38] or a[40:508] != b[40:508]
-            or abs(ga - gb) > 1 or (ga == gb and a != b)):
-        raise ValueError('Ambiguous or stale configuration pair')
+    if bad_crc:
+        active = 1 - bad_crc[0]
+    else:
+        ga, gb = dword(a, 16), dword(b, 16)
+        if abs(ga - gb) > 1 or (ga == gb and a != b):
+            raise ValueError('Ambiguous or stale configuration pair')
+        active = int(gb > ga)
+    context = (mbr, ebr, vbr, state, tuple(files[name] for name in SIZES))
     return MenuSetting((size // SECTOR, heads, spt), tuple(files[n][0] for n in CONFIG),
-                       copies, int(gb > ga))
+                       copies, active, context, bool(bad_crc))
+
+
+def write_inactive(disk, before, sector):
+    """Recheck the reviewed disk, then replace and validate exactly one record."""
+    if inspect(disk, allow_countdown_damage=before.needs_repair) != before:
+        raise ValueError('Disk or setting changed before the update')
+    target = 1 - before.active
+    disk.seek(before.lbas[target] * SECTOR)
+    if disk.write(sector) != SECTOR:
+        raise OSError('Incomplete configuration write')
+    disk.flush()
+    os.fsync(disk.fileno())
+    copies = list(before.copies)
+    copies[target] = sector
+    # Copying the survivor produces equal peers (the firmware selects A).
+    # An ordinary timer update publishes a new generation in the other slot.
+    active = 0 if before.needs_repair else target
+    if inspect(disk) != replace(before, copies=tuple(copies), active=active, needs_repair=False):
+        raise ValueError('Configuration readback failed')
+    return before.geometry
 
 
 def change_countdown(disk, seconds, language):
@@ -169,20 +206,37 @@ def change_countdown(disk, seconds, language):
     generation = dword(source, 16)
     if generation == 0xffffffff:
         raise ValueError('Configuration generation exhausted')
-    if inspect(disk) != before:
-        raise ValueError('Disk or setting changed before the update')
-    target = 1 - before.active
     edit = bytearray(source)
     struct.pack_into('<I', edit, 16, generation + 1)
     struct.pack_into('<H', edit, 38, seconds)
-    expected = config_records.seal(edit)
-    disk.seek(before.lbas[target] * SECTOR)
-    if disk.write(expected) != SECTOR:
-        raise OSError('Incomplete configuration write')
-    disk.flush()
-    os.fsync(disk.fileno())
-    after = inspect(disk)
-    if (after.geometry != before.geometry or after.lbas != before.lbas or after.active != target
-            or after.copies[target] != expected or after.copies[before.active] != source):
-        raise ValueError('Configuration readback failed')
-    return before.geometry
+    return write_inactive(disk, before, config_records.seal(edit))
+
+
+def recover_countdown(disk, language):
+    before = inspect(disk, allow_countdown_damage=True)
+    german = language == 'de'
+    if not before.needs_repair:
+        print('Beide Konfigurationskopien sind gültig. Keine Reparatur erforderlich.'
+              if german else 'Both configuration copies are valid. No repair is needed.')
+        return None
+
+    source = before.copies[before.active]
+    seconds = word(source, 38)
+    generation = dword(source, 16)
+    good = 'RBCFG.' + 'AB'[before.active]
+    target = 1 - before.active
+    bad = 'RBCFG.' + 'AB'[target]
+    lba = before.lbas[target]
+    if german:
+        print(f'{good} ist gültig. Generation {generation}, Wartezeit {seconds} s.')
+        prompt = f'{bad} hat einen Prüfsummenfehler. LBA 0x{lba:08X} in der neuen Kopie ersetzen? [j/N] '
+    else:
+        print(f'{good} is valid. Generation {generation}, delay {seconds} s.')
+        prompt = f'{bad} has a checksum error. Replace LBA 0x{lba:08X} in the new copy? [y/N] '
+    try:
+        reply = input(prompt).strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        reply = ''
+    if reply != ('j' if german else 'y'):
+        raise ValueError('Abgebrochen.' if german else 'Cancelled.')
+    return write_inactive(disk, before, source)
