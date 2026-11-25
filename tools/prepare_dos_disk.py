@@ -1,5 +1,6 @@
 """Create a prepared RetroBoot disk from a local, installed MS-DOS hard disk."""
 import argparse
+from contextlib import contextmanager
 import os
 from pathlib import Path
 import shutil
@@ -192,23 +193,44 @@ def vboxmanage():
     return executable
 
 
-def write_disk_copy(source, output, edit):
+def check_image(source):
     if source.suffix.lower() not in ('.img', '.raw', '.vdi', '.vhd', '.vmdk') or not stat.S_ISREG(source.stat().st_mode):
         raise ValueError('A local DOS disk image file is required')
+
+
+def clone_raw(source, raw):
+    if source.suffix.lower() in ('.img', '.raw'):
+        shutil.copyfile(source, raw)
+    else:
+        subprocess.run([vboxmanage(), 'clonemedium', 'disk', str(source.resolve()), str(raw),
+                        '--format', 'RAW'], check=True)
+
+
+@contextmanager
+def open_reference(source, directory):
+    check_image(source)
+    if source.suffix.lower() in ('.img', '.raw'):
+        with source.open('rb') as stream:
+            yield stream
+    else:
+        with tempfile.TemporaryDirectory(dir=directory) as work:
+            raw = Path(work) / 'reference.raw'
+            clone_raw(source, raw)
+            with raw.open('rb') as stream:
+                yield stream
+
+
+def write_disk_copy(source, output, edit):
+    check_image(source)
     if output.suffix.lower() not in ('.img', '.raw', '.vdi'):
         raise ValueError('Output must be a new VDI or raw disk image')
     if os.path.lexists(output):
         raise FileExistsError(f'Output already exists: {output}')
-    convert_source = source.suffix.lower() not in ('.img', '.raw')
     convert_output = output.suffix.lower() == '.vdi'
-    vbox = vboxmanage() if convert_source or convert_output else None
+    vbox = vboxmanage() if convert_output else None
     with tempfile.TemporaryDirectory(dir=output.parent) as tmp:
         raw = Path(tmp) / 'copy.raw'
-        if convert_source:
-            subprocess.run([vbox, 'clonemedium', 'disk', str(source.resolve()), str(raw),
-                            '--format', 'RAW'], check=True)
-        else:
-            shutil.copyfile(source, raw)
+        clone_raw(source, raw)
         with raw.open('r+b') as disk:
             geometry = edit(disk)
         if geometry is None:
@@ -244,17 +266,26 @@ def main():
                        help='Restore a damaged countdown copy from its valid peer on a new disk')
     group.add_argument('--require-recovery', action='store_true',
                        help='Block boot of a prepared DOS installation on a new disk copy')
+    group.add_argument('--confirm-verification', type=Path, metavar='REFERENCE',
+                       help='Approve an observed verification boot on a new copy using a matching pre-trial disk')
     args = parser.parse_args()
     kit = Path(sys.argv[0])
     try:
-        if args.set_countdown is None and not (args.recover_countdown or args.require_recovery):
+        if args.set_countdown is None and not (args.recover_countdown or args.require_recovery or args.confirm_verification):
             output = args.output or Path('RetroBoot-DOS.vdi')
             make_disk(args.source, output.absolute(), kit, args.countdown)
         else:
             from prepared_countdown import change_countdown, recover_countdown
             with zipfile.ZipFile(kit) as bundle:
                 language = bundle.read('language.txt').decode('ascii')
-            if args.require_recovery:
+            if args.confirm_verification:
+                from prepared_install_state import confirm_verification
+                output = (args.output or Path('RetroBoot-DOS-Ready.vdi')).absolute()
+                with open_reference(args.confirm_verification, output.parent) as reference:
+                    if not write_disk_copy(args.source, output, lambda disk: confirm_verification(disk, reference, language)):
+                        return
+                print('DOS-Start freigegeben und geprüft.' if language == 'de' else 'DOS boot approved and verified.')
+            elif args.require_recovery:
                 from prepared_install_state import require_recovery
                 output = args.output or Path('RetroBoot-DOS-Blocked.vdi')
                 if not write_disk_copy(args.source, output.absolute(), lambda disk: require_recovery(disk, language)):

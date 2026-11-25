@@ -181,6 +181,39 @@ test disk restores the initial fixture for another run. The result on the
 tested disk remains `verification_required` pending a separate decision.
 [Verification record and interruption behavior](InstallationState.md#consuming-one-verification-boot)
 
+## Approving an observed verification boot
+
+The test starts with the `RetroBoot-Verify.vdi` that reached `RB HANDOFF PASS`
+and subsequently showed generation 3 from A under F6. The approval kit
+contains the matching pre-trial reference and the external tool.
+
+1. Power off the VM and extract `RetroBoot-DOS-Freigabe-DE.zip` or
+   `RetroBoot-DOS-Approval-EN.zip`. On Windows with Python 3 and VirtualBox,
+   drag the **tested** VDI onto `RetroBoot-Confirm-Verification.cmd`.
+   The launcher reads the included `RetroBoot-Reference.img` automatically.
+2. Review the installation ID, original VBR CRC, both state sectors and saved
+   delay. Confirm with **J** in German or **Y** in English. An empty answer
+   cancels. The tool writes `RetroBoot-DOS-Ready.vdi` beside the launcher.
+   The tested input remains available in its pending state.
+3. Attach the new VDI as the primary IDE master. At the menu press **F6**
+   before the two-second delay expires. Both pairs show `0x0000 / 0x0000`,
+   generation `0x00000004 A`, and check/detail `0x0000 / 0x0000`. F6 is
+   a diagnostic view. The main menu starts the test VBR automatically on the
+   next cold boot using the saved countdown.
+
+For an actual MS-DOS installation, a successful controlled boot includes
+reaching DOS, checking the version with `VER`, and returning to RetroBoot.
+The operator records that observation for the installation under test. The
+reference disk must come from that same installation. The distributed fixture
+reference belongs only to the project-owned test VBR. With VirtualBox snapshots,
+the current attached medium supplies the tested state.
+
+```text
+python3 RetroBoot-DOS.pyz tested.vdi --confirm-verification held-before-trial.img --output approved.vdi
+```
+
+[Record checks and interruption handling](InstallationState.md#approving-a-completed-prepared-dos-trial)
+
 ## Preparation and boot checks
 
 The host copies the source disk, retains the full DOS partition at its original

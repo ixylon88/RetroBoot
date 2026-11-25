@@ -1,7 +1,10 @@
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import struct
 import tempfile
 import unittest
@@ -492,3 +495,221 @@ class PreparedDiskTests(unittest.TestCase):
                 self.assertFalse(result.exists())
             with source.open('rb') as disk:
                 self.assertEqual(hashlib.file_digest(disk, 'sha256').digest(), original)
+
+    def approval_images(self, directory, generation=1, trial_slot=0):
+        # Construct the pre-trial reference and its descendant independently of
+        # the approval writer. Keep the original VBR claim in the READY record.
+        ready = self.prepared_image(directory)
+        with ready.open('rb') as stream:
+            records = prepared_records.read_records(stream)
+        lbas = [records.files[name][0] for name in prepared_records.STATE]
+
+        def sector(number, phase):
+            data = bytearray(records.state[0])
+            struct.pack_into('<I', data, 16, number)
+            data[83] = phase
+            if phase != 6:
+                data[84:88] = bytes(4)
+            return config_records.seal(data)
+
+        prior = sector(generation, 6)
+        hold = sector(generation + 1, 7)
+        pending = sector(generation + 2, 5)
+        reference, trial = directory / 'reference.img', directory / 'trial.img'
+        with ready.open('r+b') as stream:
+            for lba in lbas:
+                stream.seek(lba * SECTOR)
+                stream.write(prior)
+        shutil.copyfile(ready, reference)
+        with reference.open('r+b') as stream:
+            stream.seek(lbas[1 - trial_slot] * SECTOR)
+            stream.write(hold)
+        shutil.copyfile(reference, trial)
+        with trial.open('r+b') as stream:
+            stream.seek(lbas[trial_slot] * SECTOR)
+            stream.write(pending)
+        return ready, reference, trial, lbas, sector
+
+    def test_approval_binds_both_slots_repeats_and_recovers_the_existing_countdown(self):
+        for slot, pre_hold, generation in ((0, False, 1), (1, False, 253), (0, True, 0xfffffffc)):
+            with self.subTest(slot=slot, initial=generation), tempfile.TemporaryDirectory() as tmp:
+                ready, held, trial, lbas, sector = self.approval_images(Path(tmp), generation, slot)
+                approved = Path(tmp) / 'approved.img'
+                reference = ready if pre_hold else held
+                with reference.open('rb') as proof, patch('builtins.input', return_value='J'):
+                    self.assertTrue(write_disk_copy(trial, approved,
+                        lambda disk: prepared_install_state.confirm_verification(disk, proof, 'de')))
+                    with approved.open('r+b') as disk, patch('builtins.input', side_effect=AssertionError('no extra consent')):
+                        state, _, selected, damaged = prepared_install_state.inspect_state(disk)
+                        self.assertEqual((state.state, selected, damaged), ((sector(generation + 3, 6),) * 2, 0, False))
+                        self.assertIsNone(prepared_install_state.confirm_verification(disk, proof, 'en'))
+                        prepared_countdown.change_countdown(disk, 2, 'en')
+                        self.assertEqual(prepared_countdown.inspect(disk).copies[1][38], 2)
+                with trial.open('rb') as original:
+                    self.assertEqual(read_sector(original, lbas[slot]), sector(generation + 2, 5))
+                    self.assertEqual(read_sector(original, lbas[1 - slot]), sector(generation + 1, 7))
+
+    def test_approval_refuses_stale_foreign_damaged_or_unconsumed_inputs_before_consent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, reference, trial, lbas, sector = self.approval_images(root)
+            with trial.open('rb') as source:
+                records = prepared_records.read_records(source)
+            cfg = bytearray(records.config[1])
+            struct.pack_into('<I', cfg, 16, 2)
+            cfg[38] = 1
+            cases = (
+                (trial, records.target['start'], 509, b'\x17'),
+                (trial, lbas[0], 0, sector(1, 6)),        # Hold never consumed.
+                (trial, lbas[1], 0, sector(4, 7)),        # Trial already returned to recovery.
+                (trial, lbas[1], 508, bytes(4)),
+                (reference, lbas[0], 508, bytes(4)),
+                (reference, lbas[0], 0, sector(2, 7)),    # No independent READY evidence.
+                (reference, lbas[0], 0, sector(3, 5)),    # Pending disk as reference.
+                (trial, records.files[prepared_records.CONFIG[1]][0], 0, config_records.seal(cfg)),
+                (reference, records.files[prepared_records.JOURNAL[0]][0], 508, bytes(4)),
+            )
+            with patch('builtins.input', side_effect=AssertionError('unexpected consent')):
+                for path, lba, offset, data in cases:
+                    with self.subTest(path=path.name, lba=lba, offset=offset):
+                        with path.open('r+b') as disk:
+                            original = read_sector(disk, lba)
+                            disk.seek(lba * SECTOR + offset)
+                            disk.write(data)
+                        with trial.open('r+b') as tested, reference.open('rb') as proof, self.assertRaises(ValueError):
+                            prepared_install_state.confirm_verification(tested, proof, 'de')
+                        with path.open('r+b') as disk:
+                            disk.seek(lba * SECTOR)
+                            disk.write(original)
+                separate = root / 'separate'
+                separate.mkdir()
+                _, foreign, _, _, _ = self.approval_images(separate)
+                with trial.open('r+b') as tested, foreign.open('rb') as proof, self.assertRaises(ValueError):
+                    prepared_install_state.confirm_verification(tested, proof, 'en')
+                full = root / 'full'
+                full.mkdir()
+                _, ref_full, last_trial, _, _ = self.approval_images(full, 0xfffffffd)
+                with last_trial.open('r+b') as tested, ref_full.open('rb') as proof, self.assertRaisesRegex(ValueError, 'exhausted'):
+                    prepared_install_state.confirm_verification(tested, proof, 'en')
+
+    def test_approval_publication_requires_observation_and_each_independent_readback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, reference, trial, lbas, _ = self.approval_images(root)
+            output = root / 'approved.img'
+            with trial.open('rb') as disk:
+                original_hash = hashlib.file_digest(disk, 'sha256').digest()
+            with reference.open('rb') as proof:
+                def approve(disk):
+                    return prepared_install_state.confirm_verification(disk, proof, 'de')
+
+                for reply in ('', 'n', 'Y', 'yes'):
+                    with patch('builtins.input', return_value=reply), self.assertRaisesRegex(ValueError, 'Abgebrochen'):
+                        write_disk_copy(trial, output, approve)
+                    self.assertFalse(output.exists())
+                with patch('builtins.input', side_effect=EOFError), self.assertRaisesRegex(ValueError, 'Abgebrochen'):
+                    write_disk_copy(trial, output, approve)
+
+                with trial.open('rb') as stream:
+                    records = prepared_records.read_records(stream)
+                admin = records.binding['admin_start']
+                directory_lba = admin + 1 + 2 * struct.unpack_from('<H', read_sector(proof, admin), 22)[0]
+                def change_directory(disk):
+                    disk.seek(directory_lba * SECTOR + 22)
+                    disk.write(b'\x17')
+                    disk.flush()
+
+                def stale(disk):
+                    def reply(_):
+                        change_directory(disk)
+                        return 'J'
+                    with patch('builtins.input', side_effect=reply):
+                        return approve(disk)
+                with self.assertRaisesRegex(ValueError, 'changed before'):
+                    write_disk_copy(trial, output, stale)
+
+                for target, failure in ((1, 'write'), (0, 'write'), (1, 'readback'), (0, 'readback'), (0, 'fsync')):
+                    writes = []
+                    def inject(disk, lba, contents):
+                        writes.append(lba)
+                        if lba != lbas[target]:
+                            return prepared_records.write_sector(disk, lba, contents)
+                        if failure == 'write':
+                            raise OSError('write')
+                        if failure == 'fsync':
+                            with patch('tools.prepared_records.os.fsync', side_effect=OSError('flush')):
+                                return prepared_records.write_sector(disk, lba, contents)
+                        # Simulate a successful write whose sector still contains the old data.
+                    with self.subTest(target=target, fault=failure), patch('builtins.input', return_value='J'):
+                        with patch.object(prepared_install_state, 'write_sector', side_effect=inject):
+                            with self.assertRaises((ValueError, OSError)):
+                                write_disk_copy(trial, output, approve)
+                        self.assertEqual(writes, [lbas[1]] if target == 1 else [lbas[1], lbas[0]])
+                        self.assertFalse(output.exists())
+
+                def create_competing_output(_):
+                    output.write_bytes(b'existing output')
+                    return 'J'
+                with patch('builtins.input', side_effect=create_competing_output), self.assertRaises(FileExistsError):
+                    write_disk_copy(trial, output, approve)
+                self.assertEqual(output.read_bytes(), b'existing output')
+                output.unlink()
+
+                original_directory = read_sector(proof, directory_lba)
+                for changed_slot in (1, 0):
+                    def change_reference(disk, lba, data):
+                        prepared_records.write_sector(disk, lba, data)
+                        if lba == lbas[changed_slot]:
+                            with reference.open('r+b') as other:
+                                change_directory(other)
+                    with patch('builtins.input', return_value='J'), patch.object(prepared_install_state, 'write_sector',
+                            side_effect=change_reference) as writer, self.assertRaisesRegex(ValueError, 'Reference changed'):
+                        write_disk_copy(trial, output, approve)
+                    self.assertEqual(writer.call_count, 1 if changed_slot == 1 else 2)
+                    self.assertFalse(output.exists())
+                    with reference.open('r+b') as other:
+                        other.seek(directory_lba * SECTOR)
+                        other.write(original_directory)
+            with trial.open('rb') as disk:
+                self.assertEqual(hashlib.file_digest(disk, 'sha256').digest(), original_hash)
+
+    def test_external_hold_after_every_distinct_torn_approval_sector(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, reference, trial, lbas, sector = self.approval_images(Path(tmp), 253)
+            hold, pending, final = sector(254, 7), sector(255, 5), sector(256, 6)
+            with trial.open('r+b') as disk, reference.open('rb') as proof:
+                for mirror in (False, True):
+                    target, previous, survivor = (0, pending, final) if mirror else (1, hold, pending)
+                    cuts = {final[:cut] + previous[cut:] for cut in range(SECTOR + 1)}
+                    for partial in cuts:
+                        for slot, value in ((target, partial), (1 - target, survivor)):
+                            disk.seek(lbas[slot] * SECTOR)
+                            disk.write(value)
+                        if partial not in (previous, final):
+                            with self.assertRaises(ValueError), patch('builtins.input', side_effect=AssertionError('torn approval')):
+                                prepared_install_state.confirm_verification(disk, proof, 'en')
+                        with patch('builtins.input', return_value='Y'):
+                            prepared_install_state.require_recovery(disk, 'en')
+                        after, _, active, damaged = prepared_install_state.inspect_state(disk)
+                        self.assertFalse(damaged)
+                        self.assertEqual(after.state[active][83], 7)
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows drag-and-drop launcher')
+    def test_windows_approval_launcher_passes_both_quoted_input_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            launcher = root / 'RetroBoot-Confirm-Verification.cmd'
+            shutil.copyfile(Path(__file__).resolve().parents[1] / 'tools/RetroBoot-DOS.cmd', launcher)
+            (root / 'RetroBoot-DOS.pyz').write_text('import json, sys\nprint(json.dumps(sys.argv[1:]))\n')
+            source = root / 'observed & tested!.vdi'
+            source.touch()
+            for supplied in (False, True):
+                reference = root / ('reference with spaces.img' if supplied else 'RetroBoot-Reference.img')
+                reference.touch()
+                args = [os.environ['COMSPEC'], '/d', '/c', launcher.name, source.name]
+                if supplied:
+                    args.append(reference.name)
+                result = subprocess.run(args, cwd=root, input='\n', text=True, capture_output=True, check=True)
+                actual = next(json.loads(line) for line in result.stdout.splitlines() if line.startswith('['))
+                self.assertEqual(actual, [str(source), '--confirm-verification', str(reference),
+                                          '--output', str(root / 'RetroBoot-DOS-Ready.vdi')])

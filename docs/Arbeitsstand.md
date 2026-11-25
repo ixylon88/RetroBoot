@@ -28,9 +28,18 @@ The menu waited, and F6 identified generation 2 from copy B in phase 7.
 The prepared-DOS HDD menu now offers one explicitly confirmed verification
 boot when the preceding READY record still matches the live VBR. It records
 phase 5 before handing over. A cold boot then waits for verification.
-Installer handoff and the later decision to grant `ready` remain open in #48.
-[Verification boot and test disk](PreparedDOS.md#one-dos-verification-boot)
-Menu-driven switching between operating systems follows in #49.
+In VirtualBox the test VBR reported `RB HANDOFF PASS`, and F6 after the cold
+boot showed generation 3 from A with check/detail `0x0007 / 0x0005`.
+[VirtualBox report for PR #87](https://github.com/ixylon88/RetroBoot/pull/87#issuecomment-7167619089)
+
+The external DOS kit can now approve that observed trial on a new disk
+copy. It checks a separately retained pre-trial VBR and state history before
+restoring normal boot and the saved countdown. The released fixture tests
+the VBR transfer. Original-OS acceptance requires a trial of that installation.
+[Approval procedure](PreparedDOS.md#approving-an-observed-verification-boot)
+
+Installer handoff and menu-driven switching between operating systems remain
+separate milestones. The latter is tracked in #49.
 
 ## Original DOS boot and recovery milestones
 
