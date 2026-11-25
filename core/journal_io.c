@@ -1,6 +1,11 @@
 #include "journal_io.h"
 #include "admin_audit.h"
 #include "state.h"
+#ifdef RB_PREPARED_DOS
+#include "dos_countdown.h"
+#include "fingerprint.h"
+#include "stage2.h"
+#endif
 
 static struct {
     rb_admin_audit audit;
@@ -10,6 +15,9 @@ static struct {
     rb_journal_context context;
     rb_sector_reader read;
     void *opaque;
+#ifdef RB_PREPARED_DOS
+    rb_countdown_pair *countdown;
+#endif
 } work;
 
 static void clear(void *p, rb_u16 n)
@@ -26,6 +34,9 @@ static rb_u16 __cdecl capture(rb_u32 lba, rb_u8 *sector, void *opaque)
     rb_u16 i, code;
     (void)opaque;
     code = work.read(lba, sector, work.opaque);
+#ifdef RB_PREPARED_DOS
+    if (!code && work.countdown) { rb_fingerprint_sector(work.countdown->allocation, lba, sector); }
+#endif
     if (!code && !lba) { for (i = 0; i < 512; ++i) { work.mbr[i] = sector[i]; } }
     return code;
 }
@@ -68,6 +79,16 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
                     || !same(work.records[0] + 48, work.records[1] + 48, 16)) {
                 fail(r, RB_JLOAD_IDENTITY, 1, 0); return;
             }
+#ifdef RB_PREPARED_DOS
+            if (work.countdown) {
+                rb_u16 j;
+                work.countdown->source = work.config.source;
+                for (copy = 0; copy < 2; ++copy) {
+                    work.countdown->lba[copy] = work.audit.files[copy + 2].first_lba;
+                    for (j = 0; j < 512; ++j) { work.countdown->copies[copy][j] = work.records[copy][j]; }
+                }
+            }
+#endif
             for (copy = 0; copy < 16; ++copy) { work.context.media_id[copy] = work.config.config.media_id[copy]; }
         } else if (i == 3) {
             rb_state_select(&work.state, work.records[0], work.records[1], 3, &work.audit.scan, admin);
@@ -76,6 +97,12 @@ static void load(rb_journal_diagnosis *r, rb_u32 low, rb_u32 high,
                     : work.state.copies[0] ? work.state.copies[0] : work.state.copies[1],
                     work.state.status == RB_CONFIG_CONFLICT ? 0 : work.audit.files[work.state.copies[0] ? 4 : 5].first_lba); return;
             }
+#ifdef RB_PREPARED_DOS
+            if (work.countdown) {
+                if (!same(work.records[0], work.records[1], 512)) { fail(r, RB_JLOAD_STATE, 0, lba); return; }
+                rb_fingerprint_sector(work.countdown->allocation, lba, work.records[1]);
+            }
+#endif
             if (!same(work.context.media_id, work.records[0] + 48, 16)
                     || !same(work.context.media_id, work.records[1] + 48, 16)) {
                 fail(r, RB_JLOAD_IDENTITY, 2, 0); return;
@@ -107,3 +134,49 @@ void rb_journal_load(rb_journal_diagnosis *r, rb_sector_reader read, void *opaqu
     load(r, low, high, disk_id, admin_lba, mode, heads, spt);
     clear(&work, sizeof(work));
 }
+
+#ifdef RB_PREPARED_DOS
+static rb_u32 dword(const rb_u8 *p)
+{
+    return (rb_u32)p[0] | ((rb_u32)p[1] << 8) | ((rb_u32)p[2] << 16) | ((rb_u32)p[3] << 24);
+}
+
+static rb_u16 prepared_layout(const rb_profile *entry)
+{
+    const rb_partition *p = work.audit.scan.entries;
+    rb_u16 i, dos = entry->slot - 1, ext = dos == 3 ? 2 : 3;
+    if (work.audit.scan.count != 5 || work.audit.scan.ebr_count != 1 || dos >= 4
+            || p[dos].type != 6 || p[dos].flag != 0x80 || p[ext].type != 5 || p[ext].flag
+            || p[ext].start <= p[dos].start + (p[dos].sectors - 1) || p[4].type != 0x16 || p[4].flag
+            || p[4].start + (p[4].sectors - 1) != p[ext].start + (p[ext].sectors - 1)) { return 0; }
+    for (i = 0; i < 4; ++i) {
+        if (i != dos && i != ext && p[i].type) { return 0; }
+    }
+    return 1;
+}
+
+rb_u16 rb_countdown_observe(rb_countdown_pair *pair, const rb_dos_choice *choice,
+                            const rb_loader_snapshot *snapshot)
+{
+    rb_journal_diagnosis journal;
+    rb_state_proof proof;
+    rb_u16 index, status = RB_TIMER_DISK;
+    rb_u32 low = rb_boot.reachable_sectors_low, high = rb_boot.reachable_sectors_high;
+    clear(pair, sizeof(*pair));
+    if (rb_boot.drive != 0x80 || rb_boot.io_mode != 1) { return status; }
+    clear(&work, sizeof(work));
+    work.read = rb_disk_read; work.countdown = pair;
+    load(&journal, low, high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436), 1, 0, 0);
+    if (!journal.status && !journal.journal.status && journal.journal.observation == RB_TX_BASELINE
+            && same(snapshot->mbr, work.mbr, 512) && work.config.config.count == 1
+            && work.state.state.count == 1 && rb_profile_reselect(&choice->selected, &work.config, &index)
+            && work.config.config.default_id == choice->selected.entry.id && choice->selected.entry.kind == 1
+            && prepared_layout(&choice->selected.entry)) {
+        rb_state_check(&proof, &work.config, &work.state, index, capture, (void *)0, low, high);
+        if (!proof.status && same(snapshot->mbr, work.mbr, 512)) { status = RB_TIMER_OK; }
+    }
+    clear(&work, sizeof(work));
+    if (status) { clear(pair, sizeof(*pair)); }
+    return status;
+}
+#endif

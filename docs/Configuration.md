@@ -138,7 +138,7 @@ unsigned generation wins; equal valid generations must be byte-identical.
 Identical copies select A deterministically. A missing, unreadable, corrupt,
 unknown-version or mismatched record can be rejected while the other valid
 copy is used with a warning. With no valid copy, no profile data is exposed.
-Generations do not wrap; a future writer must stop at `FFFFFFFF`.
+Generations stop at `0xFFFFFFFF`. A request to change a value at this generation is rejected.
 
 CRC32 detects damage, not malicious changes. A disk signature plus structural
 CRC cannot distinguish byte-identical clones and is not independent installation
@@ -165,10 +165,10 @@ Directory/FAT structural or read failures stop the whole load.
 
 This is a bounded reader for preallocated files, not a general filesystem
 integrity or ownership audit. It does not enumerate other file chains or
-prove absence of cross-links to every other file. A future write path still
-requires the complete allocation/ownership checks from specification v0.2.
-All current disk accesses use the existing BIOS reader and bounded retries.
-No directory, FAT, record, boot sector or partition entry is written at runtime.
+prove absence of cross-links to every other file. F5 uses the BIOS reader
+with bounded retries. The prepared DOS disk has a separate F9 editor that
+audits the allocation of all eight files before it can write either configuration
+sector. [F9 countdown editing](PreparedDOS.md#saving-the-delay-from-the-hdd-menu)
 
 ## Status values
 
