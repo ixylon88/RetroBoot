@@ -21,6 +21,7 @@ from prepared_records import CONFIG, JOURNAL, STATE, read_records
 from setup_toolchain import sha256
 from test_dos_countdown import boot, compare
 from test_prepared_dos import original_fixture
+from test_prepared_approval import check_approval
 from ui_text import LANGUAGES, load_catalog, output_name
 
 
@@ -250,6 +251,7 @@ def run(language, qemu, bios):
         put(changed, b, state_sector(pending, 4, 7))
         if sha256(reheld) != sha256(changed):
             raise ValueError('External recovery of a complete trial did not preserve the pending record')
+        check_approval(work, directory, kit, held, shipped, language, qemu, bios)
         shutil.copyfile(bundle, directory / bundle.name)
         print(f'{language}: {bundle.name} {sha256(bundle)}', flush=True)
 

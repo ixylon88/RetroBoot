@@ -191,11 +191,50 @@ review performs zero writes. A write or readback error ends the attempt.
 | Complete phase 5 sector | The menu reports verification pending even if power failed before the jump. No automatic or manual retry is available. |
 
 The released test VBR checks the transfer and displays `RB HANDOFF PASS`.
-A real OS test includes its own startup and a subsequent confirmation before
-a future writer may grant `ready`. The external `--require-recovery` command
+A real OS test includes its own startup and the operator's subsequent
+confirmation before granting `ready`. The external `--require-recovery` command
 can return a pending disk to the recovery phase on a new copy. Its two records
 then contain no READY VBR claim for another trial.
 [VirtualBox procedure](PreparedDOS.md#one-dos-verification-boot)
+
+## Approving a completed prepared-DOS trial
+
+A pending phase records consumption of the attempt before the jump. The
+operator supplies the missing observation of a successful target boot and
+return to RetroBoot. The host tool requires the tested disk and an independent
+reference from before that attempt. A retained hold contains the original
+READY VBR claim in its older slot. An identical READY pair retained just
+before creating that hold also works. A current VBR or a pending disk alone
+cannot supply that evidence.
+
+Both disk views undergo the prepared-DOS audit. Their disk and installation
+IDs, media ID, MBR, EBR, DOS volume geometry, configuration copies, management
+file allocations and idle journals must agree. The current 512-byte DOS VBR
+must match the reference byte for byte and the reference READY checksum.
+The tested disk must contain exactly the recovery and verification sectors
+derived from that reference, in the expected physical slots and generations.
+
+| Step in the supplied fixture | RBSTATE.A | RBSTATE.B |
+| --- | --- | --- |
+| Retained reference | generation 1, READY | generation 2, recovery |
+| Tested input after cold boot | generation 3, verification | generation 2, recovery |
+| First verified write on a private copy | generation 3, verification | generation 4, READY |
+| Published result | generation 4, READY | generation 4, READY |
+
+Explicit **J** (German) or **Y** (English) enables the transition. Each write
+targets one preallocated state sector, is flushed, and is followed by a fresh
+full record selection and comparison against the expected disk context. The
+reference is rechecked across both writes. Mirroring the verified READY
+sector preserves the existing F9 and host countdown tools, which require two
+identical READY records. A tie selects A. The configured delay and all other
+disk sectors retain their previous contents.
+
+Cancellation, a write/readback failure or an exhausted generation prevents
+publication. The tested disk keeps its prior state for a fresh attempt. The
+recovery command can put an interrupted intermediate pair back on hold. An
+already completed matching approval produces no second output. A real original-OS
+test records its observed DOS startup and return in the test report.
+[VirtualBox procedure and command](PreparedDOS.md#approving-an-observed-verification-boot)
 
 ## Read and comparison boundary
 
