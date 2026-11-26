@@ -296,13 +296,24 @@ def run():
         campaign(rescue, previous)
         failure_cases(rescue)
         bundle = manual_kit(rescue)
-        # The other committed slot, a third target, and the last usable
-        # 32-bit sequence exercise the same firmware against a different history.
-        three = make_fixture(work, ROOT / 'build/hdd-de', 'de', 1, 3)
+        # P2 and P3 are FAT32 on this disk. Exercise the other committed slot,
+        # a distinct third target and the last usable 32-bit sequence.
+        three = make_fixture(work, ROOT / 'build/hdd-de', 'de', 1, 3, mixed=True)
         prior = change(three, three.extents, 2, 0xfffffffe, 0)
         last = change(three, prior.after, 3, 0xffffffff, 0)
         other = Rescue(exe, bios, work, three, last)
         campaign(other, prior)
+        # The approved primary VBR still matches. An altered sector elsewhere
+        # in the FAT32 reserved area must independently block the repair.
+        prefix_image(three.raw, last, 3)
+        backup_at = (three.profiles[2]['start'] + 6) * SECTOR
+        copy = bytearray(sector_at(three.raw, backup_at))
+        copy[400] ^= 1
+        write_at(three.raw, backup_at, copy)
+        before = sha256(three.raw)
+        other.run('changed-fat32-backup-vbr', 'RESTORE_TARGET')
+        if sha256(three.raw) != before:
+            raise ValueError('External recovery changed a disk with a divergent FAT32 backup VBR')
         unapproved = change(three, prior.after, 1, 0xffffffff, 0)
         prefix_image(three.raw, unapproved, 3)
         before = sha256(three.raw)

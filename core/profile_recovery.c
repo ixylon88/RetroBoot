@@ -75,13 +75,14 @@ static int profile_slots(const rb_backup_sources *sources)
     disk.mask = 0; disk.target = 4;
     for (i = 0; i < 4; ++i) {
         const rb_u8 *entry = mbr + 446 + 16 * i;
+        rb_u16 base = entry[4] & ~0x10U;
         if (entry[4] == 0 || entry[4] == 5 || entry[4] == 15) { continue; }
-        if (entry[4] != 6 && entry[4] != 0x16) { return 0; }
+        if (base != 0x06 && base != 0x0B) { return 0; }
         for (j = 0; j < sources->ready_count; ++j) {
             if (sources->ready[j].start == sources->scan.entries[i].start) { break; }
         }
         if (j == sources->ready_count) { return 0; }
-        if (entry[4] == 6) {
+        if (entry[4] == base) {
             if (entry[0] != 0x80 || disk.target != 4) { return 0; }
             disk.target = i;
         } else if (entry[0]) { return 0; }
@@ -139,8 +140,9 @@ static void view(rb_u8 *out, rb_u16 selected)
     rb_store_copy(out, shown.approved, 512);
     for (i = 0; i < 4; ++i) {
         if (disk.mask & (1U << i)) {
-            out[446 + 16 * i] = i == selected ? 0x80 : 0;
-            out[450 + 16 * i] = i == selected ? 6 : 0x16;
+            rb_u8 *entry = out + 446 + 16 * i;
+            entry[0] = i == selected ? 0x80 : 0;
+            entry[4] = (entry[4] & ~0x10U) | (i == selected ? 0 : 0x10);
         }
     }
 }

@@ -148,7 +148,7 @@ def partition_entry(ptype, start, count, relative=None):
                        start if relative is None else relative, count)
 
 
-def layout(reference):
+def layout(reference, *, compact_admin_sectors=None):
     """Return fixture size, admin geometry, and MBR/EBR metadata extents."""
     report = validate_plan(load_plan(ROOT / "profiles/rb-8g-chs255.json"))
     admin = next(v for v in report["volumes"] if v["role"] == "retroboot")
@@ -174,7 +174,8 @@ def layout(reference):
             ebrs[v["ebr_lba"] * SECTOR] = bytes(ebr)
         size = report["disk_bytes"]
     else:
-        admin = dict(admin, start_lba=126, ebr_lba=63)
+        admin = dict(admin, start_lba=126, ebr_lba=63,
+                     sectors=compact_admin_sectors or admin["sectors"])
         mbr[494:510] = partition_entry(0x05, 63, 63 + admin["sectors"])
         ebr = bytearray(512)
         ebr[446:462] = partition_entry(0x16, 126, admin["sectors"], 63)
@@ -195,7 +196,9 @@ def directory_entry(name, cluster, size):
 
 def fixture(parts, case, language="en"):
     """Describe a sparse new image. No external destination or input disk."""
-    size, admin, extents = layout(case in ("hdd-reference", "retroboot-reference"))
+    # Leave room for two cluster-count-valid FAT32 primaries on the 128 MiB test disk.
+    size, admin, extents = layout(case in ("hdd-reference", "retroboot-reference"),
+                                  compact_admin_sectors=98304 if case == "mixed-profiles" else None)
     start, count, fat = admin["start_lba"], admin["sectors"], admin["fat"]
     spc, spf = fat["sectors_per_cluster"], fat["sectors_per_fat"]
     cluster_bytes = spc * SECTOR
@@ -324,8 +327,11 @@ def build_stage2(destination, nasm, wcc, wlink):
     (destination / "journal_fixture.h").write_text(journal_model_header(), encoding="ascii")
     (destination / "handoff_fixture.inc").write_text(assembler_header(), encoding="ascii")
     test_vbr = destination / "handoff-vbr.bin"
+    fat32_vbr = destination / "handoff-fat32-vbr.bin"
     run(nasm, "-Werror", "-f", "bin", "-I", "./", "-I", str(destination) + "/",
         "tests/handoff/vbr.asm", "-o", test_vbr)
+    run(nasm, "-Werror", "-f", "bin", "-I", "./", "-I", str(destination) + "/",
+        "-DRB_TEST_FAT32=1", "tests/handoff/vbr.asm", "-o", fat32_vbr)
     (destination / "handoff_fixture.h").write_text(c_header(test_vbr.read_bytes()), encoding="ascii")
     (destination / "state_fixture.h").write_text(state_model_header(test_vbr.read_bytes()), encoding="ascii")
     run(wcc, "-q", "-3", "-ms", "-ecc", "-s", "-zl", "-zld", "-w4", "-wx",
@@ -479,6 +485,7 @@ def build_stage2(destination, nasm, wcc, wlink):
     binary.write_bytes(payloads["data-fault"])
     artifacts[binary.name] = {"bytes": len(bad_data), "sha256": sha256(binary)}
     artifacts[test_vbr.name] = {"bytes": 512, "sha256": sha256(test_vbr)}
+    artifacts[fat32_vbr.name] = {"bytes": 512, "sha256": sha256(fat32_vbr)}
     return payloads, memory, artifacts
 
 

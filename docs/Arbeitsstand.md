@@ -1,6 +1,6 @@
 # Project state and resumption
 
-Updated 25 November 2026.
+Updated 26 November 2026.
 
 ## Current milestone
 
@@ -59,10 +59,20 @@ sector at 19:49:44. The confirmation showed sequence `0x00000004` on disk
 `0x52425431`. The target reported `RB HANDOFF PASS` and `Test VBR P2 OK.`.
 [VirtualBox report for PR #90](https://github.com/ixylon88/RetroBoot/pull/90#issuecomment-7171497394)
 
-The next rescue kit reproduces an interruption during the return to P1 at
-sequence `0x00000003`. It includes the enrolled system disk, secondary
-backup disk and both languages of the independent rescue floppy.
-[VirtualBox procedure](LaterProfileRecovery.txt)
+The maintainer confirmed recovery of an interrupted P2-to-P1 switch in
+VirtualBox on 26 November. At 14:16:56 the floppy reported that it had
+repaired sequence `0x00000003` and checked the journal and MBR. At 14:17:43
+a second floppy boot reported that the switch was complete. The hard-disk
+menu showed P1 at 14:18:10 and its VBR reported `RB HANDOFF PASS` and
+`Test VBR P1 OK.` at 14:18:15. Times are from the screenshot filenames.
+[VirtualBox report for PR #91](https://github.com/ixylon88/RetroBoot/pull/91#issuecomment-7193243037)
+
+The next test disk exercises the DOS/9x reference profile types in #49.
+P1 contains a FAT16 test volume. P2 and P3 each contain a FAT32 volume
+with an independently identifiable test VBR. The normal menu can switch
+through all three volumes and the separate recovery floppy can finish an
+interrupted switch to a FAT32 target.
+[VirtualBox procedure](PreparedDOS.md#switching-between-fat16-and-fat32)
 
 ## Original DOS boot and recovery milestones
 

@@ -49,12 +49,16 @@ def change(disk, before, active, sequence, prepare):
     return Switch(rows, before, after, active, sequence)
 
 
-def package(work, language, disk):
+def package(work, language, disk, *, mixed=False):
     names = ('RetroBoot-Umschaltung-DE.zip', 'RetroBoot-Wechsel.vdi') if language == 'de' else (
              'RetroBoot-Partition-Switch-EN.zip', 'RetroBoot-Switch.vdi')
+    fixture_id = 'switch-' + language
+    if mixed:
+        names = (f'RetroBoot-FAT16-FAT32-{language.upper()}.zip', 'RetroBoot-FAT16-FAT32.vdi')
+        fixture_id = 'mixed-fat-' + language
     image = work / names[1]
     subprocess.run(['qemu-img', 'convert', '-f', 'raw', '-O', 'vdi', disk.raw, image], check=True)
-    identity = uuid.uuid5(uuid.NAMESPACE_URL, 'https://github.com/ixylon88/RetroBoot/fixtures/switch-' + language)
+    identity = uuid.uuid5(uuid.NAMESPACE_URL, 'https://github.com/ixylon88/RetroBoot/fixtures/' + fixture_id)
     set_fixture_identity(image, str(identity), IMAGE_BYTES // SECTOR)
     archive = work / names[0]
     with zipfile.ZipFile(archive, 'x') as bundle:
@@ -74,12 +78,12 @@ def review(menu, disk, step, ui):
     active = next(i for i in range(1, len(disk.profiles) + 1) if step.before[0][446 + (i - 1) * 16])
     select(menu, step.target)
     menu.key('ret', 8)
-    preview(menu, ui, active, step.target, len(disk.profiles))
+    preview(menu, ui, active, step.target, disk)
     menu.expect(ui['SWITCH_HELP'])
     menu.key('s', 17)
     menu.expect(ui['SWITCH_CONFIRM'])
     menu.expect(f'0x{step.sequence:08X}')
-    preview(menu, ui, active, step.target, len(disk.profiles))
+    preview(menu, ui, active, step.target, disk)
 
 
 def confirm(menu, disk, step):

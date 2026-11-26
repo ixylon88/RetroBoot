@@ -25,7 +25,8 @@ static rb_u16 supported(const rb_config_result *config)
     for (i = 0; i < config->config.count; ++i) {
         const rb_profile *p = &config->config.entries[i];
         /* The parser has already bound the one-bit mask to this physical slot. */
-        if (p->kind != 1 || p->type != 6 || p->installed != 2 || !p->approved
+        if (p->kind != 1 || (p->type != 0x06 && !(config->config.count > 1 && p->type == 0x0B))
+                || p->installed != 2 || !p->approved
                 || (slots & p->visible_mask)) { return 0; }
         slots |= p->visible_mask;
     }
@@ -112,7 +113,7 @@ rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 selection, rb_u16 automa
         if (visibility->before[i] != snapshot->mbr[i]) { return RB_DOS_JOURNAL; }
     }
     if (status == RB_PROFILE_CHANGE) { return status; }
-    /* DOS 6.x continues with CHS even when RetroBoot loaded through EDD. */
+    /* Both primary types in the CHS reference profile must fit the BIOS geometry. */
     if (!rb_dos_geometry_matches(&target->entry, prepared.sector)) {
         return RB_DOS_GEOMETRY;
     }

@@ -1,4 +1,4 @@
-; Independent 512-byte T07 target. No filesystem or operating system follows.
+; Independent 512-byte T07 target. Fixture-specific BPB and partition entry.
 bits 16
 cpu 386
 org 0x7C00
@@ -6,6 +6,9 @@ org 0x7C00
 %include "handoff_fixture.inc"
     jmp short entry
     nop
+%ifdef RB_TEST_FAT32
+    times 90-($-$$) db 0       ; filled with the fixture's FAT32 BPB before enrollment
+%else
     db 'RBT07   '
     dw 512
     db 1
@@ -18,6 +21,7 @@ org 0x7C00
     db 0x80, 0, 0x29
     dd 0x54303731
     db 'RB T07 TEST', 'FAT16   '
+%endif
 entry:
     mov [cs:RB_HANDOFF_RECEIPT + 14], sp
     pushf

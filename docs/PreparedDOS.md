@@ -216,9 +216,9 @@ python3 RetroBoot-DOS.pyz tested.vdi --confirm-verification held-before-trial.im
 
 ## Selecting a profile from the HDD menu
 
-A prepared HDD with two or three approved FAT16 DOS profiles on distinct
-primary partitions presents them in configuration order. Each profile must
-match a READY installation record. The configured default is highlighted,
+A prepared HDD with two or three approved DOS/9x profiles on distinct
+FAT16 (`0x06`) or FAT32 (`0x0B`) primaries presents them in configuration
+order. Each profile must match a READY installation record. The configured default is highlighted,
 and the menu waits for a key. F5, F6 and F7 open on the highlighted profile.
 F9 editing, automatic boot and the verification-boot command apply to the
 single-installation disk.
@@ -284,6 +284,33 @@ switch on this disk writes five sectors. The return switch writes seven.
 The difference comes from previously stored snapshots that already match
 the requested bytes. Neither path writes an EBR or a system volume.
 [Journal ordering](TransactionJournal.md#confirmed-hdd-switch) · [Interrupted return to P1 in VirtualBox](LaterProfileRecovery.txt)
+
+## Switching between FAT16 and FAT32
+
+`RetroBoot-FAT16-FAT32-DE.zip` and `RetroBoot-FAT16-FAT32-EN.zip`
+contain the localized `RetroBoot-FAT16-FAT32.vdi`. The disk starts with P1
+active. Each test VBR checks the real-mode handoff and the exact 16-byte
+primary partition entry before displaying its slot number.
+
+1. Attach the extracted VDI as the only hard disk on IDE port 0, device 0
+   in a powered-off BIOS VM. Eject the rescue floppy and boot the hard disk.
+2. Select the target in the table and press **Enter**. Check the types and
+   flags in the preview. **S** opens the confirmation. **Esc** cancels
+   the review. **Enter** confirms the displayed change.
+3. After the slot marker appears, restart from the same VDI for the next
+   row. P1 remains the menu default. Pressing **Enter** on the currently
+   active profile boots its VBR directly.
+
+| From | Select | New visible type | Changed-slot mask | Expected marker |
+| --- | --- | --- | --- | --- |
+| P1 | FAT32-Test P2 | `0x0B` | `0x03` | `Test VBR P2 OK.` |
+| P2 | FAT32-Test P3 | `0x0B` | `0x06` | `Test VBR P3 OK.` |
+| P3 | FAT16-Test P1 | `0x06` | `0x05` | `Test VBR P1 OK.` |
+
+The hidden types are `0x16` for FAT16 and `0x1B` for FAT32.
+The test volumes contain two FATs, a root directory and project-owned boot
+code. The two FAT32 volumes also have FSInfo and a backup boot region.
+Original Windows installations are tracked in [issue #53](https://github.com/ixylon88/RetroBoot/issues/53).
 
 ## Preparation and boot checks
 

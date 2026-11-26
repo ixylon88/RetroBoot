@@ -22,7 +22,7 @@ The bilingual kit demonstrates discarding that copy on confirmation and
 recognizing the intact baseline on restart. [First-switch recovery](JournalRecovery.txt)
 
 A separate floppy can restore the previous generation or finish a later
-interrupted switch between prepared FAT16 profiles. [Later switches](#external-recovery-of-later-fat16-profile-switches)
+interrupted switch between prepared FAT16 and FAT32 profiles. [Later switches](#external-recovery-of-later-profile-switches)
 
 ## Three-sector record, version 1
 
@@ -214,7 +214,7 @@ also restored and booted at each injected write boundary in both directions.
 [Single-VDI manual check](PreparedDOS.md#switching-profiles-on-one-disk)
 
 
-## External recovery of later FAT16 profile switches
+## External recovery of later profile switches
 
 `profile-recovery.img` boots independently of the HDD loader. Its published
 secondary backup and floppy witness authorize the entire intended MBR. The
@@ -222,7 +222,10 @@ enrolled primary IDE master and BIOS disk 0x80 must return identical physical
 sector contents. The backup must match the live disk identity, management
 volume, EBRs, boot areas, and raw configuration/state records.
 
-The recovery program recognizes two or three READY FAT16 primary profiles.
+The recovery program recognizes two or three READY FAT16 or FAT32 primary
+profiles. It derives each slot's `0x06` or `0x0B` base type from the
+externally approved MBR. Both the primary and backup FAT32 boot sectors
+are included in the byte comparison of the complete saved reserved area.
 A complete committed predecessor or a complete prepared successor supplies
 the candidate sequence and slot order. The two possible phases of each
 header, both old/new snapshots, and the live MBR are compared against the
