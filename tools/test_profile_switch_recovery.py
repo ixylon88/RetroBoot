@@ -15,7 +15,8 @@ from prepare_mbr_target import WITNESS_START, prepare_pair
 from test_backup_disk import CAPACITY
 from test_dos_countdown import boot
 from test_mbr_target import MODEL
-from test_profile_menu import make_fixture
+from test_profile_menu import make_fixture, put
+from test_profile_scope import configure_profiles
 from test_profile_switch import change, cold, review, verify_raw
 from ui_text import load_catalog
 
@@ -38,14 +39,16 @@ def profile_backup(disk, original, approved):
     return encode(identity, chunks)
 
 
-def run(exe, bios, *, mixed=False):
+def run(exe, bios, *, mixed=False, enrolled=None):
     src = ROOT / 'build/rescue'
     checked_build(src, 'journal-recovery')
     with tempfile.TemporaryDirectory() as temp:
         work = Path(temp)
         (work / 'events.txt').write_text('ide_sector_read\nide_sector_write\nide_bus_exec_cmd\nblk_co_pwritev\n')
         disk = make_fixture(work, ROOT / 'build/hdd', 'en', 1, 3 if mixed else 2, mixed=mixed)
-        step = change(disk, disk.extents, 2, 2, 1)
+        if enrolled is not None:
+            configure_profiles(disk, 'en', count=enrolled)
+        step = change(disk, disk.extents, 3 if enrolled is not None else 2, 2, 1)
         carrier, floppy = work / 'backup.raw', work / 'rescue.img'
         witness, _, _ = capture_and_publish(exe, bios, src, work, work / 'enroll.raw', carrier,
                 IMAGE_BYTES, disk.extents, step.after[0], primary=PRIMARY[2], secondary=SECONDARY[2], ids=IDS,
@@ -55,6 +58,16 @@ def run(exe, bios, *, mixed=False):
         floppy.write_bytes(base[:WITNESS_START] + witness)
         expected = work / 'settled.img'
         write_fixture(expected, IMAGE_BYTES, step.after)
+        if enrolled is not None:
+            # A complete, externally witnessed old approval names the now unlisted P3.
+            # Its prepared transaction and physical disk match, but it cannot be completed.
+            write_fixture(disk.raw, IMAGE_BYTES, disk.extents)
+            put(disk.raw, dict(step.rows[:2]))
+            write_fixture(expected, IMAGE_BYTES, disk.extents)
+            put(expected, dict(step.rows[:2]))
+            run_boot(exe, bios, work, 'en', floppy, disk.raw, carrier, 'unlisted-first', 'RESTORE_TARGET', None)
+            verify_raw(disk.raw, expected)
+            return
         ui = load_catalog('en')
         lbas = [at // SECTOR for at, _ in step.rows]
         delta = [(at, old, new) for at, (old, new) in enumerate(zip(step.before[0], step.after[0])) if old != new]
@@ -86,3 +99,5 @@ if __name__ == '__main__':
     exe = Path(shutil.which(args.qemu) or args.qemu).resolve(strict=True)
     run(exe, args.bios)
     run(exe, args.bios, mixed=True)
+    for enrolled in (1, 2):
+        run(exe, args.bios, mixed=True, enrolled=enrolled)

@@ -20,6 +20,7 @@ from test_backup_disk import CAPACITY
 from test_dos_countdown import boot
 from test_mbr_target import MODEL
 from test_profile_menu import make_fixture, put
+from test_profile_scope import configure_profiles
 from test_profile_switch import change, cold, confirm, review, verify_raw
 from test_profile_switch_recovery import profile_backup
 from ui_text import load_catalog
@@ -275,6 +276,32 @@ def manual_kit(r):
     return bundle
 
 
+def scoped_recovery(exe, bios, work, disk):
+    for phase in ('absent', 'planned', 'ready'):
+        configure_profiles(disk, 'de', phase)
+        previous = change(disk, disk.extents, 2, 2, 1)
+        step = change(disk, previous.after, 1, 3, 1)
+        rescue = Rescue(exe, bios, work, disk, step)
+        if phase == 'absent':
+            campaign(rescue, previous, torn=False)
+        else:
+            write_fixture(disk.raw, IMAGE_BYTES, step.before)
+            system_cut(exe, bios, work, disk, step, 3)
+            rescue.run('hidden-p3-' + phase, 'JR_DONE', rows=list(range(3, 7)), live=step.before[0], key='y')
+            expected = work / 'expected.raw'
+            write_fixture(expected, IMAGE_BYTES, step.after)
+            verify_raw(disk.raw, expected)
+    # P3 still has a READY installation record and its external MBR approval.
+    # Only configured profiles can participate in a later journal repair.
+    unlisted = change(disk, previous.after, 3, 3, 1)
+    foreign = Rescue(exe, bios, work, disk, unlisted)
+    prefix_image(disk.raw, unlisted, 3)
+    foreign.run('unregistered-recovery-target', 'RESTORE_TARGET')
+    expected = work / 'expected.raw'
+    prefix_image(expected, unlisted, 3)
+    verify_raw(disk.raw, expected)
+
+
 def run():
     exe = Path(shutil.which('qemu-system-i386')).resolve()
     bios = exe.parent.parent / 'share/seabios/bios-256k.bin'
@@ -326,6 +353,7 @@ def run():
         other.run('exhausted-sequence', 'PR_BAD')
         if sha256(three.raw) != before:
             raise ValueError('Exhausted journal sequence authorized a write')
+        scoped_recovery(exe, bios, work, three)
         bundle.replace(destination / KIT)
         print(f'{KIT} {sha256(destination / KIT)}', flush=True)
 

@@ -312,6 +312,28 @@ The test volumes contain two FATs, a root directory and project-owned boot
 code. The two FAT32 volumes also have FSInfo and a backup boot region.
 Original Windows installations are tracked in [issue #53](https://github.com/ixylon88/RetroBoot/issues/53).
 
+## Protecting an unregistered primary
+
+The profile scope kit contains two independent VirtualBox hard disks.
+Both have a FAT16 P1 and FAT32 P2/P3. Only P1 and P2 have an approved
+profile. The normal menu checks which physical slots would change before
+offering a switch. A READY installation record by itself grants no profile
+switch rights. F7 still displays the full partition table for diagnosis.
+
+Use each extracted VDI separately as the only hard disk on IDE port 0,
+device 0 in a powered-off BIOS VM. Boot from the hard disk.
+
+| German kit disk | Action | Expected result |
+| --- | --- | --- |
+| `P3-aktiv.vdi` | Select **FAT32-Test P2** and press **Enter**. | The refusal page names the missing approval and displays slot mask `0x04` for P3. **Esc** returns to the menu. The disk receives zero writes. |
+| `P3-verborgen.vdi` | Select **FAT32-Test P2**, press **Enter**, inspect P3, then press **S** and **Enter**. | P3 shows `0x1B / 0x00` in both columns. The changed-slot mask is `0x03`. The target prints `RB HANDOFF PASS` and `Test VBR P2 OK.`. |
+| Same disk, after a cold boot | Select **FAT16-Test P1** and confirm the return switch. | The VBR prints `Test VBR P1 OK.`. P3 keeps its original partition entry and contents. |
+
+The archives are `RetroBoot-Profilschutz-DE.zip` and
+`RetroBoot-Profile-Scope-EN.zip`. The English disks use the names
+`P3-active.vdi` and `P3-hidden.vdi`. Both packages contain project-owned
+test boot sectors.
+
 ## Preparation and boot checks
 
 The host copies the source disk, retains the full DOS partition at its original

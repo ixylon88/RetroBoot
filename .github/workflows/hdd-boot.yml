@@ -60,6 +60,8 @@ jobs:
             build/hdd-de/RetroBoot-Umschaltung-DE.zip
             build/hdd/RetroBoot-FAT16-FAT32-EN.zip
             build/hdd-de/RetroBoot-FAT16-FAT32-DE.zip
+            build/hdd/RetroBoot-Profile-Scope-EN.zip
+            build/hdd-de/RetroBoot-Profilschutz-DE.zip
             build/profile-recovery/RetroBoot-Profilwechsel-Rettung.zip
       - name: Upload compact HDD fixture and evidence
         if: always()

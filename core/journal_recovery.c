@@ -1,6 +1,7 @@
 /* Complete the first prepared visibility change on the enrolled disk. */
 #include "restore_target.h"
 #include "backup_target.h"
+#include "dos_scope.h"
 #include "journal.h"
 #include "restore_stage1.h"
 
@@ -16,7 +17,8 @@ static struct {
     rb_ata_enrollment profile;
     rb_u32 lba[2][3];
     rb_u16 dest;
-    rb_u8 approved[512];
+    /* The immutable Stage 1 prefix is verified on every acquisition. */
+    rb_u8 approved_tail[512 - sizeof(stage1_code)];
 } shown;
 
 typedef struct {
@@ -108,12 +110,12 @@ static int inspect(rb_u16 drive, int step, recovery_preimage *before)
     if (!rb_store_probe_source() || !rb_ata_target_can_flush(&rb_store.profile)
         || !mbr_only(saved, scratch) || !read_live(0, live)
         || !equal(approved, stage1_code, sizeof(stage1_code))) { return BAD_TARGET; }
-    rb_backup_match_sources(&target, &sources, saved, &rb_store.source.device, rb_store.source.read, (void *)0);
+    rb_backup_match_selected_sources(&target, &sources, saved, &rb_store.source.device, rb_store.source.read, 0, rb_dos_recovery_slots);
     if (target.status) { return BAD_TARGET; }
     if (!pin((rb_u8 *)&shown.profile, (const rb_u8 *)&rb_store.profile, sizeof(shown.profile), step)
         || !pin((rb_u8 *)shown.lba, (const rb_u8 *)sources.journal_lba, sizeof(shown.lba), step)
         || !pin(before->publication, rb_store.metadata, sizeof(before->publication), step)
-        || !pin(shown.approved, approved, 512, step)) { return CHANGED; }
+        || !pin(shown.approved_tail, approved + sizeof(stage1_code), sizeof(shown.approved_tail), step)) { return CHANGED; }
     ctx.scan = &sources.scan;
     for (i = 4; i < sources.scan.count && sources.scan.entries[i].start != target.admin_start; ++i) {}
     ctx.admin_index = i;
@@ -193,6 +195,10 @@ static int inspect(rb_u16 drive, int step, recovery_preimage *before)
     rb_store_copy(current, done, 512);
     rb_journal_inspect(&result, records[0], records[1], 3, &ctx, approved);
     if (result.status || result.source != dest || result.observation != RB_TX_COMMITTED_NEW) { return BAD_JOURNAL; }
+    if (!sources.dos_slots || (result.record.changed & ~sources.dos_slots)
+            || (sources.profile_count > 1 && rb_dos_view_slot(approved, sources.dos_slots) == 4)) {
+        return BAD_TARGET;
+    }
     return recheck_live(state, live, scratch);
 }
 
@@ -204,7 +210,8 @@ static void hex_digits(rb_u32 value, rb_u16 digits)
 
 static void show_mbr(const rb_u8 *live)
 {
-    const rb_u8 *next = shown.approved;
+    /* inspect matched this complete snapshot to the independently pinned MBR. */
+    const rb_u8 *next = records[1 - shown.dest] + 1024;
     rb_u16 i;
     line(RB_RS_JR_MBR); line(RB_RS_JR_DELTA);
     for (i = 0; i < 512; ++i) {
@@ -225,7 +232,7 @@ static int write_checked(rb_u16 slot, rb_u16 index, const rb_u8 *before)
 {
     rb_u8 sector[512];
     rb_u32 lba = index == LIVE_MBR ? 0 : shown.lba[slot][index];
-    const rb_u8 *next = index == LIVE_MBR ? shown.approved : records[slot] + 512 * index;
+    const rb_u8 *next = index == LIVE_MBR ? records[1 - shown.dest] + 1024 : records[slot] + 512 * index;
     if (!rb_ata_target_can_flush(&shown.profile) || !read_live(lba, sector) || !equal(sector, before, 512)) { return 0; }
     if (index == LIVE_MBR ? rb_ata_restore_mbr(next) : rb_ata_write_journal_sector(lba, next)) { return 0; }
     return same_source() && read_live(lba, sector) && equal(sector, next, 512);

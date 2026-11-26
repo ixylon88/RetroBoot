@@ -136,18 +136,25 @@ def make_fixture(work, directory, language, active, count=2, *, mixed=False):
 
 def package(work, disks, language):
     name = 'RetroBoot-Profilauswahl-DE.zip' if language == 'de' else 'RetroBoot-Profile-Selection-EN.zip'
+    images = [(disk, f'RetroBoot-P{active}.vdi', f'profile-{language}-p{active}')
+              for active, disk in enumerate(disks, 1)]
+    return package_disks(work, name, images)
+
+
+def package_disks(work, name, images):
+    """Package each raw disk under a stable VDI identity and compare its extracted bytes."""
     bundle = work / name
     with zipfile.ZipFile(bundle, 'x') as archive:
-        for active, disk in enumerate(disks, 1):
-            vdi = work / f'RetroBoot-P{active}.vdi'
+        for disk, filename, fixture_id in images:
+            vdi = work / filename
             subprocess.run(['qemu-img', 'convert', '-f', 'raw', '-O', 'vdi', disk.raw, vdi], check=True)
             identity = uuid.uuid5(uuid.NAMESPACE_URL,
-                f'https://github.com/ixylon88/RetroBoot/fixtures/profile-{language}-p{active}')
+                'https://github.com/ixylon88/RetroBoot/fixtures/' + fixture_id)
             set_fixture_identity(vdi, str(identity), IMAGE_BYTES // SECTOR)
             archive.writestr(zipfile.ZipInfo(vdi.name), vdi.read_bytes(), compress_type=zipfile.ZIP_DEFLATED)
     with zipfile.ZipFile(bundle) as archive:
         delivered = [Path(archive.extract(name, work / 'delivered')) for name in archive.namelist()]
-    for image, disk in zip(delivered, disks):
+    for image, (disk, _, _) in zip(delivered, images, strict=True):
         compare(image, disk.raw)
     return bundle, delivered
 

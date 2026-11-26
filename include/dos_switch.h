@@ -3,7 +3,7 @@
 
 #include "dos_boot.h"
 
-enum { RB_SWITCH_OK, RB_SWITCH_CHANGED, RB_SWITCH_FULL, RB_SWITCH_IO };
+enum { RB_SWITCH_OK, RB_SWITCH_CHANGED, RB_SWITCH_FULL, RB_SWITCH_IO, RB_SWITCH_HISTORY };
 
 /* Borrowed until the next journal load. Intermediate journal sectors are
  * accessible only after a complete, successful allocation and physical read. */
