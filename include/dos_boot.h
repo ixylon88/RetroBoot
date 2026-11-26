@@ -2,11 +2,10 @@
 #define RB_DOS_BOOT_H
 
 #include "bios_ui.h"
+#include "dos_scope.h"
 #include "journal_io.h"
 #include "profile_boot.h"
 
-/* Three primary OS slots can coexist with the extended management container. */
-#define RB_DOS_PROFILES 3U
 typedef struct {
     /* The single-profile recovery review uses profiles[0] while count is zero. */
     rb_profile_selection profiles[RB_DOS_PROFILES];
@@ -14,7 +13,7 @@ typedef struct {
     rb_state_proof records;
 } rb_dos_choice;
 
-enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY };
+enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY, RB_DOS_SCOPE };
 
 void __cdecl rb_dos_geometry(rb_u16 *geometry);
 void __cdecl rb_video_console(void);

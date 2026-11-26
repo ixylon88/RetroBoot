@@ -2,6 +2,7 @@
 #define RB_BACKUP_TARGET_H
 
 #include "backup.h"
+#include "state.h"
 #include "rescue.h"
 
 enum {
@@ -31,6 +32,7 @@ typedef struct {
     rb_u32 journal_lba[2][3]; /* Complete physical maps from the same audit. */
     rb_backup_ready ready[4];
     rb_u16 ready_count;
+    rb_u16 profile_count, dos_slots; /* Selected configuration and eligible DOS profile mask. */
 } rb_backup_sources;
 
 /* Independent observation, without saved identity claims. Performs the same
@@ -58,6 +60,10 @@ void rb_backup_match_target(rb_backup_target *result, const rb_backup *backup,
 /* Returns the audited source maps only on a full saved/live match. */
 void rb_backup_match_sources(rb_backup_target *result, rb_backup_sources *sources, const rb_backup *backup,
     const rb_rescue_device *device, rb_sector_reader read, void *opaque);
+typedef rb_u16 (*rb_backup_slot_selector)(const rb_config_result *, const rb_install_state *);
+/* A selector can also derive profile slots from the same validated record pair. */
+void rb_backup_match_selected_sources(rb_backup_target *result, rb_backup_sources *sources, const rb_backup *backup,
+    const rb_rescue_device *device, rb_sector_reader read, void *opaque, rb_backup_slot_selector select_slots);
 rb_u16 __cdecl rb_backup_target_selftest(void);
 
 #endif

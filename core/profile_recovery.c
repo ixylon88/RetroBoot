@@ -3,6 +3,7 @@
 #include "restore_stage1.h"
 #include "backup_target.h"
 #include "fingerprint.h"
+#include "dos_scope.h"
 #include "journal.h"
 
 rb_u16 __cdecl rb_ata_write_journal_sector(rb_u32 lba, const rb_u8 *sector);
@@ -68,29 +69,6 @@ static rb_u16 __cdecl audit_read(rb_u32 lba, rb_u8 *out, void *unused)
     return 0;
 }
 
-static int profile_slots(const rb_backup_sources *sources)
-{
-    const rb_u8 *mbr = rb_store.witness.approved;
-    rb_u16 i, j, n = 0;
-    disk.mask = 0; disk.target = 4;
-    for (i = 0; i < 4; ++i) {
-        const rb_u8 *entry = mbr + 446 + 16 * i;
-        rb_u16 base = entry[4] & ~0x10U;
-        if (entry[4] == 0 || entry[4] == 5 || entry[4] == 15) { continue; }
-        if (base != 0x06 && base != 0x0B) { return 0; }
-        for (j = 0; j < sources->ready_count; ++j) {
-            if (sources->ready[j].start == sources->scan.entries[i].start) { break; }
-        }
-        if (j == sources->ready_count) { return 0; }
-        if (entry[4] == base) {
-            if (entry[0] != 0x80 || disk.target != 4) { return 0; }
-            disk.target = i;
-        } else if (entry[0]) { return 0; }
-        disk.mask |= 1U << i; ++n;
-    }
-    return n >= 2 && n <= 3 && n == sources->ready_count && disk.target < 4;
-}
-
 static int open_disk(rb_u16 drive, int first, rb_journal_context *ctx, rb_backup_sources *sources)
 {
     const rb_backup *saved;
@@ -104,8 +82,11 @@ static int open_disk(rb_u16 drive, int first, rb_journal_context *ctx, rb_backup
             || !equal(rb_store.witness.approved, stage1_code, sizeof(stage1_code))) { return BAD_TARGET; }
 
     disk.digest[0] = disk.digest[1] = 0;
-    rb_backup_match_sources(&target, sources, saved, &rb_store.source.device, audit_read, 0);
-    if (target.status || !profile_slots(sources)) { return BAD_TARGET; }
+    rb_backup_match_selected_sources(&target, sources, saved, &rb_store.source.device, audit_read, 0, rb_dos_recovery_slots);
+    if (target.status || sources->profile_count < 2) { return BAD_TARGET; }
+    disk.mask = sources->dos_slots;
+    disk.target = rb_dos_view_slot(rb_store.witness.approved, disk.mask);
+    if (disk.target == 4) { return BAD_TARGET; }
     /* Compare the saved EBR(s), VBR(s) and both raw configuration/state
        records. Backup extents are read-only and never select a write address. */
     for (i = 2; i < saved->count; ++i) {

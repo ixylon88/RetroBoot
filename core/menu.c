@@ -206,6 +206,7 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     if (view == DOS_SWITCH_RESULT) {
         text(5, 4, RB_UI_SWITCH_TITLE, TITLE);
         text(8, 4, dos_status == RB_SWITCH_FULL ? RB_UI_SWITCH_FULL
+            : dos_status == RB_SWITCH_HISTORY ? RB_UI_SWITCH_HISTORY
             : dos_status == RB_SWITCH_IO ? RB_UI_SWITCH_IO : RB_UI_SWITCH_CHANGED, 0x1E);
         text(10, 4, RB_UI_SWITCH_RECOVERY, NORMAL);
         text(22, 4, RB_UI_TIMER_BACK, NORMAL);
@@ -301,11 +302,16 @@ static void draw(const rb_menu_state *state, rb_u16 view, const rb_loader_snapsh
     } else if (view == 12) {
         text(5, 4, RB_UI_DOS_BLOCKED, TITLE);
         text(8, 4, dos_status == RB_DOS_JOURNAL ? RB_UI_DOS_BASELINE
+            : dos_status == RB_DOS_SCOPE ? RB_UI_DOS_SCOPE
             : dos_status == RB_DOS_GEOMETRY ? RB_UI_DOS_GEOMETRY
             : dos_status == RB_PROFILE_SELECTION ? RB_UI_PROFILE_TEST_SELECTION
             : dos_status == RB_PROFILE_CHANGE ? RB_UI_VIS_CHANGE
             : visibility->status == RB_VISIBILITY_ADMIN ? RB_UI_VIS_ADMIN
             : proof_messages[visibility->proof.status], 0x1E);
+        if (dos_status == RB_DOS_SCOPE) {
+            text(10, 4, RB_UI_DOS_UNMANAGED, NORMAL);
+            hex(10, 33, visibility->changed & ~rb_config_dos_slots(config), 2);
+        }
 #endif
     } else if (view == 1) {
         text(5, 4, labels[0], TITLE);

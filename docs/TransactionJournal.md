@@ -222,8 +222,20 @@ enrolled primary IDE master and BIOS disk 0x80 must return identical physical
 sector contents. The backup must match the live disk identity, management
 volume, EBRs, boot areas, and raw configuration/state records.
 
-The recovery program recognizes two or three READY FAT16 or FAT32 primary
-profiles. It derives each slot's `0x06` or `0x0B` base type from the
+The HDD menu and both recovery programs derive the eligible slots for a
+multi-profile switch from the selected configuration. Each approved profile
+must resolve to a READY installation on that physical slot. An unrelated
+READY record leaves its slot outside the mask. A hidden, inactive primary
+outside the mask is copied byte-for-byte through each candidate view. A
+proposed change to an unregistered slot blocks the transaction before review.
+
+Before rotating a completed journal the HDD also checks its two previous
+views. Both must describe isolated profiles in the current configuration.
+A previous switch involving a subsequently removed profile blocks a new
+rotation. Direct handoff to a matching current profile remains available.
+
+The later recovery program recognizes two or three approved FAT16 or FAT32
+primary profiles. It derives each slot's `0x06` or `0x0B` base type from the
 externally approved MBR. Both the primary and backup FAT32 boot sectors
 are included in the byte comparison of the complete saved reserved area.
 A complete committed predecessor or a complete prepared successor supplies

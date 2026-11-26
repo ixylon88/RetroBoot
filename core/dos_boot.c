@@ -17,22 +17,6 @@ static void load_config(rb_config_result *config, const rb_loader_snapshot *snap
         rb_boot.reachable_sectors_high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436));
 }
 
-static rb_u16 supported(const rb_config_result *config)
-{
-    rb_u16 i, slots = 0;
-    if (config->status || config->copies[0] || config->copies[1]
-            || !config->config.count || config->config.count > RB_DOS_PROFILES) { return 0; }
-    for (i = 0; i < config->config.count; ++i) {
-        const rb_profile *p = &config->config.entries[i];
-        /* The parser has already bound the one-bit mask to this physical slot. */
-        if (p->kind != 1 || (p->type != 0x06 && !(config->config.count > 1 && p->type == 0x0B))
-                || p->installed != 2 || !p->approved
-                || (slots & p->visible_mask)) { return 0; }
-        slots |= p->visible_mask;
-    }
-    return 1;
-}
-
 void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
                  rb_state_result *state, const rb_loader_snapshot *snapshot)
 {
@@ -40,7 +24,7 @@ void rb_dos_open(rb_dos_choice *choice, rb_config_result *config,
     load_config(config, snapshot);
     choice->count = choice->default_index = choice->countdown = choice->trial = 0;
     choice->records.status = RB_PROOF_MATCH;
-    if (!supported(config)) { return; }
+    if (!rb_config_dos_slots(config)) { return; }
     rb_state_load(state, rb_disk_read, (void *)0, rb_boot.reachable_sectors_low,
                   rb_boot.reachable_sectors_high, dword(snapshot->mbr + 440), dword(snapshot->mbr + 436));
     for (i = 0; i < config->config.count; ++i) {
@@ -80,13 +64,14 @@ rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 selection, rb_u16 automa
 {
     rb_handoff_buffer prepared;
     const rb_profile_selection *target;
-    rb_u16 status, i;
+    rb_u16 status, i, managed;
     rb_u32 mbr_crc;
     rb_u32 disk_id = dword(snapshot->mbr + 440), admin = dword(snapshot->mbr + 436);
     rb_u32 low = rb_boot.reachable_sectors_low, high = rb_boot.reachable_sectors_high;
 
     load_config(config, snapshot);
-    if (selection >= choice->count || !supported(config) || config->config.count != choice->count) {
+    managed = rb_config_dos_slots(config);
+    if (selection >= choice->count || !managed || config->config.count != choice->count) {
         return RB_PROFILE_SELECTION;
     }
     target = &choice->profiles[selection];
@@ -112,7 +97,9 @@ rb_u16 rb_dos_start(const rb_dos_choice *choice, rb_u16 selection, rb_u16 automa
     for (i = 0; i < 512; ++i) {
         if (visibility->before[i] != snapshot->mbr[i]) { return RB_DOS_JOURNAL; }
     }
-    if (status == RB_PROFILE_CHANGE) { return status; }
+    if (status == RB_PROFILE_CHANGE) {
+        return (visibility->changed & ~managed) ? RB_DOS_SCOPE : status;
+    }
     /* Both primary types in the CHS reference profile must fit the BIOS geometry. */
     if (!rb_dos_geometry_matches(&target->entry, prepared.sector)) {
         return RB_DOS_GEOMETRY;

@@ -53,7 +53,8 @@ static rb_u16 prove_plan(const rb_switch_disk *disk, const rb_dos_choice *choice
     rb_u8 *sector = handoff ? handoff->sector : rb_dos_buffers.transaction.sector;
     rb_u32 low = rb_boot.reachable_sectors_low, high = rb_boot.reachable_sectors_high;
     rb_u16 index;
-    if (!target_index(disk, choice, selected, &index)) { return 0; }
+    if (!target_index(disk, choice, selected, &index)
+            || (shown->changed & ~rb_config_dos_slots(disk->config))) { return 0; }
     if (handoff) {
         if (rb_stage_profile(handoff, &fresh, disk->config, disk->state, index, rb_disk_read, 0,
                 low, high, disk->admin_lba)
@@ -84,6 +85,12 @@ rb_u16 rb_switch_open(rb_switch_review *review, const rb_dos_choice *choice, rb_
             || !same(disk.slots[0] + 512, disk.slots[1] + 512, 1024)
             || !same(disk.slots[0] + 1024, disk.mbr, 512)
             || !prove_plan(&disk, choice, selected, shown, 0)) { return RB_SWITCH_CHANGED; }
+    if (j->observation == RB_TX_COMMITTED_NEW) {
+        rb_u16 slots = rb_config_dos_slots(disk.config);
+        /* Later recovery reconstructs both predecessor views from these same profiles. */
+        if ((j->record.changed & ~slots) || rb_dos_view_slot(disk.slots[0] + 512, slots) == 4
+                || rb_dos_view_slot(disk.mbr, slots) == 4) { return RB_SWITCH_HISTORY; }
+    }
     if (j->record.sequence == 0xFFFFFFFFUL) { return RB_SWITCH_FULL; }
     review->sequence = j->record.sequence + 1;
     review->prepare = 1 - j->source;

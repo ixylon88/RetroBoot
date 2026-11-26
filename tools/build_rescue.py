@@ -206,7 +206,7 @@ def build(kind='rescue',language='en'):
             ('mbr-original-core','core/mbr_original.c'),('mbr-original-tests','tests/backup/original.c'),
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('journal-recovery-ui','core/journal_recovery.c'),('profile-recovery-ui','core/profile_recovery.c'),
-            ('journal','core/journal.c'),
+            ('journal','core/journal.c'),('dos-scope','core/dos_scope.c'),
             ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -218,7 +218,9 @@ def build(kind='rescue',language='en'):
             ('backup-payload-tests','tests/backup/payload.c'),
             ('target-audit','core/admin_audit.c'),
             ('saved-state','core/state.c'),('saved-record-io','core/record_io.c'),('saved-volume','core/volume.c')):
-        run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),
+        # These modules share one 16-bit segment with the backup and journal proofs.
+        size_flags = ['-os'] if name in ('backup-target','dos-scope','journal-recovery-ui','profile-recovery-ui') else []
+        run(wcc,'-q','-3','-ms',*size_flags,'-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-i='+str(destination),
             '-fo='+str(destination/(name+'.obj')),source)
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
@@ -313,7 +315,7 @@ def build(kind='rescue',language='en'):
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
         if name in ('mbr-restore', 'journal-recovery', 'profile-recovery'):
-            adapter = ('mbr-restore-ui', 'restore-ata') if name == 'mbr-restore' else (name + '-ui', 'journal-ata', 'journal')
+            adapter = ('mbr-restore-ui', 'restore-ata') if name == 'mbr-restore' else (name + '-ui', 'journal-ata', 'journal', 'dos-scope')
             extra = [destination / (n + '.obj') for n in (
                 *adapter, 'backup-store', 'mbr-ata', 'backup-floppy', 'floppy',
                 'mbr-restart-core', 'backup', 'backup-records', 'backup-boot', 'backup-target',

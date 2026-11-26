@@ -131,8 +131,8 @@ static rb_u16 geometry(rb_u16 route, rb_u16 heads, rb_u16 spt, rb_u32 low, rb_u3
     return route == 1 || (!high && low <= (rb_u32)heads * spt * 1024UL);
 }
 
-void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
-    const rb_rescue_device *d, rb_sector_reader read, void *opaque)
+static void observe(rb_backup_target *r, rb_backup_sources *sources,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque, rb_backup_slot_selector select_slots)
 {
     rb_u32 digest[2];
     rb_u16 reads, i, j;
@@ -153,6 +153,10 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
         }
     }
     if (!r->status && sources) {
+        if (select_slots) {
+            sources->profile_count = work.config.config.count;
+            sources->dos_slots = select_slots(&work.config, &work.state.state);
+        }
         sources->scan = work.audit.scan;
         for (i = 0; i < 2; ++i) {
             for (j = 0; j < 3; ++j) { sources->journal_lba[i][j] = work.audit.journal_lba[i][j]; }
@@ -169,11 +173,18 @@ void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     clear(&work, sizeof(work));
 }
 
-void rb_backup_match_sources(rb_backup_target *r, rb_backup_sources *sources, const rb_backup *b,
+void rb_backup_observe_target(rb_backup_target *r, rb_backup_sources *sources,
     const rb_rescue_device *d, rb_sector_reader read, void *opaque)
 {
+    observe(r, sources, d, read, opaque, 0);
+}
+
+void rb_backup_match_selected_sources(rb_backup_target *r, rb_backup_sources *sources, const rb_backup *b,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque,
+    rb_backup_slot_selector select_slots)
+{
     rb_u16 route;
-    clear(&work, sizeof(work)); fail(r, RB_BTARGET_PARAMS, 0, 0);
+    fail(r, RB_BTARGET_PARAMS, 0, 0);
     if (sources) { clear(sources, sizeof(*sources)); }
     if (!b || !d || !read) { return; }
     route = d->mode ? 1 : 2;
@@ -193,7 +204,7 @@ void rb_backup_match_sources(rb_backup_target *r, rb_backup_sources *sources, co
     if (b->route != route || b->heads != d->heads || b->sectors_per_track != d->sectors_per_track) {
         fail(r, RB_BTARGET_GEOMETRY, 0, 0); return;
     }
-    rb_backup_observe_target(r, sources, d, read, opaque);
+    observe(r, sources, d, read, opaque, select_slots);
     if (!r->status) {
         if (r->disk_id != b->disk_id || !same(r->media_id, b->media_id, 16)) {
             fail(r, RB_BTARGET_IDENTITY, 4, 0);
@@ -202,6 +213,12 @@ void rb_backup_match_sources(rb_backup_target *r, rb_backup_sources *sources, co
         }
     }
     if (r->status && sources) { clear(sources, sizeof(*sources)); }
+}
+
+void rb_backup_match_sources(rb_backup_target *r, rb_backup_sources *sources, const rb_backup *b,
+    const rb_rescue_device *d, rb_sector_reader read, void *opaque)
+{
+    rb_backup_match_selected_sources(r, sources, b, d, read, opaque, 0);
 }
 
 void rb_backup_match_target(rb_backup_target *r, const rb_backup *b,

@@ -67,12 +67,16 @@ menu showed P1 at 14:18:10 and its VBR reported `RB HANDOFF PASS` and
 `Test VBR P1 OK.` at 14:18:15. Times are from the screenshot filenames.
 [VirtualBox report for PR #91](https://github.com/ixylon88/RetroBoot/pull/91#issuecomment-7193243037)
 
-The next test disk exercises the DOS/9x reference profile types in #49.
-P1 contains a FAT16 test volume. P2 and P3 each contain a FAT32 volume
-with an independently identifiable test VBR. The normal menu can switch
-through all three volumes and the separate recovery floppy can finish an
-interrupted switch to a FAT32 target.
-[VirtualBox procedure](PreparedDOS.md#switching-between-fat16-and-fat32)
+The maintainer confirmed the mixed FAT16/FAT32 disk in VirtualBox. The P2
+preview showed P1 becoming hidden and inactive and P2 becoming visible and
+active. The confirmation showed sequence `0x00000002` on disk `0x52425431`.
+The target reported `RB HANDOFF PASS` and `Test VBR P2 OK.`.
+[VirtualBox report for PR #92](https://github.com/ixylon88/RetroBoot/pull/92#issuecomment-7195499655)
+
+The [profile scope check](PreparedDOS.md#protecting-an-unregistered-primary)
+uses three physical volumes and two approved profiles. It covers refusal
+with an active unregistered P3, normal P1/P2 switching with P3 hidden,
+and independent recovery after an interrupted switch.
 
 ## Original DOS boot and recovery milestones
 
