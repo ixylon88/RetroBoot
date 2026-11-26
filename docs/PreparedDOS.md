@@ -283,7 +283,7 @@ and verifies the installation, VBR and geometry before writing. The first
 switch on this disk writes five sectors. The return switch writes seven.
 The difference comes from previously stored snapshots that already match
 the requested bytes. Neither path writes an EBR or a system volume.
-[Journal ordering and recovery](TransactionJournal.md#confirmed-hdd-switch)
+[Journal ordering](TransactionJournal.md#confirmed-hdd-switch) · [Interrupted return to P1 in VirtualBox](LaterProfileRecovery.txt)
 
 ## Preparation and boot checks
 

@@ -1,0 +1,37 @@
+RetroBoot – Unterbrochenen Rückwechsel von P2 auf P1 abschließen
+
+Deutsch
+
+Die System-VDI enthält zwei FAT16-Testprofile. Der erste Wechsel zu P2 ist
+abgeschlossen. Beim Rückweg zu P1 steht Sequenz 0x00000003 vollständig
+vorbereitet im Journal. Die Partitionstabelle zeigt noch auf P2.
+
+1. Beide VDIs an die ausgeschaltete BIOS-Test-VM anschließen.
+   IDE primärer Master (Port 0, Gerät 0)    RB91-System.vdi
+   IDE sekundärer Master (Port 1, Gerät 0)  RB91-Sicherung.vdi
+   Deutsch/profile-recovery.img als Diskette A einlegen und von A starten.
+2. Erwartet werden Journal-Sequenz 0x00000003, Startprofil P1, die vier
+   Typ-/Aktivbyte-Änderungen und vier Sektoren in Schreibreihenfolge.
+   Esc bricht ab. Nach einem Neustart von A erscheint dieselbe Vorschau.
+3. J bestätigt die Reparatur. Der Abschluss lautet RB PROFILE RECOVERY PASS.
+4. Erneut von A starten. Die Diskette meldet den abgeschlossenen Wechsel.
+5. VM ausschalten, Diskette auswerfen und von derselben System-VDI starten.
+   DOS-Test P1 mit Enter starten. Erwartet werden RB HANDOFF PASS und
+   Test VBR P1 OK.
+
+English
+
+The system disk contains two FAT16 test boot sectors. A previous switch to
+P2 has completed. During the return to P1, journal sequence 0x00000003 was
+prepared, with P2 still active in the partition table.
+
+1. With the BIOS VM powered off, attach RB91-System.vdi as primary IDE
+   master and RB91-Sicherung.vdi as secondary IDE master. Boot drive A
+   with English/profile-recovery.img.
+2. Check sequence 0x00000003, resulting profile P1, the four changes to the
+   partition flags/types and four sector addresses. Esc cancels. A reboot
+   from A shows the same review.
+3. Y confirms the repair. The final marker is RB PROFILE RECOVERY PASS.
+4. Boot from A again. The diskette reports that the switch is complete.
+5. Power off, eject the floppy, and boot the same system VDI. Selecting
+   DOS-Test P1 and pressing Enter displays RB HANDOFF PASS and Test VBR P1 OK.

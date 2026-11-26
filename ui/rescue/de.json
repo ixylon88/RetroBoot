@@ -168,5 +168,14 @@
   "JR_UNFINISHED": "Die neue MBR-Kopie ist unvollständig. Der MBR hat den alten Stand.",
   "JR_DISCARD": "J Alten Stand im Journal wiederherstellen   Esc Abbrechen",
   "JR_DISCARDED": "Alter Stand im Journal wiederhergestellt. Partitionstabelle geprüft.",
-  "JR_BASELINE": "Kein Partitionswechsel offen. Beide Journalkopien sind geprüft."
+  "JR_BASELINE": "Kein Partitionswechsel offen. Beide Journalkopien sind geprüft.",
+  "PR_SEQUENCE": "Journal-Sequenz 0x",
+  "PR_PROFILE": "Startprofil nach der Reparatur: P",
+  "PR_UNDO": "Die MBR-Zielkopie ist unvollständig. Vorheriges Journal wiederherstellen.",
+  "PR_FINISH": "Die vollständige MBR-Zielkopie stimmt mit der externen Freigabe überein.",
+  "PR_SECTORS": "Zu schreibende Sektoren der Systemplatte, in Reihenfolge (LBA):",
+  "PR_CONFIRM": "J Angezeigte Sektoren reparieren   Esc Abbrechen",
+  "PR_IDLE": "Der letzte Profilwechsel ist abgeschlossen. Keine Reparatur erforderlich.",
+  "PR_BAD": "Kein passender späterer Profilwechsel zur Wiederherstellung gefunden.",
+  "PR_UNDONE": "Vorheriges Journal wiederhergestellt. Das bisherige Profil bleibt aktiv."
 }

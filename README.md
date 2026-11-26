@@ -8,6 +8,8 @@ The prepared DOS disk boots MS-DOS 6.22 and supports a persistent F9 boot delay.
 [Prepared disk and VirtualBox check](docs/PreparedDOS.md#saving-the-delay-from-the-hdd-menu)
 The multi-profile HDD menu previews FAT16 partition changes, journals a confirmed
 switch and boots the selected profile. [Single-disk VirtualBox check](docs/PreparedDOS.md#switching-profiles-on-one-disk)
+The independent rescue floppy can repair an interrupted return to P1 using
+the previously approved MBR. [VirtualBox recovery kit](docs/LaterProfileRecovery.txt)
 The custom MBR uses BIOS EDD or automatic CHS fallback to load the hidden FAT16
 management volume and a fragmented Stage 2 file. Custom startup code establishes
 the C environment, clears BSS and passes the BIOS context to C. The separate
