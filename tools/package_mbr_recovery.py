@@ -41,7 +41,7 @@ English
 """
 
 
-def set_fixture_identity(dest, value, sectors):
+def set_fixture_identity(dest, value, sectors, *, heads=16, spt=63):
     with dest.open('r+b') as stream:
         h = stream.read(512)
         if struct.unpack_from('<II', h, 64) != (0xbeda107f, 0x10001):
@@ -56,7 +56,7 @@ def set_fixture_identity(dest, value, sectors):
         stream.seek(392)
         disk_id = uuid.UUID(value)
         stream.write(disk_id.bytes_le + uuid.uuid5(disk_id, 'RetroBoot recovery fixture').bytes_le)
-    set_vdi_geometry(dest, sectors, 16, 63)
+    set_vdi_geometry(dest, sectors, heads, spt)
 
 
 def make_vdis(converter, raw, work):

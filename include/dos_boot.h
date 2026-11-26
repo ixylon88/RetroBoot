@@ -15,7 +15,6 @@ typedef struct {
 
 enum { RB_DOS_JOURNAL = RB_PROFILE_CODE + 1, RB_DOS_GEOMETRY, RB_DOS_SCOPE };
 
-void __cdecl rb_dos_geometry(rb_u16 *geometry);
 void __cdecl rb_video_console(void);
 rb_u16 rb_dos_geometry_matches(const rb_profile *entry, const rb_u8 *sector);
 

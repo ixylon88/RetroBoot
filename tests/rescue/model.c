@@ -1,6 +1,8 @@
 #include "rescue.h"
 #include "bios_ui.h"
 
+rb_u16 rb_format_plan_selftest(void);
+
 static rb_u8 mbr[512], ebr[512];
 static rb_u16 reads, fail_at, change_at, count, failures;
 static rb_u32 lbas[8];
@@ -75,6 +77,7 @@ rb_u16 __cdecl rb_rescue_selftest(void)
     setup(); device.mode = 0; device.heads = 16; device.sectors_per_track = 64; inspect(); CHECK(result.status == RB_RESCUE_GEOMETRY && !reads);
     setup(); device.capacity_low = 128; inspect(); CHECK(!result.status && result.layout == RB_SCAN_RANGE && !result.entries && reads == 2);
     setup(); device.capacity_low = 0; device.capacity_high = 1; inspect(); CHECK(!result.status && !result.layout);
+    CHECK(rb_format_plan_selftest() == 0);
     rb_debug_putc('R'); rb_debug_putc('=');
     for (i = 4; i; ) { --i; rb_debug_putc(digits[(count >> (i * 4)) & 15]); }
     rb_debug_putc('\r'); rb_debug_putc('\n');

@@ -73,10 +73,16 @@ active. The confirmation showed sequence `0x00000002` on disk `0x52425431`.
 The target reported `RB HANDOFF PASS` and `Test VBR P2 OK.`.
 [VirtualBox report for PR #92](https://github.com/ixylon88/RetroBoot/pull/92#issuecomment-7195499655)
 
-The [profile scope check](PreparedDOS.md#protecting-an-unregistered-primary)
-uses three physical volumes and two approved profiles. It covers refusal
-with an active unregistered P3, normal P1/P2 switching with P3 hidden,
-and independent recovery after an interrupted switch.
+The maintainer confirmed the German profile scope kit on 26 November. At
+16:47:24 the read-only refusal showed mask `0x04` for active, unregistered
+P3. At 16:49:00 the hidden-P3 disk reached `RB HANDOFF PASS` and
+`Test VBR P2 OK.`. Times are from the screenshot filenames.
+[VirtualBox report for PR #93](https://github.com/ixylon88/RetroBoot/pull/93#issuecomment-7196833704)
+
+The isolation package [#49](https://github.com/ixylon88/RetroBoot/issues/49)
+is complete. Installer work has started with the independent read-only
+[FAT format preview](FATFormatPlan.md). Its first scope is the primary target
+layout in [#50](https://github.com/ixylon88/RetroBoot/issues/50).
 
 ## Original DOS boot and recovery milestones
 

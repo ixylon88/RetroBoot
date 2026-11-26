@@ -60,7 +60,8 @@ def remove_failed_recovery(q, timeout):
 def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions, write_lbas, reads,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
                  recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(),
-                 io_check=None, timeout=15, remove_recovery=False, before_key=None, cut_on_source_error=False):
+                 io_check=None, timeout=15, remove_recovery=False, before_key=None, cut_on_source_error=False,
+                 logical_geometry=(10, 16, 63)):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -78,7 +79,9 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             (1, recovery_disk, recovery_format, recovery_identity, 'recovery')):
         if path is None:
             continue
-        device = f'ide-hd,drive={node},bus=ide.{channel},unit=0,cyls=10,heads=16,secs=63,lcyls=10,lheads=16,lsecs=63'
+        cylinders, heads, spt = logical_geometry if channel == 0 else (10, 16, 63)
+        device = (f'ide-hd,drive={node},bus=ide.{channel},unit=0,cyls=10,heads=16,secs=63,'
+                  f'lcyls={cylinders},lheads={heads},lsecs={spt}')
         if identity is not None:
             model, serial = identity
             device += ',model=' + model.replace(',', ',,') + ',serial=' + serial.replace(',', ',,')
