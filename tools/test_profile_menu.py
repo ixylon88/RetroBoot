@@ -15,12 +15,13 @@ import config_records
 import journal_records
 import state_records
 from build_hdd import ROOT, SECTOR, fixture, write_fixture
-from handoff_fixtures import DISK_ID, IMAGE_BYTES, SECTORS, entry_bytes
+from handoff_fixtures import DISK_ID, IMAGE_BYTES, entry_bytes
 from package_mbr_recovery import set_fixture_identity
 from prepare_dos_disk import partition
 from setup_toolchain import sha256
 from test_dos_countdown import boot, compare
 from ui_text import LANGUAGES, load_catalog, output_name
+from volume_fixtures import header
 
 
 def install_view(mbr, count, active):
@@ -28,7 +29,8 @@ def install_view(mbr, count, active):
     for index in range(count):
         offset = 446 + index * 16
         table[offset] = 0x80 if index + 1 == active else 0
-        table[offset + 4] = 6 if index + 1 == active else 0x16
+        base = mbr[offset + 4] & ~0x10
+        table[offset + 4] = base if index + 1 == active else base | 0x10
     return bytes(table)
 
 
@@ -43,28 +45,66 @@ class Disk:
     journal_at: list
 
 
-def make_fixture(work, directory, language, active, count=2):
+def empty_filesystem(extents, start, vbr, bits, label):
+    """Initialize both FATs and the root label on the owned mixed-volume fixture."""
+    reserved = struct.unpack_from('<H', vbr, 14)[0]
+    if bits == 32:
+        fat_size = struct.unpack_from('<I', vbr, 36)[0]
+        fat = struct.pack('<III', 0x0FFFFFF8, 0x0FFFFFFF, 0x0FFFFFFF)
+        info = bytearray(SECTOR)
+        struct.pack_into('<I', info, 0, 0x41615252)
+        struct.pack_into('<III', info, 484, 0x61417272, 0xFFFFFFFF, 0xFFFFFFFF)
+        struct.pack_into('<I', info, 508, 0xAA550000)
+        continuation = bytes(510) + b'\x55\xaa'
+        for offset, sector in ((1, info), (2, continuation), (6, vbr), (7, info), (8, continuation)):
+            extents[(start + offset) * SECTOR] = bytes(sector)
+    else:
+        fat_size = struct.unpack_from('<H', vbr, 22)[0]
+        fat = struct.pack('<HH', 0xFFF8, 0xFFFF)
+    for copy in range(2):
+        extents[(start + reserved + copy * fat_size) * SECTOR] = fat.ljust(SECTOR, b'\0')
+    extents[(start + reserved + 2 * fat_size) * SECTOR] = (label + b'\x08').ljust(SECTOR, b'\0')
+
+
+def make_fixture(work, directory, language, active, count=2, *, mixed=False):
     parts = {name: (directory / (name + '.bin')).read_bytes() for name in ('mbr', 'vbr', 'bootstrap')}
     parts['stage2'] = (directory / 'stage2-dos.bin').read_bytes()
-    _, extents = fixture(parts, 'retroboot-hdd', language)
-    template = (directory / 'handoff-vbr.bin').read_bytes()
+    _, extents = fixture(parts, 'mixed-profiles' if mixed else 'retroboot-hdd', language)
     message = b'Test VBR reached.'
-    if template.count(entry_bytes()) != 1 or template.count(message) != 1:
-        raise ValueError('Unexpected handoff test sector')
     profiles, installations = [], []
     table = bytearray(extents[0])
-    for slot, start in enumerate((131072, 140000, 150000)[:count], 1):
+    starts = (100800, 108864, 181440) if mixed else (131072, 140000, 150000)
+    for slot, start in enumerate(starts[:count], 1):
+        bits = 32 if mixed and slot > 1 else 16
+        base = 0x0B if bits == 32 else 0x06
+        name = 'handoff-fat32-vbr.bin' if bits == 32 else 'handoff-vbr.bin'
+        template = (directory / name).read_bytes()
+        if len(template) != SECTOR or template.count(entry_bytes()) != 1 or template.count(message) != 1:
+            raise ValueError('Unexpected handoff test sector')
+        vbr = bytearray(template)
+        if bits == 32:
+            vbr[3:90] = header(32, start)[3:90]
+        sectors = struct.unpack_from('<I', vbr, 32)[0]
         offset = 446 + (slot - 1) * 16
-        entry = bytearray(partition(6, start, SECTORS, start, 16, 63))
+        entry = bytearray(partition(base, start, sectors, start, 16, 63))
         entry[0] = 0x80
         table[offset:offset + 16] = entry
         banner = f'Test VBR P{slot} OK.'.encode('ascii').ljust(len(message))
-        vbr = bytearray(template.replace(entry_bytes(), bytes(entry)).replace(message, banner))
+        vbr = vbr.replace(entry_bytes(), bytes(entry)).replace(message, banner)
         struct.pack_into('<HHI', vbr, 24, 63, 16, start)
+        if mixed:
+            label = f'RB FAT{bits} P{slot}'.encode('ascii')
+            label_at = 71 if bits == 32 else 43
+            vbr[label_at:label_at + 11] = label
+            if bits == 32:
+                struct.pack_into('<BBBI', vbr, 64, 0x80, 0, 0x29, 0x52424600 + slot)
+                vbr[82:90] = b'FAT32   '
+            empty_filesystem(extents, start, vbr, bits, label)
         extents[start * SECTOR] = bytes(vbr)
         target = dict(install_id=config_records.TEST_INSTALL_ID + slot, slot=slot,
-                      start=start, sectors=SECTORS, type=6, kind=1)
-        profiles.append(dict(target, id=100 + slot, name=f'DOS-Test P{slot}', installed=2, approved=1))
+                      start=start, sectors=sectors, type=base, kind=1)
+        title = f'FAT{bits}-Test P{slot}' if mixed else f'DOS-Test P{slot}'
+        profiles.append(dict(target, id=100 + slot, name=title, installed=2, approved=1))
         installations.append(dict(target, phase=6, vbr_crc=zlib.crc32(vbr)))
 
     before = install_view(table, count, 1)
@@ -124,13 +164,15 @@ def handoff(menu, disk, slot):
         raise ValueError(f'P{slot} handoff used different VBR or partition bytes')
 
 
-def preview(menu, ui, active, selected, count):
+def preview(menu, ui, active, selected, disk):
     menu.expect(ui['VIS_CHANGE'])
-    menu.expect(f'DOS-Test P{selected}')
+    menu.expect(disk.profiles[selected - 1]['name'])
     rows = menu.screen()
-    for slot in range(1, count + 1):
-        current = ('0x06', '0x80') if slot == active else ('0x16', '0x00')
-        wanted = ('0x06', '0x80') if slot == selected else ('0x16', '0x00')
+    for slot, profile in enumerate(disk.profiles, 1):
+        visible = (f"0x{profile['type']:02X}", '0x80')
+        hidden = (f"0x{profile['type'] + 0x10:02X}", '0x00')
+        current = visible if slot == active else hidden
+        wanted = visible if slot == selected else hidden
         row = rows[10 + slot]
         if (row[17:21], row[25:29], row[45:49], row[53:57]) != current + wanted:
             raise ValueError(f'Incorrect visibility plan for P{slot}: {row}')
@@ -171,10 +213,10 @@ def run(language, qemu, bios):
                 menu.expect(ui['STATE_MATCH'])
                 menu.key('esc', 0)
                 menu.key('ret', 8)
-                preview(menu, ui, active, hidden, 2)
+                preview(menu, ui, active, hidden, disk)
                 menu.key('ret', 8)
                 menu.key('f7', 8)
-                preview(menu, ui, active, hidden, 2)
+                preview(menu, ui, active, hidden, disk)
                 menu.key('esc', 0)
                 menu.key('up' if active == 1 else 'down', 0)
                 handoff(menu, disk, active)
@@ -185,7 +227,7 @@ def run(language, qemu, bios):
             for profile in three.profiles:
                 menu.expect(profile['name'])
             menu.key('ret', 8)
-            preview(menu, ui, 3, 1, 3)
+            preview(menu, ui, 3, 1, three)
             menu.key('esc', 0)
             menu.key('down', 0)
             menu.key('down', 0)
@@ -205,7 +247,7 @@ def run(language, qemu, bios):
             menu.expect(second['name'])
             menu.key('esc', 0)
             menu.key('ret', 8)
-            preview(menu, ui, 1, 2, 2)
+            preview(menu, ui, 1, 2, disk)
         put(disk.raw, {at: disk.extents[at] for at in disk.config_at})
 
         hidden_at = second['start'] * SECTOR

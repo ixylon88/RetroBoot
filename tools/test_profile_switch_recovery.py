@@ -3,6 +3,7 @@ import argparse
 from functools import partial
 from pathlib import Path
 import shutil
+import struct
 import tempfile
 
 from backup_container import Chunk, Identity, encode
@@ -20,7 +21,7 @@ from ui_text import load_catalog
 
 
 def profile_backup(disk, original, approved):
-    """Expected external container for this disk's two FAT16 VBRs and hidden volume."""
+    """External container with the complete reserved area of every enrolled volume."""
     b = disk.binding
     capacity = IMAGE_BYTES // SECTOR
     admin, count = b['admin_start'], b['admin_sectors']
@@ -29,19 +30,21 @@ def profile_backup(disk, original, approved):
     chunks = [Chunk(1, 0, 0, original), Chunk(2, 0, 0, approved), Chunk(3, 0, ebr, disk.extents[ebr * SECTOR])]
     volumes = [(p['start'], p['sectors']) for p in disk.profiles] + [(admin, count)]
     for index, (start, sectors) in enumerate(volumes):
-        chunks.append(Chunk(4, index, start, disk.extents[start * SECTOR], start, sectors))
+        reserved = struct.unpack_from('<H', disk.extents[start * SECTOR], 14)[0]
+        area = b''.join(disk.extents.get((start + i) * SECTOR, bytes(SECTOR)) for i in range(reserved))
+        chunks.append(Chunk(4, index, start, area, start, sectors))
     for kind, offset in enumerate(disk.config_at + disk.state_at, 5):
         chunks.append(Chunk(kind, 0, offset // SECTOR, disk.extents[offset], admin, count))
     return encode(identity, chunks)
 
 
-def run(exe, bios):
+def run(exe, bios, *, mixed=False):
     src = ROOT / 'build/rescue'
     checked_build(src, 'journal-recovery')
     with tempfile.TemporaryDirectory() as temp:
         work = Path(temp)
         (work / 'events.txt').write_text('ide_sector_read\nide_sector_write\nide_bus_exec_cmd\nblk_co_pwritev\n')
-        disk = make_fixture(work, ROOT / 'build/hdd', 'en', 1)
+        disk = make_fixture(work, ROOT / 'build/hdd', 'en', 1, 3 if mixed else 2, mixed=mixed)
         step = change(disk, disk.extents, 2, 2, 1)
         carrier, floppy = work / 'backup.raw', work / 'rescue.img'
         witness, _, _ = capture_and_publish(exe, bios, src, work, work / 'enroll.raw', carrier,
@@ -80,4 +83,6 @@ if __name__ == '__main__':
     parser.add_argument('--qemu', default='qemu-system-i386')
     parser.add_argument('--bios', type=Path, default=Path('/usr/share/seabios/bios-256k.bin'))
     args = parser.parse_args()
-    run(Path(shutil.which(args.qemu) or args.qemu).resolve(strict=True), args.bios)
+    exe = Path(shutil.which(args.qemu) or args.qemu).resolve(strict=True)
+    run(exe, args.bios)
+    run(exe, args.bios, mixed=True)

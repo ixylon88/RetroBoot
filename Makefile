@@ -50,6 +50,7 @@ hdd-test: hdd-check
 	$(PYTHON) tools/test_dos_verification.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile_menu.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile_switch.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_mixed_profiles.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 
@@ -68,6 +69,7 @@ hdd-ui-test: hdd-check
 	$(PYTHON) tools/test_dos_verification.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile_menu.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_profile_switch.py --language $(RB_LANGUAGE)
+	$(PYTHON) tools/test_mixed_profiles.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_audit.py --language $(RB_LANGUAGE)
 	$(PYTHON) tools/test_journal.py --language $(RB_LANGUAGE)
 
