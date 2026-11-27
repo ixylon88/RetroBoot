@@ -208,6 +208,7 @@ def build(kind='rescue',language='en'):
             ('journal-recovery-ui','core/journal_recovery.c'),('profile-recovery-ui','core/profile_recovery.c'),
             ('journal','core/journal.c'),('dos-scope','core/dos_scope.c'),
             ('fat-plan-core','core/fat_plan.c'),('fat-plan-ui','core/fat_plan_ui.c'),('fat-plan-tests','tests/format/plan.c'),
+            ('fat-review','core/fat_review.c'),
             ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -226,6 +227,9 @@ def build(kind='rescue',language='en'):
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_GEOMETRY_ONLY=1','bios/dos.asm','-o',destination/'geometry.obj')
+    run(nasm,'-Werror','-f','obj','-DRB_FORMAT_COPY=1','bios/ata.asm','-o',destination/'fat-copy-io.obj')
+    run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-dRB_FORMAT_COPY=1',
+        '-fo='+str(destination/'fat-copy-identity.obj'),'core/mbr_ata.c')
     run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_RESERVATION_WRITE=1','bios/floppy.asm','-o',destination/'fixture-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_ORIGINAL_WRITE=1','bios/floppy.asm','-o',destination/'original-write.obj')
@@ -241,7 +245,7 @@ def build(kind='rescue',language='en'):
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     run(nasm,'-Werror','-f','obj','-DRB_BACKUP_DISK=1','-DRB_RESTORE_JOURNAL=1','bios/ata.asm','-o',destination/'journal-ata.obj')
     def floppy(name,payload):
-        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk','mbr-restore','journal-recovery','profile-recovery') else []
+        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk','mbr-restore','journal-recovery','profile-recovery','fat-plan') else []
         boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
             '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),*flags,'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
@@ -317,7 +321,8 @@ def build(kind='rescue',language='en'):
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
         if name == 'fat-plan':
-            extra = [destination / (n + '.obj') for n in ('fat-plan-ui', 'fat-plan-core', 'geometry', 'saved-volume')]
+            extra = [destination / (n + '.obj') for n in ('fat-plan-ui', 'fat-plan-core', 'geometry', 'saved-volume',
+                'fat-review', 'fat-copy-identity', 'fat-copy-io', 'fingerprint', 'floppy')]
         if name in ('mbr-restore', 'journal-recovery', 'profile-recovery'):
             adapter = ('mbr-restore-ui', 'restore-ata') if name == 'mbr-restore' else (name + '-ui', 'journal-ata', 'journal', 'dos-scope')
             extra = [destination / (n + '.obj') for n in (
@@ -346,7 +351,7 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
-    for name in ('mbr-target.img','backup-disk.img','mbr-restore.img','journal-recovery.img','profile-recovery.img'):
+    for name in ('mbr-target.img','backup-disk.img','mbr-restore.img','journal-recovery.img','profile-recovery.img','fat-plan.img'):
         template = destination / name
         template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
         remember(template)

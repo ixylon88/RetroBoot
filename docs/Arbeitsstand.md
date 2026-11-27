@@ -84,6 +84,16 @@ is complete. Installer work has started with the independent read-only
 [FAT format preview](FATFormatPlan.md). Its first scope is the primary target
 layout in [#50](https://github.com/ixylon88/RetroBoot/issues/50).
 
+The German preview passed in VirtualBox on 27 November. P1 showed FAT16
+with 49,191 data clusters and P2 showed FAT32 with 392,819. The 64-sector
+choice was refused on P2. P3 showed an existing FAT32 header and 521,088
+data clusters. Esc ended the preview with `RB FAT PLAN END`.
+[VirtualBox report for PR #94](https://github.com/ixylon88/RetroBoot/pull/94#issuecomment-7227992880)
+
+The [format target review](FATFormatReview.md) now checks the proposed
+metadata sector range against a separately attached IDE copy, then repeats
+the comparison after explicit selection of the displayed slot.
+
 ## Original DOS boot and recovery milestones
 
 The maintainer confirmed the 45-sector RAM verification and both rejected

@@ -115,6 +115,7 @@ fat-plan-test:
 	$(PYTHON) tools/build_rescue.py --language en
 	$(PYTHON) tools/build_rescue.py --language de
 	$(PYTHON) tools/test_fat_format_plan.py
+	$(PYTHON) tools/test_fat_format_review.py
 
 rescue:
 	$(PYTHON) tools/build_rescue.py --language $(RB_LANGUAGE)

@@ -34,6 +34,9 @@ KEYS += tuple('FP_' + key for key in (
     'TITLE', 'SCOPE', 'SELECT', 'CHOICES', 'AUTO', 'TARGET', 'VOLUME', 'SPC', 'FATSIZE',
     'CLUSTERS', 'RESERVED', 'ROOT', 'DATA', 'BOOT', 'INFO', 'ZERO', 'OTHER', 'BPB16',
     'BPB32', 'TARGET_BAD', 'RANGE', 'CHS', 'EDD', 'SIZE_BAD', 'COUNT_BAD', 'DEVICE', 'TABLE', 'IO', 'CHANGED'))
+KEYS += tuple('FR_' + key for key in (
+    'MODE', 'OFFER', 'READING', 'SOURCE', 'COPY', 'PROFILE', 'SOURCE_BAD', 'COPY_BAD', 'LBA28',
+    'IO', 'DIFFERENT', 'ERROR_LBA', 'SPAN', 'SECTORS', 'NONZERO', 'LOSS', 'CONFIRM', 'CANCEL', 'WRONG', 'DONE'))
 WIDTHS = dict.fromkeys(KEYS,74)
 WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13)
 

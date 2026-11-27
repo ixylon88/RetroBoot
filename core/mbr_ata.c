@@ -109,6 +109,7 @@ int rb_ata_decode_enrollment(rb_ata_enrollment *p, const rb_u8 *s)
         && printable(p->device.serial, 20) && printable(p->device.model, 40);
 }
 
+#ifndef RB_FORMAT_COPY
 static int matches(rb_u16 channel, const rb_ata_identity *expected, int writing)
 {
     rb_ata_identity live;
@@ -176,3 +177,4 @@ rb_u16 __cdecl rb_ata_write_record(rb_u16 n, const rb_u8 *in, const rb_u8 *id, v
         || !rb_ata_recovery_label(p)) { return 0; }
     return 512;
 }
+#endif
