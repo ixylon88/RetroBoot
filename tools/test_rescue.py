@@ -281,7 +281,7 @@ def main():
                         screens.append(dict(key=key,view=view,vga_sha256=sha256(paths['vga'])));qmp.call('cont')
                 else:
                     qmp.call('stop');qmp.call('screendump',{'filename':str(out/(name+'.png')),'format':'png'})
-                    if case['name']=='rescue-model' and 'R=001C' not in log.read_text():raise ValueError('Missing native rescue assertions')
+                    if case['name']=='rescue-model' and 'R=001D' not in log.read_text():raise ValueError('Missing native rescue assertions')
                     if case['name']=='backup-model' and f'B={3*len(backup_cases()):04X}' not in log.read_text():raise ValueError('Missing native backup assertions')
                     if case['name']=='backup-records-model' and f'C={4*len(record_cases()):04X}' not in log.read_text():raise ValueError('Missing native saved-record assertions')
                     if case['name']=='backup-boot-model' and f'D={6*len(boot_cases()):04X}' not in log.read_text():raise ValueError('Missing native boot-area assertions')

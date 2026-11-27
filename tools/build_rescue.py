@@ -207,6 +207,7 @@ def build(kind='rescue',language='en'):
             ('mbr-reservation-core','core/mbr_reservation.c'),('mbr-reservation-tests','tests/backup/reservation.c'),
             ('journal-recovery-ui','core/journal_recovery.c'),('profile-recovery-ui','core/profile_recovery.c'),
             ('journal','core/journal.c'),('dos-scope','core/dos_scope.c'),
+            ('fat-plan-core','core/fat_plan.c'),('fat-plan-ui','core/fat_plan_ui.c'),('fat-plan-tests','tests/format/plan.c'),
             ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -224,6 +225,7 @@ def build(kind='rescue',language='en'):
             '-fo='+str(destination/(name+'.obj')),source)
     for name,source in (('ui','bios/ui.asm'),('disk','bios/disk.asm'),('probe','bios/rescue.asm'),('abi','runtime/abi.asm'),('arith','runtime/arith.asm'),('end','runtime/end.asm')):
         obj=destination/(name+'.obj');run(nasm,'-Werror','-f','obj','-I','./',source,'-o',obj);objects.append(obj)
+    run(nasm,'-Werror','-f','obj','-I','./','-DRB_GEOMETRY_ONLY=1','bios/dos.asm','-o',destination/'geometry.obj')
     run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_RESERVATION_WRITE=1','bios/floppy.asm','-o',destination/'fixture-write.obj')
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_ORIGINAL_WRITE=1','bios/floppy.asm','-o',destination/'original-write.obj')
@@ -251,7 +253,7 @@ def build(kind='rescue',language='en'):
             ('backup-verify-model',['-DRB_RESCUE_VERIFY_MODEL=1']),
             ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),('mbr-restore',['-DRB_RESCUE_MBR_RESTORE=1']),
             ('journal-recovery',['-DRB_RESCUE_JOURNAL_RECOVERY=1']),
-            ('profile-recovery',['-DRB_RESCUE_PROFILE_RECOVERY=1']),
+            ('profile-recovery',['-DRB_RESCUE_PROFILE_RECOVERY=1']),('fat-plan',['-DRB_RESCUE_FAT_PLAN=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
             ('mbr-reserve',['-DRB_RESCUE_RESERVE=1']),
@@ -267,7 +269,7 @@ def build(kind='rescue',language='en'):
             ('rescue-file-model',['-DRB_RESCUE_FILE_MODEL=1'])):
         obj,binary,mapfile=(destination/(name+suffix) for suffix in ('.obj','.bin','.map'))
         run(nasm,'-Werror','-f','obj','-I','./',*defines,'core/rescue_start.asm','-o',obj)
-        extra=[destination/'model.obj'] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
+        extra=[destination/(n+'.obj') for n in ('model','fat-plan-core','fat-plan-tests')] if name=='rescue-model' else [destination/'backup.obj',destination/'backup-tests.obj'] if name=='backup-model' else []
         if name=='backup-encode-model':
             extra=[destination/(n+'.obj') for n in ('backup','backup-encode','backup-encode-tests')]
         if name=='backup-stream-model':
@@ -314,6 +316,8 @@ def build(kind='rescue',language='en'):
                 'backup', 'backup-records', 'backup-boot', 'backup-live', 'backup-stream', 'backup-encode',
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
+        if name == 'fat-plan':
+            extra = [destination / (n + '.obj') for n in ('fat-plan-ui', 'fat-plan-core', 'geometry', 'saved-volume')]
         if name in ('mbr-restore', 'journal-recovery', 'profile-recovery'):
             adapter = ('mbr-restore-ui', 'restore-ata') if name == 'mbr-restore' else (name + '-ui', 'journal-ata', 'journal', 'dos-scope')
             extra = [destination / (n + '.obj') for n in (

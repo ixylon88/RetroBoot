@@ -2,7 +2,7 @@ bits 16
 cpu 386
 %include "include/boot.inc"
 segment _TEXT public align=16 class=CODE use16
-global _rb_dos_geometry, _rb_video_console, _rb_dos_write_record, _rb_dos_write_mbr
+global _rb_dos_geometry
 
 ; Return cylinders, heads and sectors/track as reported for BIOS disk 80h.
 _rb_dos_geometry:
@@ -45,6 +45,9 @@ _rb_dos_geometry:
     popf
     pop bp
     ret
+
+%ifndef RB_GEOMETRY_ONLY
+global _rb_video_console, _rb_dos_write_record, _rb_dos_write_mbr
 
 ; Restore the visible BIOS text cursor and clear the menu before DOS takes over.
 _rb_video_console:
@@ -136,3 +139,4 @@ dos_write_done:
     popf
     pop bp
     ret
+%endif
