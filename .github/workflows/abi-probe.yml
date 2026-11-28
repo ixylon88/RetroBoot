@@ -33,6 +33,17 @@ jobs:
         run: |
           python3 tools/test_fat_format_write.py --bits 16 --host-tools
           python3 tools/test_fat_format_write.py --bits 32 --host-tools
+      - name: Cold-boot FreeDOS and verify file operations on both RetroBoot filesystems
+        run: |
+          python3 tools/build_dos_guest.py
+          python3 tools/test_dos_guest.py
+      - name: Upload the bilingual FreeDOS guest kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-dos-guest
+          path: build/dos-guest/RetroBoot-DOS-Dateitest.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload the bilingual FAT16 format and restore kit
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

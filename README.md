@@ -56,6 +56,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [F9 checked-profile test handoff and manual check](docs/ProfileTest.md)
 - [F10 management-volume allocation and manual check](docs/AdminAllocation.md)
 - [Transaction-journal format and native observation model](docs/TransactionJournal.md)
+- [DOS guest file test on RetroBoot FAT16 and FAT32 volumes](docs/DOSGuestTest.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)
