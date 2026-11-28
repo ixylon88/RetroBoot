@@ -103,6 +103,11 @@ const char *rb_format_check_tables(const observation *v, rb_format_comparison *r
     return 0;
 }
 
+rb_u32 rb_fat_metadata_last(const rb_fat_plan *plan)
+{
+    return plan->bits == 16 ? plan->data - 1 : plan->root + (plan->spc - 1);
+}
+
 const char *rb_format_compare(const observation *v, rb_format_comparison *r)
 {
     const rb_fat_plan *f = &v->plan;
@@ -110,7 +115,7 @@ const char *rb_format_compare(const observation *v, rb_format_comparison *r)
     rb_u32 lba;
     clear((rb_u8 *)r, sizeof(*r));
     r->error_lba = RB_FORMAT_NO_LBA;
-    r->last = f->bits == 16 ? f->data - 1 : f->root + (f->spc - 1);
+    r->last = rb_fat_metadata_last(f);
     if (r->last < v->boot.lba || r->last > 0x0fffffffUL) { return RB_RS_FR_LBA28; }
     error = rb_format_check_tables(v, r);
     if (error) { return error; }

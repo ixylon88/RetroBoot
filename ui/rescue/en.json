@@ -243,5 +243,10 @@
   "FW_CANCEL": "Operation cancelled.",
   "FW_WRITING": "Writing FAT16 metadata. The boot sector is published last.",
   "FW_RESTORING": "Restoring original sectors from the backup.",
-  "FW_IO": "Write or readback failed. Restart to inspect the disk state."
+  "FW_IO": "Write or readback failed. Restart to inspect the disk state.",
+  "FW_LIMIT": "Too many sector changes for this diskette. Operation blocked.",
+  "FW32_TITLE": "RetroBoot FAT32 format and restore",
+  "FW32_FORMAT": "F  Create an empty FAT32 filesystem    Esc  End",
+  "FW32_WRITING": "Writing FAT32 metadata. Both boot sectors are published last.",
+  "FW32_EXISTING": "The original FAT32 backup boot sector is occupied. Formatting blocked."
 }

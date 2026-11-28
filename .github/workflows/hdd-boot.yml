@@ -2,7 +2,7 @@ name: HDD BIOS boot
 
 on:
   pull_request:
-    branches: [historical]
+    branches: [historical, dev, master]
   workflow_dispatch:
 
 permissions:

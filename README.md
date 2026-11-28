@@ -2,7 +2,15 @@
 
 A BIOS boot manager for classic x86 PCs: isolated primary DOS/Windows 9x
 systems, shared data volumes and optional chainloading of existing NT loaders.
-Development currently targets the `historical` branch.
+Until the first working preview, development PRs target `historical`.
+The `dev` and `master` branches start at the original project brief. At the
+preview milestone a squash PR from the tested `historical` revision to `dev`
+will introduce the implementation in one commit. The full history then
+stays on `historical` as an archive. Subsequent feature PRs target `dev`,
+and release PRs promote reviewed versions from `dev` to `master`.
+Both branches require a pull request and block force pushes and deletions.
+The rules apply to administrators as well. An independent approving review
+is optional. [Active branch rules](https://github.com/ixylon88/RetroBoot/rules/28299823)
 
 The prepared DOS disk boots MS-DOS 6.22 and supports a persistent F9 boot delay.
 [Prepared disk and VirtualBox check](docs/PreparedDOS.md#saving-the-delay-from-the-hdd-menu)

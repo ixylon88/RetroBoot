@@ -101,8 +101,14 @@ same review correctly reported the missing or mismatched secondary IDE master.
 
 The [FAT16 test diskette](FAT16Format.md) now creates the empty P1 filesystem,
 recognizes it after power-off and can restore a verified prefix of sector
-changes from the original backup. FAT32 publication and original DOS
-acceptance remain open under [issue #50](https://github.com/ixylon88/RetroBoot/issues/50).
+changes from the original backup. In the [VirtualBox check for PR #96](https://github.com/ixylon88/RetroBoot/pull/96#issuecomment-7242735087),
+P1 started at 0 of 4 and reported `RB FAT16 FORMAT PASS` at 17:57:59 on
+28 November. At 17:58:29 it reported 4 of 4, `RB FAT16 VERIFIED` and
+`RB FAT16 RESTORE PASS`.
+
+The [P2 FAT32 diskette](FAT32Format.md) publishes both three-sector boot
+records, the two FATs and the empty root cluster on an enrolled fixture.
+Original DOS/Windows guest acceptance remains open under [issue #50](https://github.com/ixylon88/RetroBoot/issues/50).
 
 ## Original DOS boot and recovery milestones
 
