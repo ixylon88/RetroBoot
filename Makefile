@@ -2,7 +2,7 @@ PYTHON ?= python3
 RB_LANGUAGE ?= en
 PROFILE := profiles/rb-8g-chs255.json
 
-.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test profile-recovery-test fat-plan-test fat16-format-test rescue rescue-check rescue-test iso-deps rescue-iso rescue-iso-test
+.PHONY: all check layout report toolchain abi abi-check boot-test hdd hdd-check hdd-test hdd-ui-test menu-test scan-test volume-test handoff-test config-test state-test visibility-test profile-test audit-test journal-test profile-recovery-test fat-plan-test fat16-format-test fat32-format-test rescue rescue-check rescue-test iso-deps rescue-iso rescue-iso-test
 
 all: check
 
@@ -117,10 +117,12 @@ fat-plan-test:
 	$(PYTHON) tools/test_fat_format_plan.py
 	$(PYTHON) tools/test_fat_format_review.py
 
-fat16-format-test:
+fat16-format-test: format_bits = 16
+fat32-format-test: format_bits = 32
+fat16-format-test fat32-format-test:
 	$(PYTHON) tools/build_rescue.py --language en
 	$(PYTHON) tools/build_rescue.py --language de
-	$(PYTHON) tools/test_fat16_format.py --host-tools
+	$(PYTHON) tools/test_fat_format_write.py --bits $(format_bits) --host-tools
 
 rescue:
 	$(PYTHON) tools/build_rescue.py --language $(RB_LANGUAGE)

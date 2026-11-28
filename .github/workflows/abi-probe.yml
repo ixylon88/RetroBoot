@@ -2,13 +2,52 @@ name: BIOS ABI and Rescue
 
 on:
   pull_request:
-    branches: [historical]
+    branches: [historical, dev, master]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  fat-format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install host build and emulator packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils dosfstools mtools
+      - name: Prepare verified toolchain
+        run: make toolchain
+      - name: Build the English and German formatter floppies
+        run: |
+          python3 tools/build_rescue.py --language en
+          python3 tools/build_rescue.py --language de
+      - name: Boot, interrupt, verify and restore both filesystems
+        run: |
+          python3 tools/test_fat_format_write.py --bits 16 --host-tools
+          python3 tools/test_fat_format_write.py --bits 32 --host-tools
+      - name: Upload the bilingual FAT16 format and restore kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-fat16-format
+          path: build/fat16-format/RetroBoot-FAT16-Formatierung.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload the bilingual FAT32 format and restore kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-fat32-format
+          path: build/fat32-format/RetroBoot-FAT32-Formatierung.zip
+          if-no-files-found: error
+          retention-days: 30
+
   bios-probe:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -22,7 +61,7 @@ jobs:
       - name: Install host build and emulator packages
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils dosfstools mtools
+          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils
       - name: Prepare verified toolchain
         run: make toolchain
       - name: Install pinned ISO packaging dependency
@@ -49,15 +88,6 @@ jobs:
         with:
           name: retroboot-fat-target-review
           path: build/fat-review/RetroBoot-Formatziel.zip
-          if-no-files-found: error
-          retention-days: 30
-      - name: Format FAT16, interrupt and restore, and open the filesystem with host tools
-        run: python3 tools/test_fat16_format.py --host-tools
-      - name: Upload the bilingual FAT16 format and restore kit
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: retroboot-fat16-format
-          path: build/fat16-format/RetroBoot-FAT16-Formatierung.zip
           if-no-files-found: error
           retention-days: 30
       - name: Package and boot the bilingual VirtualBox recovery disk test

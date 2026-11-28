@@ -40,6 +40,7 @@ KEYS += tuple('FR_' + key for key in (
 KEYS += tuple('FW_' + key for key in (
     'TITLE', 'TICKET', 'LAYOUT', 'FLUSH', 'FOREIGN', 'BACKUP', 'COUNT', 'TOTAL', 'ORIGINAL',
     'PARTIAL', 'FORMAT', 'RESTORE', 'CONFIRM', 'CANCEL', 'WRITING', 'RESTORING', 'IO'))
+KEYS += ('FW_LIMIT', 'FW32_TITLE', 'FW32_FORMAT', 'FW32_WRITING', 'FW32_EXISTING')
 WIDTHS = dict.fromkeys(KEYS,74)
 WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13)
 
