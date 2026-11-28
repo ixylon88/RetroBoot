@@ -51,7 +51,7 @@ def expected_layout(ui, volume, capacity, boot_message):
     return lines
 
 
-def fixture(work, plan):
+def fixture(work, plan, *, markers=None):
     size, _, sectors = layout(True)
     target = plan['primary'][2]
     start = target['start_lba']
@@ -62,6 +62,8 @@ def fixture(work, plan):
     sectors[start * SECTOR] = bytes(vbr)
     # P1 has a zero first sector and nonzero data farther into the volume.
     sectors[(plan['primary'][0]['start_lba'] + 9) * SECTOR] = b'RB occupied sector'
+    if markers:
+        sectors.update(markers)
     raw = work / 'reference.raw'
     write_fixture(raw, size, sectors)
     image = work / PRIMARY
@@ -70,17 +72,17 @@ def fixture(work, plan):
     return raw, image, sectors
 
 
-def builds():
+def builds(stem='fat-plan'):
     found = {}
     for lang in LANGUAGES:
         directory = ROOT / 'build' / output_name('rescue', lang)
         manifest = json.loads((directory / 'manifest.json').read_bytes())
         check_build_inputs(manifest, ROOT)
-        for name in (FLOPPY, 'fat-plan.bin'):
+        for name in (stem + '.img', stem + '.bin'):
             if sha256(directory / name) != manifest['artifacts'][name]['sha256']:
                 raise ValueError(f'{lang}: stale {name}')
-        found[lang] = directory, dict(binary=(directory / 'fat-plan.bin').read_bytes(),
-                                      memory=manifest['memory']['fat-plan'])
+        found[lang] = directory, dict(binary=(directory / (stem + '.bin')).read_bytes(),
+                                      memory=manifest['memory'][stem])
     return found
 
 

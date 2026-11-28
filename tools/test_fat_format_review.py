@@ -25,11 +25,9 @@ SERIALS = ('VB52429501-11111111', 'VB52429502-22222222')
 UUIDS = ('52429501-d413-4b6c-a395-000011111111', '52429502-d413-4b6c-a395-000022222222')
 
 
-def package(work, plan, artifacts):
-    raw, vdi, sectors = fixture(work, plan)
-    capacity = plan['disk_bytes'] // SECTOR
+def enrolled_vdis(work, vdi, capacity, names, uuids, serials):
     media = {}
-    for name, guid, serial in zip((SYSTEM, CLONE), UUIDS, SERIALS, strict=True):
+    for name, guid, serial in zip(names, uuids, serials, strict=True):
         path = work / name
         shutil.copyfile(vdi, path)
         set_fixture_identity(path, guid, capacity, heads=255)
@@ -39,10 +37,22 @@ def package(work, plan, artifacts):
         if f'VB{words[0]:08x}-{words[3]:08x}' != serial:
             raise ValueError('Enrolled serial differs from the VDI creation UUID')
         media[name] = path.read_bytes()
+    return media
+
+
+def paired_floppy(template, serials, capacity):
+    floppy, _ = prepare_pair(template, MODEL, serials[0], capacity,
+                             *(bytes(15) + bytes([i]) for i in (1, 2, 3)),
+                             recovery=(MODEL, serials[1], capacity))
+    return floppy
+
+
+def package(work, plan, artifacts):
+    raw, vdi, sectors = fixture(work, plan)
+    capacity = plan['disk_bytes'] // SECTOR
+    media = enrolled_vdis(work, vdi, capacity, (SYSTEM, CLONE), UUIDS, SERIALS)
     for lang, folder in LANGUAGES.items():
-        floppy, _ = prepare_pair((artifacts[lang][0] / FLOPPY).read_bytes(), MODEL, SERIALS[0], capacity,
-                                 *(bytes(15) + bytes([i]) for i in (1, 2, 3)),
-                                 recovery=(MODEL, SERIALS[1], capacity))
+        floppy = paired_floppy((artifacts[lang][0] / FLOPPY).read_bytes(), SERIALS, capacity)
         media[f'{folder}/fat-review.img'] = floppy
     media['README.md'] = (ROOT / 'docs/FATFormatReview.md').read_bytes()
     bundle = work / KIT

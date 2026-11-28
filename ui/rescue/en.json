@@ -226,5 +226,22 @@
   "FR_CONFIRM": "Repeat the slot number for this dry run. Esc cancels.",
   "FR_CANCEL": "Target review cancelled.",
   "FR_WRONG": "Slot number does not match. Target review cancelled.",
-  "FR_DONE": "Target confirmed and compared again. No sectors were written."
+  "FR_DONE": "Target confirmed and compared again. No sectors were written.",
+  "FW_TITLE": "RetroBoot FAT16 format and restore",
+  "FW_TICKET": "Disk and partition approval is missing or has changed.",
+  "FW_LAYOUT": "The partition does not match its approved geometry.",
+  "FW_FLUSH": "The target does not support the required cache flush.",
+  "FW_FOREIGN": "Unexpected sector contents or write order. Operation blocked.",
+  "FW_BACKUP": "The backup differs from the approved original data.",
+  "FW_COUNT": "Sectors already changed:",
+  "FW_TOTAL": "Planned sector changes:",
+  "FW_ORIGINAL": "Original state verified.",
+  "FW_PARTIAL": "An interrupted change was detected.",
+  "FW_FORMAT": "F  Create an empty FAT16 filesystem    Esc  End",
+  "FW_RESTORE": "R  Restore original sectors    Esc  End",
+  "FW_CONFIRM": "Confirm writes with the partition number. Esc cancels.",
+  "FW_CANCEL": "Operation cancelled.",
+  "FW_WRITING": "Writing FAT16 metadata. The boot sector is published last.",
+  "FW_RESTORING": "Restoring original sectors from the backup.",
+  "FW_IO": "Write or readback failed. Restart to inspect the disk state."
 }

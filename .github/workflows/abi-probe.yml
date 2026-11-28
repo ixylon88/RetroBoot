@@ -22,7 +22,7 @@ jobs:
       - name: Install host build and emulator packages
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils
+          sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils dosfstools mtools
       - name: Prepare verified toolchain
         run: make toolchain
       - name: Install pinned ISO packaging dependency
@@ -49,6 +49,15 @@ jobs:
         with:
           name: retroboot-fat-target-review
           path: build/fat-review/RetroBoot-Formatziel.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Format FAT16, interrupt and restore, and open the filesystem with host tools
+        run: python3 tools/test_fat16_format.py --host-tools
+      - name: Upload the bilingual FAT16 format and restore kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-fat16-format
+          path: build/fat16-format/RetroBoot-FAT16-Formatierung.zip
           if-no-files-found: error
           retention-days: 30
       - name: Package and boot the bilingual VirtualBox recovery disk test
