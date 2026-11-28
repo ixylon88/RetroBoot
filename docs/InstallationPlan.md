@@ -64,6 +64,7 @@ and geometry. File data elsewhere on the partition is outside this review.
 
 On Linux, `make toolchain` followed by `make install-plan-test` builds both
 languages and tests the packaged media in QEMU. The campaign checks the VGA
-output, the exact disk reads and zero writes. Applying the plan and starting
-original setup media are subsequent parts of the
-[installation workflow](https://github.com/ixylon88/RetroBoot/issues/51).
+output, the exact disk reads and zero writes. The separate
+[P2 setup visibility kit](InstallationView.md) applies and restores the
+Windows 95 OSR2 plan on an enrolled disk pair. Original setup media follow
+in [the installation workflow](https://github.com/ixylon88/RetroBoot/issues/51).

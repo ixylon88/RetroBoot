@@ -58,6 +58,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [Transaction-journal format and native observation model](docs/TransactionJournal.md)
 - [DOS guest file test on RetroBoot FAT16 and FAT32 volumes](docs/DOSGuestTest.md)
 - [Read-only DOS and Windows installation target planner](docs/InstallationPlan.md)
+- [Apply and restore the Windows 95 OSR2 setup view on P2](docs/InstallationView.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)

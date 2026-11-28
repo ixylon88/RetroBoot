@@ -265,5 +265,13 @@
   "IP_BYTES": "Zu ändernde Bytes:",
   "IP_SECTORS": "Betroffene Tabellensektoren:",
   "IP_REPEAT": "R  Plan erneut von Platte prüfen    Esc  Zur Auswahl",
-  "IP_CHANGED": "Datenträger oder Tabellensektoren seit der Vorschau geändert."
+  "IP_CHANGED": "Datenträger oder Tabellensektoren seit der Vorschau geändert.",
+  "IV_TITLE": "RetroBoot Partitionssicht für das Setup",
+  "IV_BACKUP": "Eine gesicherte Partitionstabelle weicht vom freigegebenen Original ab.",
+  "IV_FOREIGN": "Die Tabellen enthalten eine unerwartete Änderung oder Schreibreihenfolge.",
+  "IV_PARTIAL": "Umschaltung unterbrochen. Geänderte Tabellen lassen sich zurücksetzen.",
+  "IV_ORIGINAL": "Die ursprüngliche Partitionssicht ist bestätigt.",
+  "IV_RESTORE": "R  Ursprüngliche Partitionssicht wiederherstellen    Esc  Ende",
+  "IV_APPLY": "A  Gezeigte Partitionssicht anwenden    Esc  Ende",
+  "IV_IO": "Schreiben, Leeren des Plattencaches oder Rücklesen fehlgeschlagen."
 }

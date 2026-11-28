@@ -135,6 +135,12 @@ install-plan-test:
 	$(PYTHON) tools/build_rescue.py --language de
 	$(PYTHON) tools/test_install_plan.py
 
+.PHONY: install-view-test
+install-view-test:
+	$(PYTHON) tools/build_rescue.py --language en
+	$(PYTHON) tools/build_rescue.py --language de
+	$(PYTHON) tools/test_install_view.py
+
 rescue:
 	$(PYTHON) tools/build_rescue.py --language $(RB_LANGUAGE)
 

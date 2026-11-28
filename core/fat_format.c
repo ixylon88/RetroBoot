@@ -39,7 +39,7 @@ static int valid_ticket(void)
     return equal(ticket.magic, (const rb_u8 *)(bits == 16 ? "RBFMT161" : "RBFMT321"), 8)
         && rb_crc32((const rb_u8 *)&ticket, 508) == ticket.crc
         && equal(ticket.reserved, zero, sizeof(ticket.reserved))
-        && ticket.pair_crc == rb_format_pair_crc() && ticket.slot >= 1 && ticket.slot <= 4
+        && ticket.pair_crc == rb_ide_pair_crc() && ticket.slot >= 1 && ticket.slot <= 4
         && ticket.start && ticket.metadata && ticket.metadata <= (bits == 16 ? 1024UL : 65535UL)
         && ticket.metadata <= ticket.length && ticket.start <= 0x0fffffffUL
         && ticket.metadata - 1 <= 0x0fffffffUL - ticket.start;
@@ -131,7 +131,7 @@ static const char *tables(rb_u32 digest[2])
     rb_fingerprint_sector(check.fingerprint, 0, view.mbr.bytes);
     error = rb_format_check_tables(&view, &check);
     if (error) { return error; }
-    if (!rb_format_can_flush()) { return RB_RS_FW_FLUSH; }
+    if (!rb_ide_can_flush()) { return RB_RS_FW_FLUSH; }
     digest[0] = check.fingerprint[0]; digest[1] = check.fingerprint[1];
     return 0;
 }
@@ -226,12 +226,12 @@ static rb_u16 run(rb_u16 drive, rb_u16 family)
     const char *error;
     floppy = drive; bits = family;
     line(bits == 16 ? RB_RS_FW_TITLE : RB_RS_FW32_TITLE);
-    if (rb_format_load_pair(drive) != 1 || rb_floppy_read(TICKET_LBA, (rb_u8 *)&ticket, &floppy)
+    if (rb_ide_load_pair(drive) != 1 || rb_floppy_read(TICKET_LBA, (rb_u8 *)&ticket, &floppy)
         || !valid_ticket()) { return blocked(RB_RS_FW_TICKET); }
     error = inspect(&shown, layout);
     if (error) { return blocked(error); }
     print(RB_RS_FP_TARGET); print(" P"); rb_putc('0' + ticket.slot); line("");
-    rb_format_print_pair();
+    rb_ide_print_pair();
     rb_fat_span(RB_RS_FR_SPAN, ticket.start, ticket.start + ticket.metadata - 1);
     count(RB_RS_FW_COUNT " ", shown.done); count(RB_RS_FW_TOTAL " ", shown.total);
     restore = shown.done != 0;

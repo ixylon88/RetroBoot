@@ -84,7 +84,7 @@ static void review(rb_u16 slot, rb_u16 spc)
     line(RB_RS_FR_READING);
     if (!compare_copy(slot, spc, &shown)) { return; }
     target(slot);
-    rb_format_print_pair();
+    rb_ide_print_pair();
     print(RB_RS_DISK_ID); print(" 0x"); rb_fat_hex32(first.scan.disk_id); line("");
     rb_fat_span(RB_RS_FP_VOLUME, first.boot.lba, first.boot.lba + (first.scan.entries[slot - 1].sectors - 1));
     count("FAT", first.plan.bits);
@@ -107,7 +107,7 @@ static void review(rb_u16 slot, rb_u16 spc)
 rb_u16 __cdecl rb_fat_plan_run(rb_u16 drive)
 {
     rb_u16 key, slot = 0, spc = 0;
-    int ready = 0, paired = rb_format_load_pair(drive);
+    int ready = 0, paired = rb_ide_load_pair(drive);
     line(RB_RS_FP_TITLE); line(RB_RS_FP_SCOPE);
     if (paired < 0) { line(RB_RS_FR_PROFILE); }
     if (paired > 0) { line(RB_RS_FR_MODE); }

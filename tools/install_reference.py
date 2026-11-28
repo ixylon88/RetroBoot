@@ -1,5 +1,6 @@
 """Describe the owned installer layout and its allowed visibility changes."""
 import json
+import struct
 
 try:
     from .build_hdd import ROOT, SECTOR, layout
@@ -27,3 +28,38 @@ def reference_header():
             f'#define INSTALL_HEADS {plan["geometry"]["heads"]}U\n'
             f'#define INSTALL_SPT {plan["geometry"]["sectors_per_track"]}U\n'
             'static const install_table reference[] = {\n' + ',\n'.join(rows) + '\n};\n')
+
+
+def initial_mbr(sector):
+    """Start with P1 active and visible and the other two system slots hidden."""
+    mbr = bytearray(sector)
+    struct.pack_into('<I', mbr, 440, DISK_ID)
+    mbr[446], mbr[466], mbr[482] = 0x80, 0x1b, 0x1b
+    return bytes(mbr)
+
+
+def visibility_tables():
+    plan = json.loads((ROOT / 'profiles/rb-8g-chs255.json').read_bytes())
+    _, _, raw = layout(True)
+    tables = {}
+    for index, lba in enumerate([0, *(v['ebr_lba'] for v in plan['logical'])]):
+        table = bytearray(initial_mbr(raw[0]) if index == 0 else raw[lba * SECTOR])
+        if index == 0:
+            table[:4] = b'\xcd\x18\xeb\xfe'  # No installed OS; ask BIOS for another boot device.
+        table[400:408] = b'RBVIEW1' + bytes([48 + index])
+        tables[lba] = bytes(table)
+    return tables
+
+
+def write_visibility_reference(output):
+    plan = json.loads((ROOT / 'profiles/rb-8g-chs255.json').read_bytes())
+    tables = visibility_tables()
+    # Hide the shared volumes before activating the new primary system slot.
+    order = [p['ebr_lba'] for p in plan['logical'] if p['role'] == 'shared'] + [0]
+    indices = [list(tables).index(lba) for lba in order]
+    rows = [','.join(str(b) for b in sector) for sector in tables.values()]
+    (output / 'install_approval.h').write_text(
+        'static const rb_install_tables approved = {\n{' + '},\n{'.join(rows) + '}\n};\n' +
+        'static const rb_u16 write_order[] = {' + ','.join(map(str, indices)) + '};\n', encoding='ascii')
+    (output / 'install_view_lbas.inc').write_text(
+        'dd ' + ','.join(map(str, order)) + '\n', encoding='ascii')

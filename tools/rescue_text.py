@@ -44,6 +44,8 @@ KEYS += ('FW_LIMIT', 'FW32_TITLE', 'FW32_FORMAT', 'FW32_WRITING', 'FW32_EXISTING
 KEYS += tuple('IP_' + key for key in (
     'TITLE', 'SCOPE', 'OS', 'SLOT', 'GEOMETRY', 'DISK', 'LAYOUT', 'SYSTEM_SLOT', 'DOS_FAT',
     'OCCUPIED', 'BOOT_CLEAR', 'VIEW', 'COLUMNS', 'BYTES', 'SECTORS', 'REPEAT', 'CHANGED'))
+KEYS += tuple('IV_' + key for key in (
+    'TITLE', 'BACKUP', 'FOREIGN', 'PARTIAL', 'ORIGINAL', 'RESTORE', 'APPLY', 'IO'))
 WIDTHS = dict.fromkeys(KEYS,74)
 WIDTHS.update(dict.fromkeys(KEYS[12:22],28));WIDTHS.update(TITLE=60,READ_ONLY=13)
 
