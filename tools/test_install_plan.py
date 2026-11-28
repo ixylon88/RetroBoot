@@ -3,13 +3,12 @@ import argparse
 import os
 from pathlib import Path
 import shutil
-import struct
 import subprocess
 import tempfile
 import zipfile
 
 from build_hdd import ROOT, SECTOR, write_fixture
-from install_reference import DISK_ID, DISK_UUID
+from install_reference import DISK_ID, DISK_UUID, initial_mbr
 from mbr_boot import boot_fixture
 from package_mbr_recovery import set_fixture_identity
 from rescue_text import load_catalog
@@ -36,10 +35,7 @@ SHOW_P3 = [('P3', 0, 478, 0, 0x80), ('P3', 0, 482, 0x1b, 0x0b)]
 def package(work, artifacts):
     plan = load_plan(ROOT / 'profiles/rb-8g-chs255.json')
     size, sectors = fixture_extents(plan)
-    mbr = bytearray(sectors[0])
-    struct.pack_into('<I', mbr, 440, DISK_ID)
-    mbr[446], mbr[466], mbr[482] = 0x80, 0x1b, 0x1b
-    sectors[0] = bytes(mbr)
+    sectors[0] = initial_mbr(sectors[0])
     raw, disk = work / 'reference.raw', work / DISK
     write_fixture(raw, size, sectors)
     subprocess.run(['qemu-img', 'convert', '-f', 'raw', '-O', 'vdi', raw, disk], check=True)

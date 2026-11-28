@@ -14,6 +14,12 @@ global _rb_ata_format_write
 _rb_ata_format_write:           ; first, last, LBA (all uint32), buffer
     mov al, 0x30
     jmp short transfer
+%elifdef RB_INSTALL_VIEW
+%define RB_HAS_WRITER 1
+global _rb_ata_install_write
+_rb_ata_install_write:          ; fixed table index in write order, sector buffer
+    mov al, 0x30
+    jmp short transfer
 %elifndef RB_FORMAT_COPY
 %define RB_HAS_WRITER 1
 %endif
@@ -110,6 +116,18 @@ transfer:
     mov LONG_LBA, ecx
     mov di, [bp+16]
     xor ax, ax
+    jmp short .buffer
+.copy_input:
+%elifdef RB_INSTALL_VIEW
+    cmp bl, 0x30
+    jne .copy_input
+    cmp ax, (install_lbas_end - install_lbas) / 4
+    jae .invalid
+    mov si, ax
+    shl si, 2
+    mov ecx, [cs:install_lbas + si]
+    mov LONG_LBA, ecx
+    xor ax, ax                  ; primary master; buffer already in DI
     jmp short .buffer
 .copy_input:
 %endif
@@ -391,3 +409,10 @@ transfer:
     in al, dx
     in al, dx
     ret
+
+%ifdef RB_INSTALL_VIEW
+; Both the C table indices and these absolute addresses come from the same layout.
+install_lbas:
+%include "install_view_lbas.inc"
+install_lbas_end:
+%endif

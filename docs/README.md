@@ -30,6 +30,7 @@
 | [Checked-profile test](ProfileTest.md) | F9 from F7, fresh records and visibility, exact owned T07 target |
 | [Partition visibility](Visibility.md) | F7 current/intended primary types and active flags; read-only preview |
 | [Installationsplanung](InstallationPlan.md) | Betriebssystem und Zielplatz wählen, temporäre Sicht auf primäre und logische Volumes prüfen |
+| [Setup-Partitionssicht](InstallationView.md) | Geprüfte P2-Sicht anwenden und nach einem Kaltstart aus der Sicherung zurücknehmen |
 | [Installation-state records](InstallationState.md) | F6, independent identities, current-VBR checks and the prepared DOS boot block |
 | [Configuration records](Configuration.md) | F5-Diagnose, A/B-Auswahl und Profilformat; englische Anleitung |
 | [Test-VBR handoff](Handoff.md) | T07-Übergabevertrag, separates F4-Testimage und Nachweise; englische Anleitung |

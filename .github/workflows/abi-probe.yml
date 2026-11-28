@@ -31,6 +31,15 @@ jobs:
           python3 tools/build_rescue.py --language de
       - name: Verify the read-only installer plans on the shipped VirtualBox media
         run: python3 tools/test_install_plan.py
+      - name: Apply, interrupt and undo the installer partition view on the shipped disk pair
+        run: python3 tools/test_install_view.py
+      - name: Upload the bilingual setup visibility kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-install-view
+          path: build/install-view/RetroBoot-Setup-Partitionssicht.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Upload the bilingual installation planner
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -123,8 +123,15 @@ times come from the screenshots. This completed the FAT formatter in #50.
 
 The [installation planner](InstallationPlan.md) begins #51. It selects an
 OS and primary slot independently and previews the temporary visibility
-of system and shared volumes. Applying that plan, handing off to setup
-media and the subsequent original-OS tests remain ahead.
+of system and shared volumes. On 28 November at 20:41:15 the German
+VirtualBox test verified six bytes across three sectors for Windows 95
+OSR2 on P2. The 20:41:48 screenshot shows DOS on FAT32 P2 rejected and
+Windows 98 SE on P3 blocked by its boot sector at LBA `0x00601788`.
+[VirtualBox report for PR #99](https://github.com/ixylon88/RetroBoot/pull/99#issuecomment-7244771833)
+
+The [P2 setup visibility kit](InstallationView.md) applies the selected
+partition view and restores it from a separate IDE disk after power-off.
+Handoff to original setup media and tracking setup reboots are open under #51.
 
 ## Original DOS boot and recovery milestones
 

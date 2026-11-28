@@ -9,7 +9,7 @@ import sys
 import zlib
 
 try:
-    from .install_reference import reference_header
+    from .install_reference import reference_header, write_visibility_reference
     from .prepare_mbr_target import allocate_profile
     from .build_inputs import source_hashes, check_build_inputs
     from .mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
@@ -32,7 +32,7 @@ try:
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
-    from install_reference import reference_header
+    from install_reference import reference_header, write_visibility_reference
     from prepare_mbr_target import allocate_profile
     from build_inputs import source_hashes, check_build_inputs
     from mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
@@ -173,6 +173,7 @@ def build(kind='rescue',language='en'):
     def run(*args):
         r=subprocess.run([str(a) for a in args],cwd=ROOT,env=env,capture_output=True,text=True)
         if r.returncode or 'Warning!' in r.stdout+r.stderr:raise ValueError('Build failed: '+r.stdout+r.stderr)
+    write_visibility_reference(destination)
     (destination/'install_reference.h').write_text(reference_header(), encoding='ascii')
     (destination/'rescue_text.h').write_text(render_header(language),encoding='ascii')
     (destination/'backup_vectors.h').write_text(model_header(),encoding='ascii')
@@ -211,7 +212,8 @@ def build(kind='rescue',language='en'):
             ('journal-recovery-ui','core/journal_recovery.c'),('profile-recovery-ui','core/profile_recovery.c'),
             ('journal','core/journal.c'),('dos-scope','core/dos_scope.c'),
             ('fat-plan-core','core/fat_plan.c'),('fat-plan-ui','core/fat_plan_ui.c'),('fat-plan-tests','tests/format/plan.c'),
-            ('install-plan-ui','core/install_plan.c'),('fat-review','core/fat_review.c'),('fat-format-ui','core/fat_format.c'),
+            ('install-layout','core/install_layout.c'),('install-view-ui','core/install_view.c'),
+            ('ide-pair','core/ide_pair.c'),('install-plan-ui','core/install_plan.c'),('fat-review','core/fat_review.c'),('fat-format-ui','core/fat_format.c'),
             ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -232,6 +234,8 @@ def build(kind='rescue',language='en'):
     run(nasm,'-Werror','-f','obj','-I','./','-DRB_GEOMETRY_ONLY=1','bios/dos.asm','-o',destination/'geometry.obj')
     run(nasm,'-Werror','-f','obj','-DRB_FORMAT_COPY=1','bios/ata.asm','-o',destination/'fat-copy-io.obj')
     run(nasm,'-Werror','-f','obj','-DRB_FORMAT_COPY=1','-DRB_FORMAT_WRITE=1','bios/ata.asm','-o',destination/'fat-write-io.obj')
+    run(nasm,'-Werror','-f','obj','-I'+str(destination)+'/', '-DRB_FORMAT_COPY=1','-DRB_INSTALL_VIEW=1',
+        'bios/ata.asm','-o',destination/'install-view-io.obj')
     run(wcc,'-q','-3','-ms','-ecc','-s','-zl','-zld','-w4','-wx','-i=include','-dRB_FORMAT_COPY=1',
         '-fo='+str(destination/'fat-copy-identity.obj'),'core/mbr_ata.c')
     run(nasm,'-Werror','-f','obj','-I','./','bios/floppy.asm','-o',destination/'floppy.obj')
@@ -249,7 +253,7 @@ def build(kind='rescue',language='en'):
     def remember(path):artifacts[path.name]=dict(bytes=path.stat().st_size,sha256=sha256(path))
     run(nasm,'-Werror','-f','obj','-DRB_BACKUP_DISK=1','-DRB_RESTORE_JOURNAL=1','bios/ata.asm','-o',destination/'journal-ata.obj')
     def floppy(name,payload):
-        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk','mbr-restore','journal-recovery','profile-recovery','fat-plan','fat16-format','fat32-format') else []
+        flags = ['-DRB_ATA_RECOVERY_PROFILE=1'] if name in ('mbr-target','backup-disk','mbr-restore','journal-recovery','profile-recovery','fat-plan','fat16-format','fat32-format','install-view') else []
         boot=destination/(name+'-boot.bin');run(nasm,'-Werror','-f','bin','-I','./','-DRB_RESCUE_BYTES='+str(len(payload)),
             '-DRB_RESCUE_CRC='+str(zlib.crc32(payload)),*flags,'boot/rescue.asm','-o',boot)
         image=destination/(name+'.img');image.write_bytes(make_image(boot.read_bytes(),payload));remember(boot);remember(image)
@@ -262,7 +266,7 @@ def build(kind='rescue',language='en'):
             ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),('mbr-restore',['-DRB_RESCUE_MBR_RESTORE=1']),
             ('journal-recovery',['-DRB_RESCUE_JOURNAL_RECOVERY=1']),
             ('profile-recovery',['-DRB_RESCUE_PROFILE_RECOVERY=1']),('fat-plan',['-DRB_RESCUE_FAT_PLAN=1']),
-            ('install-plan',['-DRB_RESCUE_INSTALL_PLAN=1']),
+            ('install-plan',['-DRB_RESCUE_INSTALL_PLAN=1']),('install-view',['-DRB_RESCUE_INSTALL_VIEW=1']),
             ('fat16-format',['-DRB_RESCUE_FAT16_FORMAT=1']),('fat32-format',['-DRB_RESCUE_FAT32_FORMAT=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
@@ -327,11 +331,14 @@ def build(kind='rescue',language='en'):
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
         if name == 'install-plan':
-            extra = [destination / (n + '.obj') for n in ('install-plan-ui', 'fat-plan-core', 'geometry')]
+            extra = [destination / (n + '.obj') for n in ('install-plan-ui', 'install-layout', 'fat-plan-core', 'geometry')]
+        if name == 'install-view':
+            extra = [destination / (n + '.obj') for n in ('install-view-ui', 'install-layout', 'fat-plan-core',
+                'geometry', 'ide-pair', 'fat-copy-identity', 'install-view-io', 'floppy')]
         if name in ('fat-plan', 'fat16-format', 'fat32-format'):
             ui, io = ('fat-plan-ui', 'fat-copy-io') if name == 'fat-plan' else ('fat-format-ui', 'fat-write-io')
             extra = [destination / (n + '.obj') for n in (ui, io, 'fat-plan-core', 'geometry', 'saved-volume',
-                'fat-review', 'fat-copy-identity', 'fingerprint', 'floppy')]
+                'fat-review', 'ide-pair', 'fat-copy-identity', 'fingerprint', 'floppy')]
         if name in ('mbr-restore', 'journal-recovery', 'profile-recovery'):
             adapter = ('mbr-restore-ui', 'restore-ata') if name == 'mbr-restore' else (name + '-ui', 'journal-ata', 'journal', 'dos-scope')
             extra = [destination / (n + '.obj') for n in (
@@ -360,7 +367,7 @@ def build(kind='rescue',language='en'):
         memory[name]=dict(header=header,segments=inspect_map(mapfile,header),symbols=symbols,
             headroom_bytes=check_headroom(header))
         remember(binary);floppy(name,data)
-    for name in ('mbr-target.img','backup-disk.img','mbr-restore.img','journal-recovery.img','profile-recovery.img','fat-plan.img','fat16-format.img','fat32-format.img'):
+    for name in ('mbr-target.img','backup-disk.img','mbr-restore.img','journal-recovery.img','profile-recovery.img','fat-plan.img','fat16-format.img','fat32-format.img','install-view.img'):
         template = destination / name
         template.write_bytes(allocate_profile(template.read_bytes(), fat12_set))
         remember(template)
@@ -428,11 +435,13 @@ def build(kind='rescue',language='en'):
     tail_image=(destination/'match-resealed-file-tail.img').read_bytes()
     # Original-MBR payload is file sector five. Derive its physical address.
     tail_lba=file_chain(tail_image)[5];cylinder,within=divmod(tail_lba,36);head,sector=divmod(within,18)
-    for mode in range(23):
+    roms = [(mode, f'int13-{mode}.rom', mode < 20) for mode in range(23)]
+    roms.append((1, 'int13-no-edd.rom', False))  # observe the UI during repeated profile reads
+    for mode, rom_name, trace_reads in roms:
         extra=['-DRB_REPLACEMENT_SECTOR="'+str(changed_header if mode==17 else changed_tail)+'"'] if mode in (17,18) else []
         if mode==18:extra+=['-DRB_SAVED_CX='+str((cylinder<<8)|sector+1),'-DRB_SAVED_DH='+str(head)]
-        p=destination/f'int13-{mode}.rom'
-        trace=['-DRB_RESCUE_TRACE=1'] if mode < 20 else []
+        p=destination/rom_name
+        trace=['-DRB_RESCUE_TRACE=1'] if trace_reads else []
         run(nasm,'-Werror','-f','bin',*trace,'-DRB_ROM_MODE='+str(mode),*extra,'tests/bios/int13_rom.asm','-o',p)
         data=bytearray(p.read_bytes());data[-1]=-sum(data)&255;p.write_bytes(data);remember(p)
     manifest=dict(format_version=1,purpose='independent-read-only-rescue-diagnosis',ui=metadata(language),toolchain=lock,build_inputs=inputs,

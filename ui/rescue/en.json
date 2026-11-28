@@ -265,5 +265,13 @@
   "IP_BYTES": "Bytes to change:",
   "IP_SECTORS": "Affected table sectors:",
   "IP_REPEAT": "R  Read the plan from disk again    Esc  Back to selection",
-  "IP_CHANGED": "The disk or partition tables have changed since the preview."
+  "IP_CHANGED": "The disk or partition tables have changed since the preview.",
+  "IV_TITLE": "RetroBoot setup partition visibility",
+  "IV_BACKUP": "A backup partition table differs from the approved original.",
+  "IV_FOREIGN": "The tables contain an unexpected change or write order.",
+  "IV_PARTIAL": "The switch was interrupted. The changed tables can be restored.",
+  "IV_ORIGINAL": "The original partition view is confirmed.",
+  "IV_RESTORE": "R  Restore the original partition view    Esc  Exit",
+  "IV_APPLY": "A  Apply the displayed partition view    Esc  Exit",
+  "IV_IO": "Write, disk cache flush or readback failed."
 }
