@@ -226,5 +226,22 @@
   "FR_CONFIRM": "Zur Probe die Platznummer erneut drücken. Esc bricht ab.",
   "FR_CANCEL": "Zielprüfung abgebrochen.",
   "FR_WRONG": "Platznummer stimmt nicht. Zielprüfung abgebrochen.",
-  "FR_DONE": "Ziel bestätigt und erneut verglichen. Es wurde nichts geschrieben."
+  "FR_DONE": "Ziel bestätigt und erneut verglichen. Es wurde nichts geschrieben.",
+  "FW_TITLE": "RetroBoot FAT16-Formatierung und Wiederherstellung",
+  "FW_TICKET": "Freigabe für Platte und Partition fehlt oder hat sich geändert.",
+  "FW_LAYOUT": "Die Partition stimmt nicht mit der freigegebenen Geometrie überein.",
+  "FW_FLUSH": "Das Ziellaufwerk kann Schreibvorgänge nicht sicher abschließen.",
+  "FW_FOREIGN": "Unerwarteter Sektorinhalt oder Schreibstand. Vorgang gesperrt.",
+  "FW_BACKUP": "Die Sicherung weicht von den freigegebenen Originaldaten ab.",
+  "FW_COUNT": "Bereits geänderte Sektoren:",
+  "FW_TOTAL": "Geplante Sektoränderungen:",
+  "FW_ORIGINAL": "Der Originalzustand ist bestätigt.",
+  "FW_PARTIAL": "Eine unterbrochene Änderung wurde erkannt.",
+  "FW_FORMAT": "F  Leeres FAT16 anlegen    Esc  Ende",
+  "FW_RESTORE": "R  Originalsektoren wiederherstellen    Esc  Ende",
+  "FW_CONFIRM": "Schreibzugriff bestätigen: Platznummer drücken. Esc bricht ab.",
+  "FW_CANCEL": "Vorgang abgebrochen.",
+  "FW_WRITING": "FAT16-Metadaten werden geschrieben. Der Bootsektor folgt zuletzt.",
+  "FW_RESTORING": "Originalsektoren werden von der Sicherung wiederhergestellt.",
+  "FW_IO": "Schreiben oder Rücklesen fehlgeschlagen. Zustand nach Neustart prüfen."
 }

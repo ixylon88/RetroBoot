@@ -8,6 +8,15 @@ bits 16
 cpu 386
 segment _TEXT public align=16 class=CODE use16
 global _rb_ata_identify_words
+%ifdef RB_FORMAT_WRITE
+%define RB_HAS_WRITER 1
+global _rb_ata_format_write
+_rb_ata_format_write:           ; first, last, LBA (all uint32), buffer
+    mov al, 0x30
+    jmp short transfer
+%elifndef RB_FORMAT_COPY
+%define RB_HAS_WRITER 1
+%endif
 %ifdef RB_FORMAT_COPY
 %define RB_LBA28 1
 global _rb_ata_copy_read
@@ -86,6 +95,24 @@ transfer:
     mov di, [bp+6]
 %ifdef RB_FORMAT_COPY
     mov LONG_LBA, 0
+%ifdef RB_FORMAT_WRITE
+    cmp bl, 0x30
+    jne .copy_input
+    mov ecx, [bp+12]
+    cmp dword [bp+4], 0         ; primary master only, strictly inside selected metadata
+    je .invalid
+    cmp ecx, [bp+4]
+    jb .invalid
+    cmp ecx, [bp+8]
+    ja .invalid
+    cmp dword [bp+8], 0x0fffffff
+    ja .invalid
+    mov LONG_LBA, ecx
+    mov di, [bp+16]
+    xor ax, ax
+    jmp short .buffer
+.copy_input:
+%endif
     cmp ax, 1                   ; independently enrolled primary or secondary master
     ja .invalid
     cmp bl, 0xec
@@ -274,7 +301,7 @@ transfer:
     push ecx
     mov cx, 256
     cld
-%ifndef RB_FORMAT_COPY
+%ifdef RB_HAS_WRITER
     cmp bl, 0x30
     jne .read
     push si
@@ -311,7 +338,7 @@ transfer:
     and al, 0xe9
     cmp al, 0x40
     jne .fail
-%ifndef RB_FORMAT_COPY
+%ifdef RB_HAS_WRITER
     cmp bl, 0x30
     jne .ok
     mov bl, 0xe7                ; FLUSH CACHE on the same master

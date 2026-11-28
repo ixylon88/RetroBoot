@@ -22,6 +22,16 @@ typedef struct {
 
 #define RB_FORMAT_NO_LBA 0xFFFFFFFFUL
 
+enum { NO_DEVICE = RB_FORMAT_CLUSTER_COUNT + 1, BAD_TABLE, READ_ERROR, CHANGED };
+rb_u16 __cdecl rb_fat_cached_read(rb_u32 lba, rb_u8 *sector, void *opaque);
+rb_u16 rb_fat_observe(observation *s, rb_u16 slot, rb_u16 spc);
+void rb_fat_hex32(rb_u32 value);
+void rb_fat_span(const char *name, rb_u32 begin, rb_u32 end);
+rb_u16 __cdecl rb_ata_copy_read(rb_u16 channel, rb_u32 lba, rb_u8 *out);
+rb_u32 rb_format_pair_crc(void);
+int rb_format_can_flush(void);
+const char *rb_format_check_tables(const observation *v, rb_format_comparison *r);
+
 /* A blank profile enables the usual standalone preview. */
 int rb_format_load_pair(rb_u16 drive);
 void rb_format_print_pair(void);

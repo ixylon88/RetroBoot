@@ -1,5 +1,7 @@
 /* Verify the original bytes of the proposed metadata range on a separate IDE master. */
 #include "fat_review.h"
+#include "volume.h"
+#include "config.h"
 #include "fingerprint.h"
 #include "mbr_ata.h"
 #include "mbr_console.h"
@@ -7,7 +9,6 @@
 #include "rescue_file.h"
 #include "rescue_text.h"
 
-rb_u16 __cdecl rb_ata_copy_read(rb_u16 channel, rb_u32 lba, rb_u8 *out);
 
 static rb_ata_enrollment pair;
 static rb_u16 floppy;
@@ -71,16 +72,21 @@ static const char *compare_sector(rb_u32 lba, const rb_u8 *bios_view, rb_format_
     return 0;
 }
 
-const char *rb_format_compare(const observation *v, rb_format_comparison *r)
+rb_u32 rb_format_pair_crc(void)
 {
-    const rb_fat_plan *f = &v->plan;
+    return rb_crc32(enrolled, 508);
+}
+
+int rb_format_can_flush(void)
+{
+    return rb_ata_target_can_flush(&pair);
+}
+
+const char *rb_format_check_tables(const observation *v, rb_format_comparison *r)
+{
     const char *error;
     rb_u16 i;
     rb_u32 lba;
-    clear((rb_u8 *)r, sizeof(*r));
-    r->error_lba = RB_FORMAT_NO_LBA;
-    r->last = f->bits == 16 ? f->data - 1 : f->root + (f->spc - 1);
-    if (r->last < v->boot.lba || r->last > 0x0fffffffUL) { return RB_RS_FR_LBA28; }
     error = check_devices(&v->disk);
     if (error) { return error; }
     error = compare_sector(0, v->mbr.bytes, r);
@@ -94,6 +100,20 @@ const char *rb_format_compare(const observation *v, rb_format_comparison *r)
         if (error) { return error; }
         rb_fingerprint_sector(r->fingerprint, lba, source);
     }
+    return 0;
+}
+
+const char *rb_format_compare(const observation *v, rb_format_comparison *r)
+{
+    const rb_fat_plan *f = &v->plan;
+    const char *error;
+    rb_u32 lba;
+    clear((rb_u8 *)r, sizeof(*r));
+    r->error_lba = RB_FORMAT_NO_LBA;
+    r->last = f->bits == 16 ? f->data - 1 : f->root + (f->spc - 1);
+    if (r->last < v->boot.lba || r->last > 0x0fffffffUL) { return RB_RS_FR_LBA28; }
+    error = rb_format_check_tables(v, r);
+    if (error) { return error; }
     for (lba = v->boot.lba; lba <= r->last; ++lba) {
         error = compare_sector(lba, lba == v->boot.lba ? v->boot.bytes : 0, r);
         if (error) { return error; }
@@ -105,4 +125,47 @@ const char *rb_format_compare(const observation *v, rb_format_comparison *r)
     }
     r->error_lba = RB_FORMAT_NO_LBA;
     return check_devices(&v->disk);
+}
+
+rb_u16 __cdecl rb_fat_cached_read(rb_u32 lba, rb_u8 *sector, void *opaque)
+{
+    const sector_copy *saved = opaque;
+    rb_u16 i;
+    if (lba != saved->lba) { return rb_disk_read(lba, sector, 0); }
+    for (i = 0; i < 512; ++i) { sector[i] = saved->bytes[i]; }
+    return 0;
+}
+
+rb_u16 rb_fat_observe(observation *s, rb_u16 slot, rb_u16 spc)
+{
+    rb_u16 status;
+    rb_u32 id;
+    const rb_u8 *mbr = s->mbr.bytes;
+    const rb_partition *p;
+    if (rb_rescue_probe(&s->disk)) { return NO_DEVICE; }
+    rb_dos_geometry(s->geometry);
+    s->mbr.lba = 0;
+    if (rb_disk_read(0, s->mbr.bytes, 0)) { return READ_ERROR; }
+    id = (rb_u32)mbr[440] | ((rb_u32)mbr[441] << 8) | ((rb_u32)mbr[442] << 16) | ((rb_u32)mbr[443] << 24);
+    if (rb_scan_partitions(&s->scan, rb_fat_cached_read, &s->mbr, s->disk.capacity_low, s->disk.capacity_high, id)) {
+        return s->scan.status == RB_SCAN_IO ? READ_ERROR : BAD_TABLE;
+    }
+    p = &s->scan.entries[slot - 1];
+    status = rb_plan_primary_fat(&s->plan, p, mbr + 446 + (slot - 1) * 16,
+                                 &s->disk, s->geometry, spc);
+    if (status) { return status; }
+    s->boot.lba = p->start;
+    return rb_disk_read(p->start, s->boot.bytes, 0) ? READ_ERROR : RB_FORMAT_OK;
+}
+
+void rb_fat_hex32(rb_u32 value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    rb_u16 shift = 32;
+    while (shift) { shift -= 4; rb_putc(digits[(value >> shift) & 15U]); }
+}
+
+void rb_fat_span(const char *name, rb_u32 begin, rb_u32 end)
+{
+    print(name); print(" 0x"); rb_fat_hex32(begin); print(" - 0x"); rb_fat_hex32(end); line("");
 }

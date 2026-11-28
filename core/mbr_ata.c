@@ -109,7 +109,6 @@ int rb_ata_decode_enrollment(rb_ata_enrollment *p, const rb_u8 *s)
         && printable(p->device.serial, 20) && printable(p->device.model, 40);
 }
 
-#ifndef RB_FORMAT_COPY
 static int matches(rb_u16 channel, const rb_ata_identity *expected, int writing)
 {
     rb_ata_identity live;
@@ -122,6 +121,7 @@ int rb_ata_target_can_flush(const rb_ata_enrollment *profile)
     return matches(RB_ATA_SOURCE, &profile->device, 1);
 }
 
+#ifndef RB_FORMAT_COPY
 int __cdecl rb_ata_target_matches(void *profile)
 {
     const rb_ata_enrollment *p = (const rb_ata_enrollment *)profile;

@@ -1,6 +1,6 @@
 # Project state and resumption
 
-Updated 26 November 2026.
+Updated 28 November 2026.
 
 ## Current milestone
 
@@ -93,6 +93,16 @@ data clusters. Esc ended the preview with `RB FAT PLAN END`.
 The [format target review](FATFormatReview.md) now checks the proposed
 metadata sector range against a separately attached IDE copy, then repeats
 the comparison after explicit selection of the displayed slot.
+
+On 28 November the [VirtualBox check for PR #95](https://github.com/ixylon88/RetroBoot/pull/95#issuecomment-7241881992)
+confirmed P1 at 16:54:33. Both passes covered 419 FAT16 metadata sectors,
+one containing data, and ended with `RB FAT REVIEW PASS`. At 16:57:25 the
+same review correctly reported the missing or mismatched secondary IDE master.
+
+The [FAT16 test diskette](FAT16Format.md) now creates the empty P1 filesystem,
+recognizes it after power-off and can restore a verified prefix of sector
+changes from the original backup. FAT32 publication and original DOS
+acceptance remain open under [issue #50](https://github.com/ixylon88/RetroBoot/issues/50).
 
 ## Original DOS boot and recovery milestones
 
