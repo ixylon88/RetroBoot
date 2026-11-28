@@ -25,10 +25,19 @@ jobs:
           sudo apt-get install --no-install-recommends -y build-essential qemu-system-x86 qemu-utils dosfstools mtools
       - name: Prepare verified toolchain
         run: make toolchain
-      - name: Build the English and German formatter floppies
+      - name: Build the English and German rescue floppies
         run: |
           python3 tools/build_rescue.py --language en
           python3 tools/build_rescue.py --language de
+      - name: Verify the read-only installer plans on the shipped VirtualBox media
+        run: python3 tools/test_install_plan.py
+      - name: Upload the bilingual installation planner
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: retroboot-install-plan
+          path: build/install-plan/RetroBoot-Installationsplanung.zip
+          if-no-files-found: error
+          retention-days: 30
       - name: Boot, interrupt, verify and restore both filesystems
         run: |
           python3 tools/test_fat_format_write.py --bits 16 --host-tools

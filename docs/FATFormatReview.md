@@ -63,6 +63,6 @@ The review uses one BIOS VM with exclusive access to the IDE pair and
 512-byte sectors addressable by LBA28. Identity checks and fingerprints
 detect changes during the review. They provide no cryptographic
 authentication or atomic snapshot. Every confirmation expires immediately.
-The guest has read-only disk routines. Publishing filesystem metadata,
-recovering an interrupted format and the T11 guest read/write test remain
-open in issue #50.
+The review guest has read-only disk routines. The [FAT16](FAT16Format.md)
+and [FAT32](FAT32Format.md) kits publish and restore filesystem metadata.
+The [DOS guest test](DOSGuestTest.md) checks the resulting volumes.

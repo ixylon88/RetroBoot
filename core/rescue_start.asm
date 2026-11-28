@@ -5,7 +5,10 @@ group DGROUP _TEXT CONST CONST2 _DATA _BSS STACK
 segment _TEXT public align=16 class=CODE use16
 global rb_entry, rb_bss_begin
 extern rb_bss_end, rb_file_end, _rb_rescue_runtime, _rb_rescue_run, _rb_putc
-%ifdef RB_RESCUE_FAT32_FORMAT
+%ifdef RB_RESCUE_INSTALL_PLAN
+extern _rb_install_plan_run
+%define RB_RESCUE_HISTORY_ENTRY _rb_install_plan_run
+%elifdef RB_RESCUE_FAT32_FORMAT
 extern _rb_fat32_format_run
 %define RB_RESCUE_HISTORY_ENTRY _rb_fat32_format_run
 %elifdef RB_RESCUE_FAT16_FORMAT
@@ -215,7 +218,10 @@ print:
 .done:
     ret
 failure db 'RB RESCUE STARTUP ERROR', 13, 10, 0
-%ifdef RB_RESCUE_FAT32_FORMAT
+%ifdef RB_RESCUE_INSTALL_PLAN
+restart_pass db 'RB INSTALL PLAN END', 13, 10, 0
+restart_blocked db 'RB INSTALL PLAN BLOCKED', 13, 10, 0
+%elifdef RB_RESCUE_FAT32_FORMAT
 restart_pass db 'RB FAT32 END', 13, 10, 0
 restart_blocked db 'RB FAT32 BLOCKED', 13, 10, 0
 %elifdef RB_RESCUE_FAT16_FORMAT

@@ -248,5 +248,22 @@
   "FW32_TITLE": "RetroBoot FAT32-Formatierung und Wiederherstellung",
   "FW32_FORMAT": "F  Leeres FAT32 anlegen    Esc  Ende",
   "FW32_WRITING": "FAT32-Metadaten werden geschrieben. Beide Bootsektoren folgen zuletzt.",
-  "FW32_EXISTING": "FAT32-Backup-Bootsektor im Original belegt. Formatierung gesperrt."
+  "FW32_EXISTING": "FAT32-Backup-Bootsektor im Original belegt. Formatierung gesperrt.",
+  "IP_TITLE": "RetroBoot Installationsplanung",
+  "IP_SCOPE": "Schreibgeschützte Vorschau. Betriebssystem und Primärplatz auswählen.",
+  "IP_OS": "1  MS-DOS 6.22    2  Windows 95 OSR2    3  Windows 98 SE    Esc  Ende",
+  "IP_SLOT": "1-4  Primärplatz wählen    Esc  Zurück",
+  "IP_GEOMETRY": "Die BIOS-Geometrie deckt das Referenzlayout mit 255/63 nicht ab.",
+  "IP_DISK": "Disk-ID oder Kapazität passt nicht zur Installations-Testplatte.",
+  "IP_LAYOUT": "Partitionstabelle oder Volumerolle weicht vom Referenzlayout ab.",
+  "IP_SYSTEM_SLOT": "Für das Setup wird eine primäre Systempartition benötigt.",
+  "IP_DOS_FAT": "MS-DOS 6.22 benötigt hier FAT16 vom Typ 0x06 unter 2 GiB.",
+  "IP_OCCUPIED": "Bootbereich enthält Daten. Das Ziel bleibt geschützt.",
+  "IP_BOOT_CLEAR": "Geprüfte Bootsektoren sind leer. Übriger Volumeinhalt ungeprüft.",
+  "IP_VIEW": "Setup-Sicht: nur Ziel aktiv und sichtbar. Gemeinsame Volumes verborgen.",
+  "IP_COLUMNS": "Platz  Tabellen-LBA    Offset    Ist  -> Soll",
+  "IP_BYTES": "Zu ändernde Bytes:",
+  "IP_SECTORS": "Betroffene Tabellensektoren:",
+  "IP_REPEAT": "R  Plan erneut von Platte prüfen    Esc  Zur Auswahl",
+  "IP_CHANGED": "Datenträger oder Tabellensektoren seit der Vorschau geändert."
 }

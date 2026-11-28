@@ -51,7 +51,7 @@ def expected_layout(ui, volume, capacity, boot_message):
     return lines
 
 
-def fixture(work, plan, *, markers=None):
+def fixture_extents(plan, *, markers=None):
     size, _, sectors = layout(True)
     target = plan['primary'][2]
     start = target['start_lba']
@@ -64,6 +64,11 @@ def fixture(work, plan, *, markers=None):
     sectors[(plan['primary'][0]['start_lba'] + 9) * SECTOR] = b'RB occupied sector'
     if markers:
         sectors.update(markers)
+    return size, sectors
+
+
+def fixture(work, plan, *, markers=None):
+    size, sectors = fixture_extents(plan, markers=markers)
     raw = work / 'reference.raw'
     write_fixture(raw, size, sectors)
     image = work / PRIMARY

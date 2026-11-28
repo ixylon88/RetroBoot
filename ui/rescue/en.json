@@ -248,5 +248,22 @@
   "FW32_TITLE": "RetroBoot FAT32 format and restore",
   "FW32_FORMAT": "F  Create an empty FAT32 filesystem    Esc  End",
   "FW32_WRITING": "Writing FAT32 metadata. Both boot sectors are published last.",
-  "FW32_EXISTING": "The original FAT32 backup boot sector is occupied. Formatting blocked."
+  "FW32_EXISTING": "The original FAT32 backup boot sector is occupied. Formatting blocked.",
+  "IP_TITLE": "RetroBoot installation planner",
+  "IP_SCOPE": "Read-only preview. Select an operating system and a primary slot.",
+  "IP_OS": "1  MS-DOS 6.22    2  Windows 95 OSR2    3  Windows 98 SE    Esc  Exit",
+  "IP_SLOT": "1-4  Select primary slot    Esc  Back",
+  "IP_GEOMETRY": "The BIOS geometry does not cover the reference layout at 255/63.",
+  "IP_DISK": "Disk ID or capacity differs from the installation test disk.",
+  "IP_LAYOUT": "Partition table or volume role differs from the reference layout.",
+  "IP_SYSTEM_SLOT": "Setup requires a primary system partition.",
+  "IP_DOS_FAT": "MS-DOS 6.22 requires type 0x06 FAT16 below 2 GiB on this layout.",
+  "IP_OCCUPIED": "The boot area contains data. This target is protected.",
+  "IP_BOOT_CLEAR": "Checked boot sectors are empty. Remaining volume contents are unexamined.",
+  "IP_VIEW": "Setup view: only the target is active and visible. Shared volumes hidden.",
+  "IP_COLUMNS": "Slot   Table LBA       Offset    Current -> Planned",
+  "IP_BYTES": "Bytes to change:",
+  "IP_SECTORS": "Affected table sectors:",
+  "IP_REPEAT": "R  Read the plan from disk again    Esc  Back to selection",
+  "IP_CHANGED": "The disk or partition tables have changed since the preview."
 }
