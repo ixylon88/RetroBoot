@@ -3,13 +3,23 @@
 ; can write its six pre-enrolled recovery records. The separate backup build
 ; enables primary LBA28 reads and a disjoint secondary store at LBA 8 and 16..2063.
 ; Repairs use a dedicated fixed-LBA-0 entry. Journal recovery can also write
-; an audited journal sector. Neither repair includes the secondary store writer.
+; an audited journal sector. The format review only identifies and reads the two masters.
 bits 16
 cpu 386
 segment _TEXT public align=16 class=CODE use16
-global _rb_ata_identify_words, _rb_ata_read_sector, _rb_ata_write_recovery
+global _rb_ata_identify_words
+%ifdef RB_FORMAT_COPY
+%define RB_LBA28 1
+global _rb_ata_copy_read
+_rb_ata_copy_read:              ; channel, uint32 LBA, buffer
+    mov al, 0x20
+    jmp short transfer
+%else
+global _rb_ata_read_sector, _rb_ata_write_recovery
+%endif
 
 %ifdef RB_BACKUP_DISK
+%define RB_LBA28 1
 %ifdef RB_RESTORE_JOURNAL
 %define RB_RESTORE_MBR 1         ; roll forward a verified prepared MBR at LBA 0
 %endif
@@ -40,6 +50,7 @@ _rb_ata_store_write:            ; uint16 LBA, buffer; secondary master, 8 and 16
 %endif
 _rb_ata_identify_words:         ; channel, buffer
     mov al, 0xec
+%ifndef RB_FORMAT_COPY
     jmp short transfer
 _rb_ata_read_sector:            ; channel, LBA, buffer
     mov al, 0x20
@@ -51,6 +62,7 @@ _rb_ata_write_recovery:         ; LBA, buffer (no caller-supplied channel)
 %else
     mov al, 0x30
 %endif
+%endif
 transfer:
     push bp
     mov bp, sp
@@ -58,7 +70,7 @@ transfer:
     push es
     push fs
     pushad
-%ifdef RB_BACKUP_DISK
+%ifdef RB_LBA28
     sub sp, 8
 %define LONG_LBA dword [ss:bp-46]
 %define IO_LBA byte [ss:bp-46]
@@ -72,6 +84,18 @@ transfer:
     xor cx, cx
     mov ax, [bp+4]
     mov di, [bp+6]
+%ifdef RB_FORMAT_COPY
+    mov LONG_LBA, 0
+    cmp ax, 1                   ; independently enrolled primary or secondary master
+    ja .invalid
+    cmp bl, 0xec
+    je .buffer
+    mov ecx, [bp+6]
+    cmp ecx, 0x0fffffff
+    ja .invalid
+    mov LONG_LBA, ecx
+    mov di, [bp+10]
+%else
 %ifdef RB_BACKUP_DISK
     mov LONG_LBA, 0
     cmp bl, 0x21
@@ -152,6 +176,7 @@ transfer:
     cmp cx, 6
     ja .invalid
     mov IO_LBA, cl
+%endif
 .buffer:
     cmp di, 0xfe00
     ja .invalid
@@ -188,7 +213,7 @@ transfer:
 .select:
     mov dx, TASK_PORT
     add dx, 6
-%ifdef RB_BACKUP_DISK
+%ifdef RB_LBA28
     mov al, [ss:bp-43]          ; high four LBA28 bits
     or al, 0xe0
 %else
@@ -217,14 +242,14 @@ transfer:
     mov al, IO_LBA
     out dx, al
     inc dx
-%ifdef RB_BACKUP_DISK
+%ifdef RB_LBA28
     mov al, [ss:bp-45]
 %else
     xor al, al
 %endif
     out dx, al
     inc dx
-%ifdef RB_BACKUP_DISK
+%ifdef RB_LBA28
     mov al, [ss:bp-44]
 %endif
     out dx, al
@@ -249,6 +274,7 @@ transfer:
     push ecx
     mov cx, 256
     cld
+%ifndef RB_FORMAT_COPY
     cmp bl, 0x30
     jne .read
     push si
@@ -257,6 +283,7 @@ transfer:
     pop si
     jmp short .transferred
 .read:
+%endif
     rep insw
 .transferred:
     pop ecx
@@ -284,6 +311,7 @@ transfer:
     and al, 0xe9
     cmp al, 0x40
     jne .fail
+%ifndef RB_FORMAT_COPY
     cmp bl, 0x30
     jne .ok
     mov bl, 0xe7                ; FLUSH CACHE on the same master
@@ -292,6 +320,7 @@ transfer:
     call .deadline
     call .settle
     jmp short .complete
+%endif
 .ok:
     xor ax, ax
 .return:
@@ -303,7 +332,7 @@ transfer:
 .invalid:
     mov word [bp-10], 1
 .done:
-%ifdef RB_BACKUP_DISK
+%ifdef RB_LBA28
     add sp, 8
 %else
     add sp, 6

@@ -131,7 +131,8 @@ def run(qemu, bios):
                 actions.append((ui['FP_SELECT'], 'esc', None, True))
                 lines.append('RB FAT PLAN END')
                 boot_fixture(qemu, bios, binary, work, floppy, disk, lang + '-' + name, lines, actions, [], reads,
-                             logical_geometry=geometry, readonly_start=True, disk_format=fmt, rom=rom)
+                             logical_geometry=geometry, readonly_start=True, disk_format=fmt, rom=rom,
+                             debug_prefix=('%0B3F',) if rom else ())  # ROM logs the profile read at floppy LBA 2879
                 print(f'{lang} {name}: {len(reads)} HDD sectors read, zero guest writes', flush=True)
 
             def reference(slot, key, boot_message):

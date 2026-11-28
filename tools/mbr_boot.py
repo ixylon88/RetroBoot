@@ -61,7 +61,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                  *, rom=None, cut=False, readonly_start=False, ata_identity=None, disk_format='raw',
                  recovery_disk=None, recovery_identity=None, recovery_format='raw', recovery_writes=(),
                  io_check=None, timeout=15, remove_recovery=False, before_key=None, cut_on_source_error=False,
-                 logical_geometry=(10, 16, 63)):
+                 logical_geometry=(10, 16, 63), debug_prefix=()):
     """Run ordered keyboard/media exchanges and verify VGA, memory and physical disk I/O."""
     log = out / (name + '.log')
     trace = out / (name + '.trace')
@@ -100,7 +100,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
             visits = Counter()
             for prompt, key, medium, readonly in actions:
                 visits[prompt] += 1
-                wait_marker(proc, log, prompt + '\n', encoding='cp437', occurrence=visits[prompt])
+                wait_marker(proc, log, prompt + '\n', timeout=timeout, encoding='cp437', occurrence=visits[prompt])
                 if before_key is not None:
                     before_key(q, prompt)
                 if medium is not None:
@@ -129,7 +129,7 @@ def boot_fixture(exe, bios, fixture, out, boot_disk, disk, name, lines, actions,
                 proc.kill()
                 proc.wait(timeout=5)
     actual = [s for s in log.read_text(encoding='cp437').splitlines() if not re.fullmatch('@[0-9A-F]{2}', s)]
-    if actual != lines + (['~'] if cut else []):
+    if actual != list(debug_prefix) + lines + (['~'] if cut else []):
         raise ValueError(f'{name}: unexpected debug transcript {actual}')
     bus = trace.read_text()
     all_reads = trace_reads(bus)

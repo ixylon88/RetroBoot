@@ -63,7 +63,7 @@ deliberately contains data nine sectors beyond its zero first sector. P3
 contains a test BPB. A recognized header establishes neither filesystem
 integrity nor the presence of OS boot files.
 
-This is the first installer increment for issue #50. Destructive target
-confirmation, verification of an independent recovery path, metadata
-publication, interruption handling and the T11 guest filesystem read/write
-test remain open. No operating system is installed by this preview.
+This is the first installer increment for issue #50. The next
+[target review](FATFormatReview.md) checks a separate copy of the selected
+metadata and rehearses the confirmation. Actual formatting, interruption
+handling and the T11 guest filesystem read/write test remain open.
