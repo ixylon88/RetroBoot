@@ -63,7 +63,7 @@ deliberately contains data nine sectors beyond its zero first sector. P3
 contains a test BPB. A recognized header establishes neither filesystem
 integrity nor the presence of OS boot files.
 
-This is the first installer increment for issue #50. The next
-[target review](FATFormatReview.md) checks a separate copy of the selected
-metadata and rehearses the confirmation. Actual formatting, interruption
-handling and the T11 guest filesystem read/write test remain open.
+The [target review](FATFormatReview.md) checks a separate copy of the selected
+metadata and rehearses the confirmation. The [FAT16](FAT16Format.md) and
+[FAT32](FAT32Format.md) kits implement formatting and interruption recovery.
+The [DOS guest test](DOSGuestTest.md) exercises both resulting filesystems.

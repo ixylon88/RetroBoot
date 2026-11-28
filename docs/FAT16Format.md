@@ -57,4 +57,5 @@ torn sector, a changed backup or unrecognized filesystem metadata blocks
 the operation. This restores the enrolled metadata of this test volume.
 The partition table, file data area and other volumes stay outside the write
 range. Later filesystem activity may change those metadata and prevent rollback.
-The [FAT32 P2 kit](FAT32Format.md) uses separate media. DOS guest acceptance remains open in issue #50.
+The [FAT32 P2 kit](FAT32Format.md) uses separate media. The
+[FreeDOS guest test](DOSGuestTest.md) verifies file I/O on both filesystems.

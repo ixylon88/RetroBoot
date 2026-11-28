@@ -115,7 +115,16 @@ at 18:47:39, then `RB FAT32 RESTORE PASS` at 18:48:19.
 The [DOS guest test](DOSGuestTest.md) mounts disposable copies of both
 formatter outputs in FreeDOS and exercises a multi-cluster file across cold
 boots. The same program can run from an original DOS prompt.
-Original DOS/Windows guest acceptance remains open under [issue #50](https://github.com/ixylon88/RetroBoot/issues/50).
+On 28 November the VirtualBox run showed P1 (C:) write at 19:46:30,
+read at 19:46:50 and deletion at 19:47:03. P2 (D:) showed write at
+19:47:22 and read at 19:47:42, followed by Esc to keep the file. These
+times come from the screenshots. This completed the FAT formatter in #50.
+[VirtualBox report for PR #98](https://github.com/ixylon88/RetroBoot/pull/98#issuecomment-7244083151)
+
+The [installation planner](InstallationPlan.md) begins #51. It selects an
+OS and primary slot independently and previews the temporary visibility
+of system and shared volumes. Applying that plan, handing off to setup
+media and the subsequent original-OS tests remain ahead.
 
 ## Original DOS boot and recovery milestones
 

@@ -57,6 +57,7 @@ checks the real-mode transition in an explicitly selected test image.
 - [F10 management-volume allocation and manual check](docs/AdminAllocation.md)
 - [Transaction-journal format and native observation model](docs/TransactionJournal.md)
 - [DOS guest file test on RetroBoot FAT16 and FAT32 volumes](docs/DOSGuestTest.md)
+- [Read-only DOS and Windows installation target planner](docs/InstallationPlan.md)
 - [Saved project state and resumption](docs/Arbeitsstand.md)
 - [Windows/Linux CI explained](docs/CI.md)
 - [All documents and archived drafts](docs/README.md)

@@ -29,6 +29,7 @@
 | [Management allocation](AdminAllocation.md) | F10 eight-file ownership, full FAT comparison and read-only diagnostics |
 | [Checked-profile test](ProfileTest.md) | F9 from F7, fresh records and visibility, exact owned T07 target |
 | [Partition visibility](Visibility.md) | F7 current/intended primary types and active flags; read-only preview |
+| [Installationsplanung](InstallationPlan.md) | Betriebssystem und Zielplatz wählen, temporäre Sicht auf primäre und logische Volumes prüfen |
 | [Installation-state records](InstallationState.md) | F6, independent identities, current-VBR checks and the prepared DOS boot block |
 | [Configuration records](Configuration.md) | F5-Diagnose, A/B-Auswahl und Profilformat; englische Anleitung |
 | [Test-VBR handoff](Handoff.md) | T07-Übergabevertrag, separates F4-Testimage und Nachweise; englische Anleitung |

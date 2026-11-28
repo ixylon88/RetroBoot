@@ -9,6 +9,7 @@ import sys
 import zlib
 
 try:
+    from .install_reference import reference_header
     from .prepare_mbr_target import allocate_profile
     from .build_inputs import source_hashes, check_build_inputs
     from .mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
@@ -31,6 +32,7 @@ try:
     from .rescue_match_fixtures import disk as match_disk, floppy as match_floppy, specs as match_specs, backup as match_backup, resealed_original
     from .rescue_plan_fixtures import disk as plan_disk, specs as plan_specs, stream_reference
 except ImportError:
+    from install_reference import reference_header
     from prepare_mbr_target import allocate_profile
     from build_inputs import source_hashes, check_build_inputs
     from mbr_restart_fixtures import carrier_images, witness_floppy, original_media, RESERVATION_CARRIER, RESERVATION_WITNESS
@@ -171,6 +173,7 @@ def build(kind='rescue',language='en'):
     def run(*args):
         r=subprocess.run([str(a) for a in args],cwd=ROOT,env=env,capture_output=True,text=True)
         if r.returncode or 'Warning!' in r.stdout+r.stderr:raise ValueError('Build failed: '+r.stdout+r.stderr)
+    (destination/'install_reference.h').write_text(reference_header(), encoding='ascii')
     (destination/'rescue_text.h').write_text(render_header(language),encoding='ascii')
     (destination/'backup_vectors.h').write_text(model_header(),encoding='ascii')
     (destination/'backup_encode_vectors.h').write_text(encode_header(),encoding='ascii')
@@ -208,7 +211,7 @@ def build(kind='rescue',language='en'):
             ('journal-recovery-ui','core/journal_recovery.c'),('profile-recovery-ui','core/profile_recovery.c'),
             ('journal','core/journal.c'),('dos-scope','core/dos_scope.c'),
             ('fat-plan-core','core/fat_plan.c'),('fat-plan-ui','core/fat_plan_ui.c'),('fat-plan-tests','tests/format/plan.c'),
-            ('fat-review','core/fat_review.c'),('fat-format-ui','core/fat_format.c'),
+            ('install-plan-ui','core/install_plan.c'),('fat-review','core/fat_review.c'),('fat-format-ui','core/fat_format.c'),
             ('backup-store','core/backup_store.c'),('mbr-restore-ui','core/mbr_restore.c'),
             ('backup-disk-ui','core/backup_disk.c'),('backup-verify','core/backup_verify.c'),('backup-verify-tests','tests/backup/verify.c'),
             ('backup-live','core/backup_live.c'),('backup-live-tests','tests/backup/live.c'),
@@ -259,6 +262,7 @@ def build(kind='rescue',language='en'):
             ('backup-disk',['-DRB_RESCUE_BACKUP_DISK=1']),('mbr-restore',['-DRB_RESCUE_MBR_RESTORE=1']),
             ('journal-recovery',['-DRB_RESCUE_JOURNAL_RECOVERY=1']),
             ('profile-recovery',['-DRB_RESCUE_PROFILE_RECOVERY=1']),('fat-plan',['-DRB_RESCUE_FAT_PLAN=1']),
+            ('install-plan',['-DRB_RESCUE_INSTALL_PLAN=1']),
             ('fat16-format',['-DRB_RESCUE_FAT16_FORMAT=1']),('fat32-format',['-DRB_RESCUE_FAT32_FORMAT=1']),
             ('mbr-provenance-model',['-DRB_RESCUE_PROVENANCE_MODEL=1']),
             ('mbr-restart',['-DRB_RESCUE_RESTART=1']),
@@ -322,6 +326,8 @@ def build(kind='rescue',language='en'):
                 'backup', 'backup-records', 'backup-boot', 'backup-live', 'backup-stream', 'backup-encode',
                 'backup-plan', 'backup-target', 'backup-links', 'fat-boot', 'target-audit',
                 'saved-state', 'saved-record-io', 'saved-volume')]
+        if name == 'install-plan':
+            extra = [destination / (n + '.obj') for n in ('install-plan-ui', 'fat-plan-core', 'geometry')]
         if name in ('fat-plan', 'fat16-format', 'fat32-format'):
             ui, io = ('fat-plan-ui', 'fat-copy-io') if name == 'fat-plan' else ('fat-format-ui', 'fat-write-io')
             extra = [destination / (n + '.obj') for n in (ui, io, 'fat-plan-core', 'geometry', 'saved-volume',
