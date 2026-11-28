@@ -108,6 +108,13 @@ P1 started at 0 of 4 and reported `RB FAT16 FORMAT PASS` at 17:57:59 on
 
 The [P2 FAT32 diskette](FAT32Format.md) publishes both three-sector boot
 records, the two FATs and the empty root cluster on an enrolled fixture.
+The [VirtualBox check for PR #97](https://github.com/ixylon88/RetroBoot/pull/97#issuecomment-7243338646)
+showed 0 of 8 at 18:47:29 on 28 November, 8 of 8 and `RB FAT32 VERIFIED`
+at 18:47:39, then `RB FAT32 RESTORE PASS` at 18:48:19.
+
+The [DOS guest test](DOSGuestTest.md) mounts disposable copies of both
+formatter outputs in FreeDOS and exercises a multi-cluster file across cold
+boots. The same program can run from an original DOS prompt.
 Original DOS/Windows guest acceptance remains open under [issue #50](https://github.com/ixylon88/RetroBoot/issues/50).
 
 ## Original DOS boot and recovery milestones

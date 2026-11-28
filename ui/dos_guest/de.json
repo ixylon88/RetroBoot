@@ -1,0 +1,11 @@
+{
+  "title": "RetroBoot DOS-Dateitest",
+  "select": "1  FAT16 auf P1 (C:)    2  FAT32 auf P2 (D:)    Esc  Ende",
+  "write_menu": "W  Neue Testdatei schreiben    V  Testdatei prüfen    Esc  Ende",
+  "delete_menu": "D  Geprüfte Testdatei löschen    Esc  Datei behalten",
+  "target_bad": "Die gewählte Testpartition oder ihre Kennung fehlt.",
+  "create_bad": "Datei konnte nicht neu angelegt werden. Vorhandene Datei bleibt erhalten.",
+  "file_bad": "Die Testdatei fehlt, ist nicht lesbar oder hat einen anderen Inhalt.",
+  "io_bad": "DOS meldet einen Fehler beim Schreiben, Schließen oder Löschen.",
+  "restart": "Zum erneuten Testen die VM ausschalten und von dieser Diskette starten."
+}

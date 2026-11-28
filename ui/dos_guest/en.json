@@ -1,0 +1,11 @@
+{
+  "title": "RetroBoot DOS file test",
+  "select": "1  FAT16 on P1 (C:)    2  FAT32 on P2 (D:)    Esc  Exit",
+  "write_menu": "W  Write a new test file    V  Verify test file    Esc  Exit",
+  "delete_menu": "D  Delete verified test file    Esc  Keep file",
+  "target_bad": "The selected test partition or its identifier is missing.",
+  "create_bad": "Unable to create a new file. Any existing file is preserved.",
+  "file_bad": "The test file is missing, unreadable or has different contents.",
+  "io_bad": "DOS reported an error writing, closing or deleting the file.",
+  "restart": "Power off and boot this floppy again for another test."
+}
